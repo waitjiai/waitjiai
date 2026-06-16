@@ -1,45 +1,551 @@
+/**
+ * WaitJI AI — Production Backend
+ * Pure Node.js (no external deps for max deploy reliability on Render).
+ * Features: JWT-style auth, password hashing, persistent JSON DB,
+ *           advertiser + customer + admin roles, click-fraud detection.
+ */
 const http = require('http');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
-const campaigns = new Map([
-  ['c1', { id:'c1', advertiser:'Razorpay', adText:'Razorpay · India ka #1 payment gateway', url:'https://razorpay.com', bidPerKImpressionsPaise:12000, budgetPaise:500000, spentPaise:0, status:'active' }],
-  ['c2', { id:'c2', advertiser:'Zerodha', adText:'Zerodha Kite · Commission-free trading', url:'https://zerodha.com', bidPerKImpressionsPaise:9500, budgetPaise:300000, spentPaise:0, status:'active' }],
-  ['c3', { id:'c3', advertiser:'AWS India', adText:'AWS India · Free credits pao', url:'https://aws.amazon.com/in', bidPerKImpressionsPaise:8000, budgetPaise:200000, spentPaise:0, status:'active' }],
-]);
-const impressions = [];
-const userEarnings = new Map();
+// ── Config ────────────────────────────────────────────────────────────────────
+const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'waitji-dev-secret-change-in-prod';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@waitjiai.in';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'WaitJI@Admin2026';
+const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data.json');
 
-function router(req, res) {
-  const url = req.url.split('?')[0];
-  const method = req.method;
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,X-API-Key');
-  if (method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
-  const json = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
-  const body = () => new Promise(resolve => { let d = ''; req.on('data', c => d += c); req.on('end', () => { try { resolve(JSON.parse(d || '{}')); } catch { resolve({}); } }); });
+// ── Persistent JSON "database" ─────────────────────────────────────────────────
+let db = {
+  users: {},        // id -> { id, email, passwordHash, role, name, company, upiId, createdAt, banned }
+  campaigns: {},    // id -> { id, advertiserId, advertiser, adText, url, bidPaise, budgetPaise, spentPaise, status, createdAt }
+  impressions: [],  // { id, userId, campaignId, earnedPaise, ts, ip, clicked }
+  clicks: [],       // { id, userId, campaignId, ts, ip, valid, reason }
+  fraudFlags: [],   // { id, userId, type, detail, ts, severity }
+  payouts: [],      // { id, userId, amountPaise, status, ts }
+};
 
-  if (method === 'GET' && url === '/') return json(200, { message:'WaitJai API is running!', status:'ok' });
-  if (method === 'GET' && url === '/health') return json(200, { status:'ok', version:'1.0.0' });
-  if (method === 'GET' && url === '/v1/ads/active') {
-    const ads = [...campaigns.values()].filter(c => c.status === 'active').sort((a,b) => b.bidPerKImpressionsPaise - a.bidPerKImpressionsPaise).map(c => ({ id:c.id, text:c.adText, url:c.url, advertiser:c.advertiser, cpmPaise:c.bidPerKImpressionsPaise }));
-    return json(200, { ads, servedAt:Date.now() });
+function loadDB() {
+  try {
+    if (fs.existsSync(DB_FILE)) {
+      db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+      // ensure arrays/objects exist
+      db.users ||= {}; db.campaigns ||= {}; db.impressions ||= [];
+      db.clicks ||= []; db.fraudFlags ||= []; db.payouts ||= [];
+    }
+  } catch (e) { console.error('DB load error:', e.message); }
+}
+let saveTimer = null;
+function saveDB() {
+  // debounce writes
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { fs.writeFileSync(DB_FILE, JSON.stringify(db)); }
+    catch (e) { console.error('DB save error:', e.message); }
+  }, 300);
+}
+loadDB();
+
+// ── Seed demo campaigns + admin (first run only) ───────────────────────────────
+function seed() {
+  if (Object.keys(db.users).length === 0) {
+    // create admin
+    const adminId = 'admin';
+    db.users[adminId] = {
+      id: adminId, email: ADMIN_EMAIL, passwordHash: hashPassword(ADMIN_PASSWORD),
+      role: 'admin', name: 'Platform Admin', createdAt: Date.now(), banned: false,
+    };
+    console.log('Seeded admin:', ADMIN_EMAIL);
   }
-  if (method === 'POST' && url === '/v1/impression') {
-    return body().then(b => {
-      const campaign = campaigns.get(b.adId);
-      if (!campaign) return json(404, { error:'Ad not found' });
-      const earnPaise = Math.floor(campaign.bidPerKImpressionsPaise / 1000 / 2);
-      impressions.push({ id:crypto.randomUUID(), userId:b.userId||'anon', adId:b.adId, earnedPaise:earnPaise, ts:Date.now() });
-      json(200, { success:true, earnedPaise, earnedRupees:(earnPaise/100).toFixed(4) });
-    });
-  }
-  if (method === 'GET' && url === '/v1/campaigns') return json(200, { campaigns:[...campaigns.values()] });
-  if (method === 'GET' && url === '/v1/stats') return json(200, { totalImpressions:impressions.length, activeCampaigns:[...campaigns.values()].filter(c=>c.status==='active').length });
-  json(404, { error:'Not found', url });
+  saveDB();
 }
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
-const server = http.createServer(router);
-server.listen(PORT, '0.0.0.0', () => console.log(`WaitJai API running on port ${PORT}`));
-server.on('error', err => { console.error('Server error:', err.message); process.exit(1); });
+// ── Crypto helpers ─────────────────────────────────────────────────────────────
+function hashPassword(pw) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(pw, salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+function verifyPassword(pw, stored) {
+  if (!stored || !stored.includes(':')) return false;
+  const [salt, hash] = stored.split(':');
+  const test = crypto.scryptSync(pw, salt, 64).toString('hex');
+  return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(test));
+}
+// Minimal JWT (HS256)
+function signToken(payload) {
+  const header = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const body = b64url(JSON.stringify({ ...payload, iat: Date.now(), exp: Date.now() + 7 * 864e5 }));
+  const sig = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
+  return `${header}.${body}.${sig}`;
+}
+function verifyToken(token) {
+  try {
+    const [header, body, sig] = token.split('.');
+    const expected = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
+    if (sig !== expected) return null;
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString());
+    if (payload.exp < Date.now()) return null;
+    return payload;
+  } catch { return null; }
+}
+function b64url(s) { return Buffer.from(s).toString('base64url'); }
+function uid(prefix = '') { return prefix + crypto.randomBytes(8).toString('hex'); }
+
+// ── Fraud detection engine ─────────────────────────────────────────────────────
+const FRAUD = {
+  // thresholds
+  MAX_CLICKS_PER_MIN: 10,        // a human can't click an ad 10x/min legitimately
+  MAX_CLICKS_PER_IP_HR: 50,      // per-IP hourly ceiling
+  MAX_IMPRESSIONS_PER_MIN: 60,   // 1/sec is already abnormal
+  MIN_MS_BETWEEN_CLICKS: 1500,   // human reaction floor
+  CTR_ALERT_THRESHOLD: 0.25,     // >25% CTR = almost certainly fraud (normal is <2%)
+};
+
+function recentCount(arr, userId, windowMs) {
+  const cut = Date.now() - windowMs;
+  return arr.filter(x => x.userId === userId && x.ts > cut).length;
+}
+function recentByIP(arr, ip, windowMs) {
+  const cut = Date.now() - windowMs;
+  return arr.filter(x => x.ip === ip && x.ts > cut).length;
+}
+function flagFraud(userId, type, detail, severity = 'medium') {
+  const flag = { id: uid('f_'), userId, type, detail, ts: Date.now(), severity };
+  db.fraudFlags.push(flag);
+  // auto-ban on critical
+  if (severity === 'critical' && db.users[userId]) {
+    db.users[userId].banned = true;
+  }
+  saveDB();
+  return flag;
+}
+
+/**
+ * Validate a click. Returns { valid, reason }.
+ * Invalid clicks are NOT billed to the advertiser — protecting their money.
+ */
+function validateClick(userId, campaignId, ip) {
+  // 1. rapid-fire clicks by user
+  const userClicksLastMin = recentCount(db.clicks, userId, 60_000);
+  if (userClicksLastMin >= FRAUD.MAX_CLICKS_PER_MIN) {
+    flagFraud(userId, 'click_velocity', `${userClicksLastMin} clicks/min`, 'high');
+    return { valid: false, reason: 'click_velocity_exceeded' };
+  }
+  // 2. time since last click (bot-like cadence)
+  const userClicks = db.clicks.filter(c => c.userId === userId);
+  const last = userClicks[userClicks.length - 1];
+  if (last && (Date.now() - last.ts) < FRAUD.MIN_MS_BETWEEN_CLICKS) {
+    flagFraud(userId, 'click_cadence', `gap ${Date.now() - last.ts}ms`, 'high');
+    return { valid: false, reason: 'clicks_too_fast' };
+  }
+  // 3. per-IP hourly ceiling (click farms share IPs)
+  const ipClicksLastHr = recentByIP(db.clicks, ip, 3_600_000);
+  if (ipClicksLastHr >= FRAUD.MAX_CLICKS_PER_IP_HR) {
+    flagFraud(userId, 'ip_abuse', `IP ${ip}: ${ipClicksLastHr} clicks/hr`, 'critical');
+    return { valid: false, reason: 'ip_rate_limit' };
+  }
+  // 4. abnormal CTR for this user (clicks / impressions)
+  const userImps = db.impressions.filter(i => i.userId === userId).length;
+  const userClickCount = userClicks.length;
+  if (userImps > 20) {
+    const ctr = userClickCount / userImps;
+    if (ctr > FRAUD.CTR_ALERT_THRESHOLD) {
+      flagFraud(userId, 'abnormal_ctr', `CTR ${(ctr * 100).toFixed(1)}%`, 'high');
+      return { valid: false, reason: 'abnormal_ctr' };
+    }
+  }
+  return { valid: true, reason: 'ok' };
+}
+
+function validateImpression(userId, ip) {
+  const impsLastMin = recentCount(db.impressions, userId, 60_000);
+  if (impsLastMin >= FRAUD.MAX_IMPRESSIONS_PER_MIN) {
+    flagFraud(userId, 'impression_velocity', `${impsLastMin} imp/min`, 'high');
+    return { valid: false, reason: 'impression_velocity' };
+  }
+  return { valid: true, reason: 'ok' };
+}
+
+// ── HTTP helpers ────────────────────────────────────────────────────────────────
+function send(res, code, obj) {
+  res.writeHead(code, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(obj));
+}
+function getBody(req) {
+  return new Promise(resolve => {
+    let d = ''; req.on('data', c => d += c);
+    req.on('end', () => { try { resolve(JSON.parse(d || '{}')); } catch { resolve({}); } });
+  });
+}
+function getIP(req) {
+  return (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+      || req.socket.remoteAddress || 'unknown';
+}
+function auth(req) {
+  const h = req.headers['authorization'] || '';
+  const token = h.startsWith('Bearer ') ? h.slice(7) : null;
+  if (!token) return null;
+  const payload = verifyToken(token);
+  if (!payload) return null;
+  const user = db.users[payload.uid];
+  if (!user || user.banned) return null;
+  return user;
+}
+
+// ── Server ────────────────────────────────────────────────────────────────────
+const server = http.createServer(async (req, res) => {
+  const url = req.url.split('?')[0];
+  const method = req.method;
+  const ip = getIP(req);
+
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-API-Key');
+  if (method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+  try {
+    // ═══════════ PUBLIC ═══════════
+    if (method === 'GET' && url === '/health') {
+      return send(res, 200, { status: 'ok', version: '2.0.0', ts: Date.now() });
+    }
+    if (method === 'GET' && url === '/') {
+      return send(res, 200, { message: 'WaitJI AI API v2', auth: true });
+    }
+
+    // ── Auth: signup ──
+    if (method === 'POST' && url === '/v1/auth/signup') {
+      const b = await getBody(req);
+      const { email, password, role, name, company, upiId } = b;
+      if (!email || !password || !role) return send(res, 400, { error: 'email, password, role required' });
+      if (!['advertiser', 'customer'].includes(role)) return send(res, 400, { error: 'invalid role' });
+      if (password.length < 6) return send(res, 400, { error: 'password min 6 chars' });
+      const exists = Object.values(db.users).find(u => u.email === email.toLowerCase());
+      if (exists) return send(res, 409, { error: 'email already registered' });
+      const id = uid(role === 'advertiser' ? 'adv_' : 'cust_');
+      const user = {
+        id, email: email.toLowerCase(), passwordHash: hashPassword(password), role,
+        name: name || '', company: company || '', upiId: upiId || '',
+        createdAt: Date.now(), banned: false,
+      };
+      db.users[id] = user; saveDB();
+      const token = signToken({ uid: id, role });
+      return send(res, 201, { token, user: publicUser(user) });
+    }
+
+    // ── Auth: login ──
+    if (method === 'POST' && url === '/v1/auth/login') {
+      const b = await getBody(req);
+      const { email, password } = b;
+      const user = Object.values(db.users).find(u => u.email === (email || '').toLowerCase());
+      if (!user || !verifyPassword(password, user.passwordHash)) {
+        return send(res, 401, { error: 'invalid credentials' });
+      }
+      if (user.banned) return send(res, 403, { error: 'account suspended' });
+      const token = signToken({ uid: user.id, role: user.role });
+      return send(res, 200, { token, user: publicUser(user) });
+    }
+
+    // ── Auth: me ──
+    if (method === 'GET' && url === '/v1/auth/me') {
+      const user = auth(req);
+      if (!user) return send(res, 401, { error: 'unauthorized' });
+      return send(res, 200, { user: publicUser(user) });
+    }
+
+    // ═══════════ ADS SERVING (public, used by extension) ═══════════
+    if (method === 'GET' && url === '/v1/ads/active') {
+      const ads = Object.values(db.campaigns)
+        .filter(c => c.status === 'active' && c.spentPaise < c.budgetPaise)
+        .sort((a, b) => b.bidPaise - a.bidPaise)
+        .slice(0, 3)
+        .map(c => ({ id: c.id, text: c.adText, url: c.url, advertiser: c.advertiser, cpmPaise: c.bidPaise }));
+      return send(res, 200, { ads, servedAt: Date.now() });
+    }
+
+    // ── Record impression (with fraud check) ──
+    if (method === 'POST' && url === '/v1/impression') {
+      const b = await getBody(req);
+      const c = db.campaigns[b.campaignId];
+      if (!c) return send(res, 404, { error: 'campaign not found' });
+      const userId = b.userId || 'anon';
+
+      const check = validateImpression(userId, ip);
+      if (!check.valid) return send(res, 200, { success: false, reason: check.reason, billed: false });
+
+      const earnPaise = Math.floor(c.bidPaise / 1000 / 2); // 50% of per-impression
+      const advCostPaise = Math.floor(c.bidPaise / 1000);
+      // budget guard
+      if (c.spentPaise + advCostPaise > c.budgetPaise) {
+        c.status = 'completed'; saveDB();
+        return send(res, 200, { success: false, reason: 'budget_exhausted', billed: false });
+      }
+      c.spentPaise += advCostPaise;
+      db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, ts: Date.now(), ip, clicked: false });
+      saveDB();
+      return send(res, 200, { success: true, earnedPaise: earnPaise, billed: true });
+    }
+
+    // ── Record click (with fraud validation — protects advertiser money) ──
+    if (method === 'POST' && url === '/v1/click') {
+      const b = await getBody(req);
+      const c = db.campaigns[b.campaignId];
+      if (!c) return send(res, 404, { error: 'campaign not found' });
+      const userId = b.userId || 'anon';
+
+      const check = validateClick(userId, c.id, ip);
+      const clickRecord = { id: uid('cl_'), userId, campaignId: c.id, ts: Date.now(), ip, valid: check.valid, reason: check.reason };
+      db.clicks.push(clickRecord);
+
+      if (!check.valid) {
+        saveDB();
+        return send(res, 200, { success: false, reason: check.reason, billed: false });
+      }
+      // valid click bills advertiser 50x impression, dev earns 50% of that
+      const clickCostPaise = Math.floor(c.bidPaise / 1000) * 50;
+      const clickEarnPaise = Math.floor(clickCostPaise / 2);
+      if (c.spentPaise + clickCostPaise <= c.budgetPaise) {
+        c.spentPaise += clickCostPaise;
+      }
+      saveDB();
+      return send(res, 200, { success: true, earnedPaise: clickEarnPaise, billed: true });
+    }
+
+    // ═══════════ ADVERTISER ═══════════
+    if (url.startsWith('/v1/advertiser')) {
+      const user = auth(req);
+      if (!user || user.role !== 'advertiser') return send(res, 403, { error: 'advertiser access required' });
+
+      // create campaign
+      if (method === 'POST' && url === '/v1/advertiser/campaigns') {
+        const b = await getBody(req);
+        if (!b.adText || !b.url || !b.bidPaise) return send(res, 400, { error: 'adText, url, bidPaise required' });
+        if (b.bidPaise < 20000) return send(res, 400, { error: 'minimum bid ₹200 per 1K (20000 paise)' });
+        const id = uid('c_');
+        db.campaigns[id] = {
+          id, advertiserId: user.id, advertiser: user.company || user.name || user.email,
+          adText: b.adText, url: b.url, bidPaise: b.bidPaise,
+          budgetPaise: b.budgetPaise || 100000, spentPaise: 0,
+          status: 'pending', createdAt: Date.now(), targetingCategory: b.targetingCategory || 'all',
+        };
+        saveDB();
+        return send(res, 201, { campaign: db.campaigns[id] });
+      }
+
+      // list my campaigns
+      if (method === 'GET' && url === '/v1/advertiser/campaigns') {
+        const mine = Object.values(db.campaigns).filter(c => c.advertiserId === user.id);
+        return send(res, 200, { campaigns: mine });
+      }
+
+      // my analytics
+      if (method === 'GET' && url === '/v1/advertiser/analytics') {
+        const mine = Object.values(db.campaigns).filter(c => c.advertiserId === user.id);
+        const ids = new Set(mine.map(c => c.id));
+        const imps = db.impressions.filter(i => ids.has(i.campaignId));
+        const clk = db.clicks.filter(c => ids.has(c.campaignId) && c.valid);
+        const invalidClk = db.clicks.filter(c => ids.has(c.campaignId) && !c.valid);
+        const totalSpent = mine.reduce((s, c) => s + c.spentPaise, 0);
+        return send(res, 200, {
+          campaigns: mine.length,
+          activeCampaigns: mine.filter(c => c.status === 'active').length,
+          impressions: imps.length,
+          validClicks: clk.length,
+          blockedClicks: invalidClk.length,  // fraud saved them money
+          ctr: imps.length ? (clk.length / imps.length * 100).toFixed(2) : '0.00',
+          spentRupees: (totalSpent / 100).toFixed(2),
+          savedFromFraudRupees: (invalidClk.length * (mine[0]?.bidPaise || 20000) / 1000 * 50 / 100).toFixed(2),
+        });
+      }
+
+      // pause/activate campaign
+      if (method === 'PATCH' && url.match(/^\/v1\/advertiser\/campaigns\/[^/]+$/)) {
+        const cid = url.split('/').pop();
+        const c = db.campaigns[cid];
+        if (!c || c.advertiserId !== user.id) return send(res, 404, { error: 'not found' });
+        const b = await getBody(req);
+        if (b.status && ['active', 'paused'].includes(b.status)) c.status = b.status;
+        saveDB();
+        return send(res, 200, { campaign: c });
+      }
+    }
+
+    // ═══════════ CUSTOMER (earner) ═══════════
+    if (url.startsWith('/v1/customer')) {
+      const user = auth(req);
+      if (!user || user.role !== 'customer') return send(res, 403, { error: 'customer access required' });
+
+      // earnings dashboard
+      if (method === 'GET' && url === '/v1/customer/earnings') {
+        const imps = db.impressions.filter(i => i.userId === user.id);
+        const clk = db.clicks.filter(c => c.userId === user.id && c.valid);
+        const totalImpPaise = imps.reduce((s, i) => s + i.earnedPaise, 0);
+        const totalClickPaise = clk.length * 100; // simplified
+        const paidOut = db.payouts.filter(p => p.userId === user.id && p.status === 'paid')
+          .reduce((s, p) => s + p.amountPaise, 0);
+        const total = totalImpPaise + totalClickPaise;
+        // today
+        const dayCut = Date.now() - 864e5;
+        const todayPaise = imps.filter(i => i.ts > dayCut).reduce((s, i) => s + i.earnedPaise, 0);
+        return send(res, 200, {
+          totalEarnedRupees: (total / 100).toFixed(2),
+          todayRupees: (todayPaise / 100).toFixed(2),
+          pendingRupees: ((total - paidOut) / 100).toFixed(2),
+          paidOutRupees: (paidOut / 100).toFixed(2),
+          impressions: imps.length,
+          clicks: clk.length,
+          upiId: user.upiId || null,
+        });
+      }
+
+      // recent activity (real-time feed)
+      if (method === 'GET' && url === '/v1/customer/activity') {
+        const imps = db.impressions.filter(i => i.userId === user.id)
+          .slice(-30).reverse()
+          .map(i => ({ type: 'impression', campaignId: i.campaignId, earnedPaise: i.earnedPaise, ts: i.ts }));
+        return send(res, 200, { activity: imps });
+      }
+
+      // request payout
+      if (method === 'POST' && url === '/v1/customer/payout') {
+        const imps = db.impressions.filter(i => i.userId === user.id);
+        const total = imps.reduce((s, i) => s + i.earnedPaise, 0);
+        const paidOut = db.payouts.filter(p => p.userId === user.id).reduce((s, p) => s + p.amountPaise, 0);
+        const available = total - paidOut;
+        if (available < 10000) return send(res, 400, { error: 'minimum payout ₹100' });
+        if (!user.upiId) return send(res, 400, { error: 'add UPI ID first' });
+        const payout = { id: uid('p_'), userId: user.id, amountPaise: available, status: 'pending', ts: Date.now() };
+        db.payouts.push(payout); saveDB();
+        return send(res, 200, { payout });
+      }
+
+      // update UPI
+      if (method === 'PATCH' && url === '/v1/customer/profile') {
+        const b = await getBody(req);
+        if (b.upiId) user.upiId = b.upiId;
+        if (b.name) user.name = b.name;
+        saveDB();
+        return send(res, 200, { user: publicUser(user) });
+      }
+    }
+
+    // ═══════════ ADMIN ═══════════
+    if (url.startsWith('/v1/admin')) {
+      const user = auth(req);
+      if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin access required' });
+
+      // overview dashboard
+      if (method === 'GET' && url === '/v1/admin/overview') {
+        const users = Object.values(db.users);
+        const advertisers = users.filter(u => u.role === 'advertiser');
+        const customers = users.filter(u => u.role === 'customer');
+        const totalSpent = Object.values(db.campaigns).reduce((s, c) => s + c.spentPaise, 0);
+        const validClicks = db.clicks.filter(c => c.valid).length;
+        const blockedClicks = db.clicks.filter(c => !c.valid).length;
+        return send(res, 200, {
+          advertisers: advertisers.length,
+          customers: customers.length,
+          campaigns: Object.keys(db.campaigns).length,
+          activeCampaigns: Object.values(db.campaigns).filter(c => c.status === 'active').length,
+          pendingCampaigns: Object.values(db.campaigns).filter(c => c.status === 'pending').length,
+          impressions: db.impressions.length,
+          validClicks, blockedClicks,
+          fraudFlags: db.fraudFlags.length,
+          bannedUsers: users.filter(u => u.banned).length,
+          platformRevenueRupees: (totalSpent / 2 / 100).toFixed(2),
+          payoutsOwedRupees: (db.impressions.reduce((s, i) => s + i.earnedPaise, 0) / 100).toFixed(2),
+        });
+      }
+
+      // all advertisers
+      if (method === 'GET' && url === '/v1/admin/advertisers') {
+        const advs = Object.values(db.users).filter(u => u.role === 'advertiser').map(u => {
+          const camps = Object.values(db.campaigns).filter(c => c.advertiserId === u.id);
+          return { ...publicUser(u), campaigns: camps.length, totalSpentRupees: (camps.reduce((s, c) => s + c.spentPaise, 0) / 100).toFixed(2) };
+        });
+        return send(res, 200, { advertisers: advs });
+      }
+
+      // all customers
+      if (method === 'GET' && url === '/v1/admin/customers') {
+        const custs = Object.values(db.users).filter(u => u.role === 'customer').map(u => {
+          const imps = db.impressions.filter(i => i.userId === u.id);
+          const flags = db.fraudFlags.filter(f => f.userId === u.id);
+          return { ...publicUser(u), impressions: imps.length, earnedRupees: (imps.reduce((s, i) => s + i.earnedPaise, 0) / 100).toFixed(2), fraudFlags: flags.length };
+        });
+        return send(res, 200, { customers: custs });
+      }
+
+      // all campaigns
+      if (method === 'GET' && url === '/v1/admin/campaigns') {
+        return send(res, 200, { campaigns: Object.values(db.campaigns) });
+      }
+
+      // approve / reject campaign
+      if (method === 'PATCH' && url.match(/^\/v1\/admin\/campaigns\/[^/]+$/)) {
+        const cid = url.split('/').pop();
+        const c = db.campaigns[cid];
+        if (!c) return send(res, 404, { error: 'not found' });
+        const b = await getBody(req);
+        if (b.status && ['active', 'paused', 'rejected'].includes(b.status)) c.status = b.status;
+        saveDB();
+        return send(res, 200, { campaign: c });
+      }
+
+      // ── SECURITY PANEL: fraud flags ──
+      if (method === 'GET' && url === '/v1/admin/security') {
+        const flags = db.fraudFlags.slice(-100).reverse().map(f => ({
+          ...f, userEmail: db.users[f.userId]?.email || f.userId,
+        }));
+        const byType = {};
+        db.fraudFlags.forEach(f => { byType[f.type] = (byType[f.type] || 0) + 1; });
+        const blockedClicks = db.clicks.filter(c => !c.valid);
+        const moneySavedPaise = blockedClicks.reduce((s, c) => {
+          const camp = db.campaigns[c.campaignId];
+          return s + (camp ? Math.floor(camp.bidPaise / 1000) * 50 : 0);
+        }, 0);
+        return send(res, 200, {
+          flags, byType,
+          blockedClicks: blockedClicks.length,
+          moneySavedRupees: (moneySavedPaise / 100).toFixed(2),
+          thresholds: FRAUD,
+        });
+      }
+
+      // ban / unban user
+      if (method === 'PATCH' && url.match(/^\/v1\/admin\/users\/[^/]+$/)) {
+        const uidToBan = url.split('/').pop();
+        const target = db.users[uidToBan];
+        if (!target) return send(res, 404, { error: 'not found' });
+        const b = await getBody(req);
+        if (typeof b.banned === 'boolean') target.banned = b.banned;
+        saveDB();
+        return send(res, 200, { user: publicUser(target) });
+      }
+    }
+
+    // ── public stats (for website ticker) ──
+    if (method === 'GET' && url === '/v1/stats') {
+      const totalEarned = db.impressions.reduce((s, i) => s + i.earnedPaise, 0);
+      return send(res, 200, {
+        totalImpressions: db.impressions.length,
+        activeCampaigns: Object.values(db.campaigns).filter(c => c.status === 'active').length,
+        totalEarnedByDevsRupees: (totalEarned / 100).toFixed(2),
+      });
+    }
+
+    return send(res, 404, { error: 'not found', url });
+  } catch (e) {
+    console.error('Server error:', e);
+    return send(res, 500, { error: 'internal error' });
+  }
+});
+
+function publicUser(u) {
+  return { id: u.id, email: u.email, role: u.role, name: u.name, company: u.company, upiId: u.upiId, banned: u.banned, createdAt: u.createdAt };
+}
+
+seed();
+server.listen(PORT, () => console.log(`WaitJI AI API v2 running on port ${PORT}`));
