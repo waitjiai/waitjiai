@@ -3,761 +3,517 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WaitJI AI — Earn ₹5,000–₹15,000/month from Claude Code</title>
-<meta name="description" content="India's first AI ad marketplace. Earn passive income while Claude Code thinks. Multiple ad slots + referral network = real earnings.">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<title>WaitJI AI — Earn while Claude Code thinks</title>
+<meta name="description" content="India's AI ad marketplace. Developers earn passive income during AI wait-states. Advertisers reach premium developers.">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --blue: #2E7DFF;
-  --blue-bright: #4D94FF;
-  --blue-dim: #2E7DFF15;
-  --blue-mid: #2E7DFF30;
-  --blue-glow: #2E7DFF40;
-  --cyan: #00D9FF;
-  --green: #00E08A;
-  --green-dim: #00E08A12;
-  --ink: #060810;
-  --ink2: #0D1018;
-  --ink3: #141822;
-  --ink4: #1C212E;
-  --border: #1A1F2B;
-  --border2: #252B38;
-  --muted: #4A5266;
-  --muted2: #7A8499;
-  --white: #EAEEF5;
-  --sans: 'Space Grotesk', sans-serif;
-  --mono: 'JetBrains Mono', monospace;
+  /* Light palette — Indigo + Sky + warm white */
+  --indigo:#4F46E5; --indigo-dark:#4338CA; --indigo-soft:#EEF2FF;
+  --sky:#0EA5E9; --sky-soft:#E0F2FE;
+  --violet:#7C3AED;
+  --green:#10B981; --green-soft:#D1FAE5;
+  --amber:#F59E0B; --red:#EF4444; --red-soft:#FEE2E2;
+  --bg:#FBFBFD; --surface:#FFFFFF; --surface2:#F6F7FB;
+  --border:#E8EAF0; --border2:#DDE0EA;
+  --ink:#0F1222; --ink2:#3A3F55; --muted:#6B7185; --muted2:#9AA0B4;
+  --sans:'Space Grotesk',sans-serif; --body:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
+  --shadow-sm:0 1px 3px rgba(15,18,34,0.06); --shadow:0 4px 24px rgba(15,18,34,0.08);
+  --shadow-lg:0 12px 48px rgba(79,70,229,0.14);
 }
 * { margin:0; padding:0; box-sizing:border-box; }
 html { scroll-behavior:smooth; }
-body { background:var(--ink); color:var(--white); font-family:var(--sans); overflow-x:hidden; line-height:1.6; }
+body { background:var(--bg); color:var(--ink); font-family:var(--body); line-height:1.6; overflow-x:hidden; }
 
-nav {
-  position:fixed; top:0; left:0; right:0; z-index:100;
-  display:flex; align-items:center; justify-content:space-between;
-  padding:16px 48px;
-  background:rgba(6,8,16,0.85); backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border);
-}
-.logo { font-family:var(--mono); font-size:17px; font-weight:600; color:var(--white); letter-spacing:-0.5px; display:flex; align-items:center; gap:8px; }
-.logo-dot { width:9px; height:9px; border-radius:50%; background:var(--blue); box-shadow:0 0 12px var(--blue); }
-.logo em { color:var(--blue); font-style:normal; }
-.nav-links { display:flex; gap:32px; align-items:center; list-style:none; }
-.nav-links a { color:var(--muted2); font-size:14px; text-decoration:none; transition:color 0.2s; }
-.nav-links a:hover { color:var(--white); }
-.nav-cta { background:var(--blue); color:#fff; font-weight:700; padding:9px 22px; border-radius:7px; font-size:13px; text-decoration:none; transition:all 0.2s; box-shadow:0 0 0 var(--blue-glow); }
-.nav-cta:hover { box-shadow:0 0 20px var(--blue-glow); color:#fff !important; }
+/* NAV */
+nav { position:fixed; top:0; left:0; right:0; z-index:100; display:flex; align-items:center; justify-content:space-between; padding:14px 48px; background:rgba(251,251,253,0.8); backdrop-filter:blur(20px); border-bottom:1px solid var(--border); }
+.logo { font-family:var(--mono); font-size:18px; font-weight:600; color:var(--ink); letter-spacing:-0.5px; display:flex; align-items:center; gap:9px; }
+.logo-mark { width:30px; height:30px; border-radius:8px; background:linear-gradient(135deg,var(--indigo),var(--sky)); display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow-sm); }
+.logo-mark svg { width:18px; height:18px; }
+.logo em { color:var(--indigo); font-style:normal; }
+.nav-links { display:flex; gap:30px; align-items:center; list-style:none; }
+.nav-links a { color:var(--muted); font-size:14px; text-decoration:none; font-weight:500; transition:color 0.2s; }
+.nav-links a:hover { color:var(--ink); }
+.nav-actions { display:flex; gap:10px; align-items:center; }
+.btn-ghost { background:transparent; color:var(--ink); border:1px solid var(--border2); font-weight:600; padding:9px 18px; border-radius:9px; font-size:13px; cursor:pointer; font-family:var(--body); transition:all 0.2s; }
+.btn-ghost:hover { border-color:var(--indigo); color:var(--indigo); }
+.btn-solid { background:var(--indigo); color:#fff; font-weight:600; padding:9px 20px; border-radius:9px; font-size:13px; cursor:pointer; border:none; font-family:var(--body); transition:all 0.2s; text-decoration:none; display:inline-flex; align-items:center; gap:7px; }
+.btn-solid:hover { background:var(--indigo-dark); box-shadow:var(--shadow-lg); transform:translateY(-1px); }
 
-.hero {
-  min-height:100vh; display:flex; flex-direction:column;
-  align-items:center; justify-content:center;
-  padding:120px 48px 80px; text-align:center;
-  position:relative; overflow:hidden;
-}
-.hero-bg {
-  position:absolute; inset:0; z-index:0;
-  background: radial-gradient(ellipse 70% 50% at 50% 35%, #2E7DFF10 0%, transparent 70%),
-              radial-gradient(ellipse 50% 40% at 80% 70%, #00D9FF08 0%, transparent 60%);
-}
-.grid-bg {
-  position:absolute; inset:0; z-index:0; opacity:0.4;
-  background-image:
-    linear-gradient(var(--border) 1px, transparent 1px),
-    linear-gradient(90deg, var(--border) 1px, transparent 1px);
-  background-size:48px 48px;
-  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 0%, transparent 75%);
-}
-.hero-content { position:relative; z-index:1; max-width:880px; }
+/* HERO */
+.hero { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:120px 48px 80px; text-align:center; position:relative; overflow:hidden; }
+.hero-bg { position:absolute; inset:0; z-index:0; background:radial-gradient(ellipse 60% 50% at 50% 30%, var(--indigo-soft) 0%, transparent 70%), radial-gradient(ellipse 50% 40% at 80% 80%, var(--sky-soft) 0%, transparent 60%); }
+.hero-content { position:relative; z-index:1; max-width:860px; }
+.badge { display:inline-flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border2); border-radius:100px; padding:7px 18px; margin-bottom:32px; font-size:13px; font-weight:500; color:var(--ink2); box-shadow:var(--shadow-sm); }
+.badge-dot { width:7px; height:7px; border-radius:50%; background:var(--green); animation:pulse 1.8s infinite; }
+@keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.4)} 50%{box-shadow:0 0 0 5px rgba(16,185,129,0)} }
+.hero h1 { font-family:var(--sans); font-size:clamp(42px,7.5vw,82px); font-weight:800; line-height:1.02; letter-spacing:-2.5px; margin-bottom:24px; color:var(--ink); }
+.hero h1 .grad { background:linear-gradient(120deg,var(--indigo),var(--sky)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+.hero-sub { font-size:19px; color:var(--muted); max-width:560px; margin:0 auto 40px; }
+.hero-sub strong { color:var(--ink); font-weight:600; }
+.hero-ctas { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-bottom:56px; }
+.btn-lg { padding:15px 30px; font-size:15px; border-radius:11px; }
+.btn-outline-lg { background:var(--surface); color:var(--ink); border:1px solid var(--border2); font-weight:600; cursor:pointer; font-family:var(--body); transition:all 0.2s; }
+.btn-outline-lg:hover { border-color:var(--indigo); color:var(--indigo); }
 
-.live-badge {
-  display:inline-flex; align-items:center; gap:8px;
-  background:var(--ink2); border:1px solid var(--blue-mid);
-  border-radius:100px; padding:6px 18px; margin-bottom:36px;
-  font-size:12px; font-family:var(--mono); color:var(--blue-bright);
-}
-.live-dot { width:7px; height:7px; border-radius:50%; background:var(--blue); animation:blink 1.8s infinite; }
-@keyframes blink { 0%,100%{opacity:1;box-shadow:0 0 8px var(--blue)} 50%{opacity:0.4;box-shadow:none} }
+.ticker { display:inline-flex; align-items:center; gap:0; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:8px; box-shadow:var(--shadow); }
+.ticker-item { padding:14px 28px; text-align:center; }
+.ticker-num { font-family:var(--mono); font-size:26px; font-weight:600; color:var(--indigo); }
+.ticker-label { font-size:11px; color:var(--muted2); margin-top:2px; font-weight:500; }
+.ticker-sep { width:1px; height:36px; background:var(--border); }
 
-.hero h1 {
-  font-size:clamp(44px,8vw,90px); font-weight:800;
-  line-height:1.0; letter-spacing:-3px; margin-bottom:28px;
-}
-.hero h1 .line1 { display:block; color:var(--white); }
-.hero h1 .line2 { display:block; background:linear-gradient(135deg, var(--blue) 0%, var(--cyan) 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
-.hero h1 .line3 { display:block; color:var(--white); opacity:0.3; font-size:0.55em; font-weight:400; letter-spacing:-1px; margin-top:10px; }
+/* SECTIONS */
+.section { padding:100px 48px; max-width:1080px; margin:0 auto; }
+.eyebrow { font-family:var(--mono); font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--indigo); margin-bottom:14px; font-weight:500; }
+.section-title { font-family:var(--sans); font-size:clamp(28px,4vw,42px); font-weight:700; letter-spacing:-1.2px; margin-bottom:14px; line-height:1.1; }
+.section-sub { color:var(--muted); font-size:17px; margin-bottom:52px; max-width:520px; }
 
-.hero-sub { font-size:18px; color:var(--muted2); max-width:540px; margin:0 auto 48px; line-height:1.7; }
-.hero-sub strong { color:var(--white); }
+/* DEMO */
+.demo-wrap { display:grid; grid-template-columns:1fr 1fr; gap:18px; max-width:780px; }
+.demo-box { background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:var(--shadow-sm); }
+.demo-box.highlight { border-color:var(--indigo); box-shadow:var(--shadow); }
+.demo-bar { padding:11px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:6px; background:var(--surface2); }
+.demo-dot { width:11px; height:11px; border-radius:50%; }
+.demo-tab { font-family:var(--mono); font-size:11px; color:var(--muted2); margin-left:6px; }
+.demo-body { padding:20px; font-family:var(--mono); font-size:12px; line-height:2.1; }
+.demo-line { display:flex; align-items:center; gap:8px; color:var(--muted); }
+.demo-faint { color:var(--border2); margin-top:6px; font-size:11px; }
+.demo-ad { margin-top:8px; display:flex; align-items:center; gap:8px; background:var(--indigo-soft); border-left:3px solid var(--indigo); padding:7px 12px; border-radius:0 7px 7px 0; }
+.demo-ad-tag { font-size:9px; background:var(--indigo); color:#fff; padding:1px 6px; border-radius:4px; font-weight:700; }
+.demo-ad-copy { color:var(--ink); font-size:11px; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.demo-ad-earn { color:var(--green); font-size:11px; font-weight:600; }
+.demo-note { margin-top:10px; font-size:10px; color:var(--indigo); font-weight:500; }
 
-.hero-ctas { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-bottom:64px; }
-.btn-primary {
-  background:var(--blue); color:#fff; font-weight:700;
-  padding:15px 32px; border-radius:9px; font-size:15px;
-  text-decoration:none; border:none; cursor:pointer;
-  font-family:var(--sans); transition:all 0.2s;
-  display:inline-flex; align-items:center; gap:8px;
-}
-.btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 32px var(--blue-glow); }
-.btn-secondary {
-  background:transparent; color:var(--white); font-weight:500;
-  padding:15px 32px; border-radius:9px; font-size:15px;
-  text-decoration:none; border:1px solid var(--border2);
-  cursor:pointer; font-family:var(--sans); transition:all 0.2s;
-}
-.btn-secondary:hover { border-color:var(--blue); color:var(--blue-bright); }
+/* EARN / CALC */
+.earn-section { background:var(--surface); border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+.earn-inner { max-width:1080px; margin:0 auto; padding:100px 48px; display:grid; grid-template-columns:1fr 1.05fr; gap:60px; align-items:center; }
+.streams { display:flex; flex-direction:column; gap:12px; margin-top:28px; }
+.stream { display:flex; align-items:center; gap:14px; background:var(--surface2); border:1px solid var(--border); border-radius:13px; padding:16px 18px; }
+.stream-ic { width:42px; height:42px; border-radius:11px; background:var(--indigo-soft); display:flex; align-items:center; justify-content:center; font-size:19px; flex-shrink:0; }
+.stream-tx { flex:1; }
+.stream-tx h4 { font-size:15px; font-weight:600; margin-bottom:1px; font-family:var(--sans); }
+.stream-tx p { font-size:12.5px; color:var(--muted); }
+.stream-amt { font-family:var(--mono); font-weight:600; color:var(--green); font-size:15px; }
+.calc { background:var(--surface); border:1px solid var(--border2); border-radius:20px; padding:32px; box-shadow:var(--shadow); }
+.calc-h { font-family:var(--sans); font-size:16px; font-weight:600; margin-bottom:4px; }
+.calc-sub { font-size:13px; color:var(--muted); margin-bottom:26px; }
+.rg { margin-bottom:22px; }
+.rg label { display:flex; justify-content:space-between; font-size:13px; color:var(--ink2); margin-bottom:9px; font-weight:500; }
+.rg label span { color:var(--indigo); font-family:var(--mono); font-weight:600; }
+.rg .tip { font-size:11px; color:var(--muted2); margin-top:5px; }
+input[type=range] { width:100%; height:5px; accent-color:var(--indigo); cursor:pointer; }
+.calc-out { margin-top:26px; padding:26px; background:linear-gradient(135deg,var(--indigo-soft),var(--sky-soft)); border-radius:14px; text-align:center; }
+.calc-num { font-family:var(--mono); font-size:42px; font-weight:700; color:var(--indigo); }
+.calc-lbl { font-size:12px; color:var(--ink2); margin-top:4px; font-weight:500; }
+.calc-bd { display:flex; justify-content:center; gap:18px; margin-top:14px; font-size:11px; font-family:var(--mono); }
+.calc-bd b { color:var(--green); }
 
-.earn-ticker {
-  display:inline-flex; align-items:center; gap:32px;
-  background:var(--ink2); border:1px solid var(--border2);
-  border-radius:12px; padding:20px 32px;
-}
-.ticker-item { text-align:center; }
-.ticker-num { font-family:var(--mono); font-size:28px; font-weight:600; color:var(--cyan); }
-.ticker-label { font-size:11px; color:var(--muted); margin-top:2px; letter-spacing:0.5px; }
-.ticker-divider { width:1px; height:40px; background:var(--border2); }
+/* REFERRAL */
+.ref-card { background:linear-gradient(135deg,var(--ink) 0%,#1A1F3D 100%); border-radius:24px; padding:52px; display:grid; grid-template-columns:1.2fr 1fr; gap:48px; align-items:center; color:#fff; overflow:hidden; position:relative; box-shadow:var(--shadow-lg); }
+.ref-card::after { content:''; position:absolute; top:-40%; right:-10%; width:50%; height:180%; background:radial-gradient(circle,rgba(79,70,229,0.5) 0%,transparent 65%); }
+.ref-c { position:relative; z-index:1; }
+.ref-badge { display:inline-block; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:#C7D2FE; font-family:var(--mono); font-size:11px; padding:6px 14px; border-radius:100px; margin-bottom:18px; }
+.ref-c h2 { font-family:var(--sans); font-size:32px; font-weight:700; letter-spacing:-1px; margin-bottom:14px; line-height:1.12; }
+.ref-c p { color:#B8BED8; font-size:15px; margin-bottom:16px; }
+.ref-c p:last-child { margin-bottom:0; }
+.ref-c strong { color:#fff; }
+.ref-v { position:relative; z-index:1; text-align:center; }
+.ref-mult { font-family:var(--mono); font-size:76px; font-weight:700; background:linear-gradient(135deg,#818CF8,#38BDF8); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; line-height:1; }
+.ref-mult-l { color:#B8BEDF; font-size:13px; margin-top:6px; }
 
-.demo-section { padding:100px 48px; max-width:780px; margin:0 auto; }
-.section-eyebrow { font-family:var(--mono); font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--blue); margin-bottom:14px; }
-.section-title { font-size:clamp(28px,4vw,44px); font-weight:700; letter-spacing:-1.5px; margin-bottom:14px; line-height:1.1; }
-.section-sub { color:var(--muted2); font-size:16px; margin-bottom:56px; max-width:480px; }
+/* STEPS */
+.steps { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin-top:52px; }
+.step { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:32px 26px; box-shadow:var(--shadow-sm); transition:all 0.2s; }
+.step:hover { box-shadow:var(--shadow); transform:translateY(-3px); }
+.step-n { font-family:var(--mono); font-size:11px; color:var(--indigo); letter-spacing:1px; margin-bottom:18px; font-weight:600; }
+.step-ic { font-size:26px; margin-bottom:12px; }
+.step h3 { font-family:var(--sans); font-size:17px; font-weight:600; margin-bottom:8px; }
+.step p { font-size:13.5px; color:var(--muted); }
 
-.demo-wrap { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-.demo-box { background:var(--ink2); border:1px solid var(--border2); border-radius:14px; overflow:hidden; }
-.demo-titlebar { padding:10px 14px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:6px; }
-.tb-dot { width:10px; height:10px; border-radius:50%; }
-.tb-label { font-family:var(--mono); font-size:10px; color:var(--muted); margin-left:4px; }
-.demo-body { padding:18px; font-family:var(--mono); font-size:12px; line-height:2; }
-.demo-spinner-line { display:flex; align-items:center; gap:8px; color:var(--muted2); }
-.spinner-anim { display:inline-block; }
-.demo-empty { color:var(--border2); margin-top:8px; font-size:11px; }
-.demo-ad-line {
-  margin-top:8px; display:flex; align-items:center; gap:8px;
-  background:var(--blue-dim); border-left:2px solid var(--blue);
-  padding:5px 10px; border-radius:0 5px 5px 0;
-}
-.ad-tag { font-size:9px; background:var(--blue); color:#fff; padding:1px 5px; border-radius:3px; font-weight:700; flex-shrink:0; }
-.ad-copy { color:var(--white); font-size:11px; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.ad-earn { color:var(--green); font-size:11px; flex-shrink:0; }
-.demo-multi-note { margin-top:10px; font-size:10px; color:var(--blue-bright); }
-
-.math-section { background:var(--ink2); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:100px 48px; }
-.math-inner { max-width:1040px; margin:0 auto; }
-.math-grid { display:grid; grid-template-columns:1fr 1.1fr; gap:64px; align-items:center; }
-.earn-target {
-  font-family:var(--mono); font-size:64px; font-weight:700;
-  background:linear-gradient(135deg, var(--blue), var(--cyan));
-  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
-  letter-spacing:-3px; line-height:1; margin-bottom:8px;
-}
-.earn-target-label { color:var(--muted2); font-size:14px; margin-bottom:32px; }
-
-.income-streams { display:flex; flex-direction:column; gap:14px; margin-top:8px; }
-.stream {
-  background:var(--ink3); border:1px solid var(--border2);
-  border-radius:10px; padding:16px 18px;
-  display:flex; align-items:center; gap:14px;
-}
-.stream-icon { width:40px; height:40px; border-radius:8px; background:var(--blue-dim); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
-.stream-body { flex:1; }
-.stream-title { font-size:14px; font-weight:600; margin-bottom:2px; }
-.stream-desc { font-size:12px; color:var(--muted2); }
-.stream-amount { font-family:var(--mono); font-size:15px; color:var(--green); font-weight:600; flex-shrink:0; }
-
-.calc-box { background:var(--ink3); border:1px solid var(--border2); border-radius:16px; padding:32px; }
-.calc-title { font-size:15px; font-weight:600; margin-bottom:6px; }
-.calc-subtitle { font-size:12px; color:var(--muted2); margin-bottom:28px; }
-.range-group { margin-bottom:22px; }
-.range-group label { display:flex; justify-content:space-between; font-size:12px; color:var(--muted2); margin-bottom:9px; }
-.range-group label span { color:var(--white); font-family:var(--mono); }
-.range-group .hint { font-size:10px; color:var(--muted); margin-top:4px; }
-input[type=range] { width:100%; accent-color:var(--blue); height:4px; cursor:pointer; }
-.calc-result {
-  margin-top:28px; padding:24px;
-  background:linear-gradient(135deg, var(--blue-dim), rgba(0,217,255,0.06));
-  border:1px solid var(--blue-mid); border-radius:12px; text-align:center;
-}
-.calc-result-num {
-  font-family:var(--mono); font-size:44px; font-weight:700;
-  background:linear-gradient(135deg, var(--blue), var(--cyan));
-  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
-}
-.calc-result-label { font-size:12px; color:var(--muted2); margin-top:6px; }
-.calc-breakdown { display:flex; justify-content:center; gap:20px; margin-top:16px; font-size:11px; font-family:var(--mono); }
-.calc-breakdown span { color:var(--muted2); }
-.calc-breakdown b { color:var(--green); }
-
-.how-section { padding:100px 48px; max-width:1000px; margin:0 auto; }
-.steps-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:2px; background:var(--border); border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-top:56px; }
-.step-card { background:var(--ink); padding:36px 28px; }
-.step-num { font-family:var(--mono); font-size:10px; color:var(--blue); letter-spacing:2px; margin-bottom:20px; }
-.step-icon { font-size:26px; margin-bottom:14px; }
-.step-card h3 { font-size:17px; font-weight:600; margin-bottom:10px; }
-.step-card p { font-size:13px; color:var(--muted2); line-height:1.65; }
-
-/* REFERRAL HIGHLIGHT */
-.referral-section { padding:100px 48px; max-width:1000px; margin:0 auto; }
-.referral-card {
-  background:linear-gradient(135deg, var(--ink2), var(--ink3));
-  border:1px solid var(--blue-mid); border-radius:20px; padding:48px;
-  display:grid; grid-template-columns:1.2fr 1fr; gap:48px; align-items:center;
-  position:relative; overflow:hidden;
-}
-.referral-card::before {
-  content:''; position:absolute; top:-50%; right:-20%; width:60%; height:200%;
-  background:radial-gradient(circle, var(--blue-glow) 0%, transparent 60%);
-  opacity:0.3;
-}
-.ref-content { position:relative; z-index:1; }
-.ref-badge { display:inline-block; background:var(--blue-dim); border:1px solid var(--blue-mid); color:var(--blue-bright); font-size:11px; font-family:var(--mono); padding:5px 14px; border-radius:100px; margin-bottom:20px; }
-.ref-content h2 { font-size:34px; font-weight:700; letter-spacing:-1px; margin-bottom:14px; line-height:1.1; }
-.ref-content p { color:var(--muted2); font-size:15px; line-height:1.6; margin-bottom:24px; }
-.ref-visual { position:relative; z-index:1; text-align:center; }
-.ref-multiplier { font-family:var(--mono); font-size:72px; font-weight:700; background:linear-gradient(135deg, var(--blue), var(--cyan)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; line-height:1; }
-.ref-multiplier-label { color:var(--muted2); font-size:13px; margin-top:8px; }
-
-.advertiser-section { background:var(--ink2); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:100px 48px; }
-.adv-inner { max-width:1000px; margin:0 auto; }
-.adv-grid { display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:start; margin-top:56px; }
-.live-campaigns { background:var(--ink); border:1px solid var(--border2); border-radius:14px; overflow:hidden; }
-.lc-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
-.lc-header-title { font-size:13px; font-weight:600; }
-.live-indicator { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--green); font-family:var(--mono); }
-.lc-empty { padding:32px; text-align:center; color:var(--muted); font-size:13px; }
-.lc-row { padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:14px; font-size:13px; }
+/* ADVERTISER */
+.adv-section { background:var(--surface); border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+.adv-inner { max-width:1080px; margin:0 auto; padding:100px 48px; }
+.adv-grid { display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:start; margin-top:52px; }
+.live-camps { background:var(--bg); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+.lc-h { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.lc-h-t { font-size:14px; font-weight:600; font-family:var(--sans); }
+.lc-live { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--green); font-family:var(--mono); font-weight:500; }
+.lc-empty { padding:36px; text-align:center; color:var(--muted); font-size:13px; }
+.lc-row { padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:14px; }
 .lc-row:last-child { border-bottom:none; }
-.lc-rank { font-family:var(--mono); font-size:11px; color:var(--muted); width:24px; flex-shrink:0; }
-.lc-name { flex:1; color:var(--white); font-weight:500; min-width:0; }
-.lc-text { font-size:11px; color:var(--muted2); }
-.lc-bid { font-family:var(--mono); font-size:12px; color:var(--cyan); flex-shrink:0; }
-.lc-status { font-size:10px; padding:2px 8px; border-radius:100px; flex-shrink:0; }
-.lc-status.active { background:var(--green-dim); color:var(--green); }
-.lc-loading { padding:24px; text-align:center; color:var(--muted); font-size:12px; font-family:var(--mono); }
+.lc-rank { font-family:var(--mono); font-size:11px; color:var(--muted2); width:22px; }
+.lc-name { flex:1; font-weight:600; font-size:13px; min-width:0; }
+.lc-txt { font-size:11px; color:var(--muted); }
+.lc-bid { font-family:var(--mono); font-size:12px; color:var(--indigo); font-weight:600; }
+.lc-status { font-size:10px; padding:3px 9px; border-radius:100px; background:var(--green-soft); color:#047857; font-weight:600; }
+.lc-load { padding:28px; text-align:center; color:var(--muted2); font-size:12px; font-family:var(--mono); }
+.adv-promo { background:var(--bg); border:1px solid var(--border2); border-radius:16px; padding:32px; }
+.adv-promo h3 { font-family:var(--sans); font-size:22px; font-weight:700; margin-bottom:8px; }
+.adv-promo > p { font-size:14px; color:var(--muted); margin-bottom:24px; }
+.adv-feat { display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+.adv-feat:last-of-type { border-bottom:none; }
+.adv-feat-ic { color:var(--green); font-weight:700; flex-shrink:0; }
+.adv-feat-tx h4 { font-size:14px; font-weight:600; margin-bottom:1px; }
+.adv-feat-tx p { font-size:12.5px; color:var(--muted); }
+.adv-cta { margin-top:24px; }
+.price-note { background:var(--indigo-soft); border:1px solid #C7D2FE; border-radius:10px; padding:13px 15px; font-size:12.5px; color:var(--indigo-dark); margin-top:20px; }
 
-.bid-form-box { background:var(--ink); border:1px solid var(--border2); border-radius:14px; padding:28px; }
-.bf-title { font-size:18px; font-weight:700; margin-bottom:6px; }
-.bf-sub { font-size:13px; color:var(--muted2); margin-bottom:28px; line-height:1.5; }
-.form-group { margin-bottom:16px; }
-.form-group label { display:block; font-size:11px; color:var(--muted2); font-family:var(--mono); letter-spacing:1px; text-transform:uppercase; margin-bottom:7px; }
-.form-group input, .form-group select { width:100%; background:var(--ink3); border:1px solid var(--border2); border-radius:8px; padding:11px 14px; color:var(--white); font-family:var(--sans); font-size:14px; outline:none; transition:border-color 0.2s; }
-.form-group input:focus, .form-group select:focus { border-color:var(--blue); }
-.form-group select option { background:var(--ink3); }
-.form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-.inr-wrap { position:relative; }
-.inr-pre { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--muted2); font-family:var(--mono); pointer-events:none; }
-.inr-wrap input { padding-left:26px; }
-.char-hint { font-size:11px; color:var(--muted); margin-top:4px; font-family:var(--mono); }
-.pricing-note { background:var(--blue-dim); border:1px solid var(--blue-mid); border-radius:8px; padding:12px 14px; font-size:12px; color:var(--blue-bright); margin-bottom:20px; line-height:1.5; }
-
-.why-section { padding:100px 48px; max-width:1000px; margin:0 auto; }
-.why-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:56px; }
-.why-card { background:var(--ink2); border:1px solid var(--border); border-radius:12px; padding:28px; transition:border-color 0.2s; }
-.why-card:hover { border-color:var(--blue-mid); }
-.why-icon { font-size:24px; margin-bottom:14px; }
-.why-card h3 { font-size:15px; font-weight:600; margin-bottom:8px; }
-.why-card p { font-size:13px; color:var(--muted2); line-height:1.6; }
-
-.faq-section { background:var(--ink2); border-top:1px solid var(--border); padding:100px 48px; }
-.faq-inner { max-width:680px; margin:0 auto; }
+/* FAQ */
+.faq-section { background:var(--bg); }
+.faq-inner { max-width:720px; margin:0 auto; padding:100px 48px; }
 .faq-item { border-bottom:1px solid var(--border); }
-.faq-q { padding:20px 0; font-size:15px; font-weight:500; cursor:pointer; display:flex; justify-content:space-between; align-items:center; user-select:none; }
-.faq-q:hover { color:var(--blue-bright); }
-.faq-arrow { font-size:12px; color:var(--muted); transition:transform 0.2s; }
-.faq-item.open .faq-arrow { transform:rotate(180deg); }
-.faq-a { display:none; padding-bottom:20px; font-size:14px; color:var(--muted2); line-height:1.7; }
+.faq-q { padding:20px 0; font-size:15px; font-weight:600; cursor:pointer; display:flex; justify-content:space-between; gap:16px; align-items:center; font-family:var(--sans); }
+.faq-q:hover { color:var(--indigo); }
+.faq-ar { color:var(--muted2); transition:transform 0.2s; flex-shrink:0; }
+.faq-item.open .faq-ar { transform:rotate(180deg); }
+.faq-a { display:none; padding-bottom:20px; font-size:14px; color:var(--muted); }
 .faq-item.open .faq-a { display:block; }
 
-.final-cta { padding:120px 48px; text-align:center; background:linear-gradient(180deg, var(--ink) 0%, var(--blue-dim) 100%); }
-.final-cta h2 { font-size:clamp(36px,6vw,64px); font-weight:800; letter-spacing:-2px; margin-bottom:20px; line-height:1.1; }
-.final-cta h2 em { font-style:normal; background:linear-gradient(135deg, var(--blue), var(--cyan)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
-.final-cta p { color:var(--muted2); font-size:17px; margin-bottom:40px; max-width:440px; margin-left:auto; margin-right:auto; }
+/* FINAL */
+.final { padding:110px 48px; text-align:center; background:linear-gradient(180deg,var(--bg),var(--indigo-soft)); }
+.final h2 { font-family:var(--sans); font-size:clamp(34px,5.5vw,58px); font-weight:800; letter-spacing:-1.5px; margin-bottom:18px; line-height:1.1; }
+.final h2 .grad { background:linear-gradient(120deg,var(--indigo),var(--sky)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+.final p { color:var(--muted); font-size:17px; margin-bottom:36px; }
 
-footer { border-top:1px solid var(--border); padding:32px 48px; display:flex; justify-content:space-between; align-items:center; color:var(--muted); font-size:13px; }
+/* FOOTER */
+footer { border-top:1px solid var(--border); padding:32px 48px; display:flex; justify-content:space-between; align-items:center; color:var(--muted2); font-size:13px; background:var(--surface); }
 footer a { color:var(--muted); text-decoration:none; }
-footer a:hover { color:var(--white); }
-.footer-links { display:flex; gap:24px; }
+footer a:hover { color:var(--ink); }
+.foot-links { display:flex; gap:22px; }
 
-.toast { position:fixed; bottom:32px; right:32px; background:var(--ink2); border:1px solid var(--green); border-radius:10px; padding:14px 22px; font-size:13px; transform:translateY(80px); opacity:0; transition:all 0.3s; z-index:999; max-width:320px; }
+/* MODAL */
+.modal-bg { position:fixed; inset:0; background:rgba(15,18,34,0.5); backdrop-filter:blur(4px); z-index:1000; display:none; align-items:center; justify-content:center; padding:24px; }
+.modal-bg.show { display:flex; }
+.modal { background:var(--surface); border-radius:20px; padding:36px; max-width:420px; width:100%; box-shadow:var(--shadow-lg); position:relative; max-height:92vh; overflow-y:auto; }
+.modal-close { position:absolute; top:18px; right:18px; background:var(--surface2); border:none; width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:16px; color:var(--muted); }
+.modal-close:hover { background:var(--border); }
+.modal h2 { font-family:var(--sans); font-size:24px; font-weight:700; margin-bottom:6px; }
+.modal-sub { font-size:14px; color:var(--muted); margin-bottom:26px; }
+.role-toggle { display:flex; gap:8px; margin-bottom:24px; background:var(--surface2); padding:5px; border-radius:11px; }
+.role-btn { flex:1; padding:10px; border-radius:8px; border:none; background:transparent; cursor:pointer; font-family:var(--body); font-size:13px; font-weight:600; color:var(--muted); transition:all 0.2s; }
+.role-btn.active { background:var(--surface); color:var(--indigo); box-shadow:var(--shadow-sm); }
+.field { margin-bottom:16px; }
+.field label { display:block; font-size:12px; font-weight:600; color:var(--ink2); margin-bottom:6px; }
+.field input { width:100%; background:var(--surface2); border:1px solid var(--border2); border-radius:10px; padding:12px 14px; font-family:var(--body); font-size:14px; outline:none; transition:all 0.2s; }
+.field input:focus { border-color:var(--indigo); background:var(--surface); }
+.modal .btn-solid { width:100%; justify-content:center; padding:13px; font-size:15px; margin-top:8px; }
+.modal-switch { text-align:center; margin-top:18px; font-size:13px; color:var(--muted); }
+.modal-switch a { color:var(--indigo); font-weight:600; cursor:pointer; text-decoration:none; }
+.modal-err { background:var(--red-soft); color:#B91C1C; padding:11px 14px; border-radius:9px; font-size:13px; margin-bottom:16px; display:none; }
+.modal-err.show { display:block; }
+
+/* TOAST */
+.toast { position:fixed; bottom:28px; right:28px; background:var(--surface); border:1px solid var(--green); border-radius:12px; padding:14px 20px; box-shadow:var(--shadow-lg); transform:translateY(90px); opacity:0; transition:all 0.3s; z-index:1100; max-width:340px; }
 .toast.show { transform:translateY(0); opacity:1; }
-.toast-title { font-weight:600; margin-bottom:2px; }
-.toast-sub { color:var(--muted2); font-size:12px; }
+.toast-t { font-weight:600; font-size:14px; margin-bottom:2px; }
+.toast-s { font-size:12.5px; color:var(--muted); }
 
-@media(max-width:768px) {
-  nav { padding:14px 20px; }
+@media(max-width:860px){
+  nav { padding:12px 18px; }
   .nav-links { display:none; }
-  .hero { padding:100px 24px 60px; }
-  .demo-section, .how-section, .why-section, .faq-section, .final-cta, .referral-section { padding:60px 24px; }
-  .math-section, .advertiser-section { padding:60px 24px; }
-  .demo-wrap, .math-grid, .adv-grid, .why-grid, .steps-grid, .referral-card { grid-template-columns:1fr; }
-  .earn-target { font-size:48px; }
-  footer { flex-direction:column; gap:12px; text-align:center; }
-  .earn-ticker { flex-direction:column; gap:16px; }
-  .ticker-divider { width:40px; height:1px; }
-  .referral-card { padding:32px; gap:32px; }
+  .hero { padding:100px 22px 60px; }
+  .section, .earn-inner, .adv-inner, .faq-inner { padding:60px 22px; }
+  .demo-wrap, .earn-inner, .adv-grid, .steps, .ref-card { grid-template-columns:1fr; }
+  .ref-card { padding:34px; gap:30px; }
+  .ticker { flex-direction:column; }
+  .ticker-sep { width:50px; height:1px; }
+  footer { flex-direction:column; gap:14px; text-align:center; }
 }
 </style>
 </head>
 <body>
 
 <nav>
-  <div class="logo"><span class="logo-dot"></span>Wait<em>JI</em> AI</div>
+  <div class="logo">
+    <span class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.35)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></span>
+    Wait<em>JI</em> AI
+  </div>
   <ul class="nav-links">
-    <li><a href="#how">Kaise Kaam Karta Hai</a></li>
-    <li><a href="#earn">Kamaao</a></li>
-    <li><a href="#referral">Referral</a></li>
-    <li><a href="#india">India Edge</a></li>
+    <li><a href="#how">How it works</a></li>
+    <li><a href="#earn">Earnings</a></li>
     <li><a href="#advertise">Advertise</a></li>
-    <li><a href="#advertise" class="nav-cta">Campaign Shuru Karo</a></li>
+    <li><a href="#faq">FAQ</a></li>
   </ul>
+  <div class="nav-actions">
+    <button class="btn-ghost" onclick="openAuth('login')">Log in</button>
+    <button class="btn-solid" onclick="openAuth('signup')">Get started</button>
+  </div>
 </nav>
 
 <section class="hero">
   <div class="hero-bg"></div>
-  <div class="grid-bg"></div>
   <div class="hero-content">
-    <div class="live-badge">
-      <span class="live-dot"></span>
-      India ka pehla AI spinner ad marketplace — UPI payouts, instant
-    </div>
-    <h1>
-      <span class="line1">Claude Code wait kare,</span>
-      <span class="line2">aapka paisa banta rahe.</span>
-      <span class="line3">passive income · seedha UPI pe · from your IDE</span>
-    </h1>
-    <p class="hero-sub">
-      Jo waqt spinner dekhne mein waste hota tha — ab usse <strong>mahine ka API bill, coffee, ya OTT subscription</strong> nikal jayega.<br>
-      Aur <strong>referral network</strong> banao toh yeh ₹10,000+ tak pahunch sakta hai. Sab kuch <strong>UPI pe</strong> — koi bank-account drama nahi.
-    </p>
+    <div class="badge"><span class="badge-dot"></span>India's AI ad marketplace · UPI payouts</div>
+    <h1>Claude Code thinks.<br><span class="grad">You get paid.</span></h1>
+    <p class="hero-sub">Turn the seconds you spend waiting for AI into passive income. Install once, keep coding — <strong>earnings land in your UPI</strong>. Build a referral network and it compounds.</p>
     <div class="hero-ctas">
-      <a href="https://marketplace.visualstudio.com" class="btn-primary">⚡ VS Code Extension Install Karo</a>
-      <a href="#earn" class="btn-secondary">Earning Calculator Dekho →</a>
+      <button class="btn-solid btn-lg" onclick="openAuth('signup','customer')">Start earning →</button>
+      <button class="btn-outline-lg btn-lg" onclick="openAuth('signup','advertiser')">Advertise with us</button>
     </div>
-    <div class="earn-ticker">
-      <div class="ticker-item">
-        <div class="ticker-num" id="tick-earn">₹0.00</div>
-        <div class="ticker-label">Total paid to developers</div>
-      </div>
-      <div class="ticker-divider"></div>
-      <div class="ticker-item">
-        <div class="ticker-num" id="tick-imp">0</div>
-        <div class="ticker-label">Impressions served</div>
-      </div>
-      <div class="ticker-divider"></div>
-      <div class="ticker-item">
-        <div class="ticker-num" id="tick-camps">0</div>
-        <div class="ticker-label">Active campaigns</div>
-      </div>
-      <div class="ticker-divider"></div>
-      <div class="ticker-item">
-        <div class="ticker-num">50%</div>
-        <div class="ticker-label">Revenue share (aapko)</div>
-      </div>
+    <div class="ticker">
+      <div class="ticker-item"><div class="ticker-num" id="tk-earn">₹0</div><div class="ticker-label">Paid to developers</div></div>
+      <div class="ticker-sep"></div>
+      <div class="ticker-item"><div class="ticker-num" id="tk-imp">0</div><div class="ticker-label">Impressions served</div></div>
+      <div class="ticker-sep"></div>
+      <div class="ticker-item"><div class="ticker-num" id="tk-camp">0</div><div class="ticker-label">Active campaigns</div></div>
+      <div class="ticker-sep"></div>
+      <div class="ticker-item"><div class="ticker-num">50%</div><div class="ticker-label">Revenue share</div></div>
     </div>
   </div>
 </section>
 
-<section class="demo-section" id="how">
-  <div class="section-eyebrow">// BEFORE & AFTER</div>
-  <div class="section-title">3 ads. Har wait state.<br>3x earning.</div>
-  <p class="section-sub">Ek nahi — teen sponsored slots rotate karte hain jab Claude sochta hai. Triple impressions, triple income.</p>
+<section class="section" id="how">
+  <div class="eyebrow">Before / after</div>
+  <div class="section-title">One quiet line.<br>Real income.</div>
+  <p class="section-sub">Three sponsored slots rotate while the AI works. Your flow never breaks — your balance just grows.</p>
   <div class="demo-wrap">
     <div class="demo-box">
-      <div class="demo-titlebar">
-        <span class="tb-dot" style="background:#FF5F57"></span>
-        <span class="tb-dot" style="background:#FFBD2E"></span>
-        <span class="tb-dot" style="background:#28C840"></span>
-        <span class="tb-label">Without WaitJI AI</span>
-      </div>
+      <div class="demo-bar"><span class="demo-dot" style="background:#FF5F57"></span><span class="demo-dot" style="background:#FFBD2E"></span><span class="demo-dot" style="background:#28C840"></span><span class="demo-tab">Without WaitJI AI</span></div>
       <div class="demo-body">
-        <div class="demo-spinner-line"><span class="spinner-anim" id="sp1">⠋</span><span>Thinking...</span></div>
-        <div class="demo-empty"># wait kar rahe ho</div>
-        <div class="demo-empty"># paisa nahi mil raha</div>
-        <div class="demo-empty"># time waste</div>
+        <div class="demo-line"><span id="sp1">⠋</span><span>Thinking…</span></div>
+        <div class="demo-faint"># just waiting</div>
+        <div class="demo-faint"># earning nothing</div>
       </div>
     </div>
-    <div class="demo-box" style="border-color:var(--blue-mid)">
-      <div class="demo-titlebar">
-        <span class="tb-dot" style="background:#FF5F57"></span>
-        <span class="tb-dot" style="background:#FFBD2E"></span>
-        <span class="tb-dot" style="background:#28C840"></span>
-        <span class="tb-label">With WaitJI AI ✦</span>
-      </div>
+    <div class="demo-box highlight">
+      <div class="demo-bar"><span class="demo-dot" style="background:#FF5F57"></span><span class="demo-dot" style="background:#FFBD2E"></span><span class="demo-dot" style="background:#28C840"></span><span class="demo-tab">With WaitJI AI</span></div>
       <div class="demo-body">
-        <div class="demo-spinner-line"><span class="spinner-anim" id="sp2">⠙</span><span>Thinking...</span></div>
-        <div class="demo-ad-line" id="demo-ad">
-          <span class="ad-tag">AD</span>
-          <span class="ad-copy" id="demo-ad-text">Loading live ad...</span>
-          <span class="ad-earn" id="demo-ad-earn">+₹0.30</span>
-        </div>
-        <div class="demo-multi-note">↻ 3 ads rotate per wait → 3x impressions</div>
+        <div class="demo-line"><span id="sp2">⠙</span><span>Thinking…</span></div>
+        <div class="demo-ad"><span class="demo-ad-tag">AD</span><span class="demo-ad-copy" id="dad-t">Loading live ad…</span><span class="demo-ad-earn" id="dad-e">+₹0.30</span></div>
+        <div class="demo-note">↻ 3 ads rotate per wait → 3× earning</div>
       </div>
     </div>
   </div>
 </section>
 
-<section class="math-section" id="earn">
-  <div class="math-inner">
-    <div class="math-grid">
-      <div class="math-left">
-        <div class="section-eyebrow">// REAL EARNING POTENTIAL</div>
-        <div class="earn-target">₹5K–₹15K<span style="font-size:20px;color:var(--muted2);font-weight:400;-webkit-text-fill-color:var(--muted2)">/mo</span></div>
-        <div class="earn-target-label">Realistic monthly earning — 3 income streams combined</div>
-        <div class="income-streams">
-          <div class="stream">
-            <div class="stream-icon">💻</div>
-            <div class="stream-body">
-              <div class="stream-title">Direct Impressions</div>
-              <div class="stream-desc">3 ads × har Claude session</div>
-            </div>
-            <div class="stream-amount">₹2,000–4,000</div>
-          </div>
-          <div class="stream">
-            <div class="stream-icon">🤝</div>
-            <div class="stream-body">
-              <div class="stream-title">Referral Network (10%)</div>
-              <div class="stream-desc">Invited devs ka lifetime cut</div>
-            </div>
-            <div class="stream-amount">₹2,000–9,000</div>
-          </div>
-          <div class="stream">
-            <div class="stream-icon">⭐</div>
-            <div class="stream-body">
-              <div class="stream-title">Premium CPM Bonus</div>
-              <div class="stream-desc">High-bid advertisers (₹800+)</div>
-            </div>
-            <div class="stream-amount">₹1,000–2,000</div>
-          </div>
-        </div>
-      </div>
-      <div class="math-right">
-        <div class="calc-box">
-          <div class="calc-title">🧮 Apna Earning Estimate Karo</div>
-          <div class="calc-subtitle">Sliders move karo — realistic numbers dekho</div>
-          <div class="range-group">
-            <label>Daily Claude sessions <span id="rv1">120</span></label>
-            <input type="range" id="r1" min="10" max="200" value="120" oninput="calcEarn()">
-            <div class="hint">Heavy developer = 80-150 sessions/day</div>
-          </div>
-          <div class="range-group">
-            <label>Ad CPM rate (advertiser bid) <span id="rv3">₹800</span></label>
-            <input type="range" id="r3" min="200" max="2000" value="800" step="50" oninput="calcEarn()">
-            <div class="hint">Premium brands ₹800-1500 bid karte hain</div>
-          </div>
-          <div class="range-group">
-            <label>Developers invited (referrals) <span id="rv4">30</span></label>
-            <input type="range" id="r4" min="0" max="100" value="30" oninput="calcEarn()">
-            <div class="hint">Har referral ka 10% lifetime milta hai</div>
-          </div>
-          <div class="calc-result">
-            <div class="calc-result-num" id="earn-val">₹8,640</div>
-            <div class="calc-result-label">Estimated monthly earning</div>
-            <div class="calc-breakdown">
-              <span>Direct: <b id="bd-direct">₹4,320</b></span>
-              <span>Referral: <b id="bd-ref">₹4,320</b></span>
-            </div>
-          </div>
-          <p style="font-size:11px;color:var(--muted);margin-top:14px;text-align:center">*Estimate based on 3 ad slots + live bids. Actual varies.</p>
-        </div>
+<section class="earn-section" id="earn">
+  <div class="earn-inner">
+    <div>
+      <div class="eyebrow">Real earning potential</div>
+      <div class="section-title" style="margin-bottom:10px">Three income<br>streams. Combined.</div>
+      <p style="color:var(--muted);font-size:15px">Honest numbers — your single machine earns coffee-and-API money. The referral network is where it scales.</p>
+      <div class="streams">
+        <div class="stream"><div class="stream-ic">💻</div><div class="stream-tx"><h4>Direct impressions</h4><p>3 ads every AI session, 50% share</p></div><div class="stream-amt">₹2K–4K</div></div>
+        <div class="stream"><div class="stream-ic">🤝</div><div class="stream-tx"><h4>Referral network</h4><p>10% lifetime of invited devs' earnings</p></div><div class="stream-amt">₹2K–9K</div></div>
+        <div class="stream"><div class="stream-ic">⭐</div><div class="stream-tx"><h4>Premium CPM</h4><p>Top brands bid ₹800–1500 per 1K</p></div><div class="stream-amt">₹1K–2K</div></div>
       </div>
     </div>
-  </div>
-</section>
-
-<!-- REFERRAL HIGHLIGHT -->
-<section class="referral-section" id="referral">
-  <div class="referral-card">
-    <div class="ref-content">
-      <div class="ref-badge">// THE REAL MONEY MAKER</div>
-      <h2>Network banao.<br>So/te waqt bhi kamao.</h2>
-      <p>Sirf apni machine se earning limited hai. <strong style="color:var(--white)">Asli paisa referrals mein hai.</strong> Aap jitne developers invite karoge, unke har impression ka <strong style="color:var(--blue-bright)">10% lifetime</strong> aapko milega — bina kuch kiye.</p>
-      <p style="margin-bottom:0">20 active referrals = <strong style="color:var(--green)">₹4,000-9,000/month</strong> sirf referral se. Yeh tab bhi aata hai jab aap so rahe ho.</p>
-    </div>
-    <div class="ref-visual">
-      <div class="ref-multiplier">10%</div>
-      <div class="ref-multiplier-label">lifetime cut · har referral se</div>
+    <div class="calc">
+      <div class="calc-h">Estimate your earnings</div>
+      <div class="calc-sub">Drag the sliders — see realistic numbers</div>
+      <div class="rg"><label>Daily Claude sessions <span id="v1">120</span></label><input type="range" id="r1" min="10" max="200" value="120" oninput="calc()"><div class="tip">Heavy developer = 80–150 / day</div></div>
+      <div class="rg"><label>Ad CPM rate <span id="v3">₹800</span></label><input type="range" id="r3" min="200" max="2000" value="800" step="50" oninput="calc()"><div class="tip">Premium brands bid ₹800–1500</div></div>
+      <div class="rg"><label>Developers invited <span id="v4">30</span></label><input type="range" id="r4" min="0" max="100" value="30" oninput="calc()"><div class="tip">10% of each referral, lifetime</div></div>
+      <div class="calc-out">
+        <div class="calc-num" id="cnum">₹8,640</div>
+        <div class="calc-lbl">Estimated monthly earning</div>
+        <div class="calc-bd"><span>Direct <b id="cd">₹4,320</b></span><span>Referral <b id="cr">₹4,320</b></span></div>
+      </div>
+      <p style="font-size:11px;color:var(--muted2);margin-top:12px;text-align:center">Estimate based on 3 slots + live bids. Actual varies.</p>
     </div>
   </div>
 </section>
 
-<!-- INDIA ADVANTAGE -->
-<section class="referral-section" id="india" style="padding-top:0">
-  <div class="referral-card" style="border-color:var(--green)">
-    <div class="ref-content">
-      <div class="ref-badge" style="background:rgba(0,224,138,0.1);border-color:var(--green);color:var(--green)">// THE INDIA ADVANTAGE</div>
-      <h2>Competitors Indian devs ko<br>pay <span style="background:linear-gradient(135deg,var(--green),var(--cyan));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">kar hi nahi sakte.</span></h2>
-      <p>Foreign spinner-ad platforms Stripe se pay karte hain — jo <strong style="color:var(--white)">India, Pakistan, Bangladesh mein paise bhej hi nahi sakta.</strong> Unke Indian users ka paisa account mein "safe" rehta hai, but withdraw kabhi nahi hota.</p>
-      <p style="margin-bottom:0">WaitJI AI <strong style="color:var(--green)">UPI se seedha pay</strong> karta hai — ₹100 se withdraw, 2-3 din mein account mein. Yeh poora Indian developer market sirf hamara hai.</p>
+<section class="section">
+  <div class="ref-card">
+    <div class="ref-c">
+      <div class="ref-badge">The real money maker</div>
+      <h2>Build a network.<br>Earn in your sleep.</h2>
+      <p>One machine has a ceiling. <strong>The referral engine doesn't.</strong> Invite developers and earn <strong>10% of everything they make</strong> — for as long as they use WaitJI AI.</p>
+      <p>30 active referrals can mean <strong>₹4,000–9,000 / month</strong> on top of your own earnings. It keeps coming while you sleep.</p>
     </div>
-    <div class="ref-visual">
-      <div class="ref-multiplier" style="background:linear-gradient(135deg,var(--green),var(--cyan));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">UPI</div>
-      <div class="ref-multiplier-label">instant payout · ₹100 minimum</div>
-    </div>
+    <div class="ref-v"><div class="ref-mult">10%</div><div class="ref-mult-l">lifetime cut · per referral</div></div>
   </div>
 </section>
 
-<section class="how-section">
-  <div class="section-eyebrow">// HOW_IT_WORKS</div>
-  <div class="section-title">Teen steps.<br>Paisa shuru.</div>
-  <div class="steps-grid">
-    <div class="step-card">
-      <div class="step-num">STEP_01</div>
-      <div class="step-icon">⚡</div>
-      <h3>Extension Install Karo</h3>
-      <p>VS Code marketplace se WaitJI AI install karo. UPI ID daalo settings mein. Apna referral link copy karo. Done.</p>
-    </div>
-    <div class="step-card">
-      <div class="step-num">STEP_02</div>
-      <div class="step-icon">💻</div>
-      <h3>Code Karo + Invite Karo</h3>
-      <p>Claude Code chalao jaise pehle. 3 ads rotate honge har wait pe. Saath mein developer friends ko referral link bhejo.</p>
-    </div>
-    <div class="step-card">
-      <div class="step-num">STEP_03</div>
-      <div class="step-icon">💸</div>
-      <h3>Multiple Income, UPI Pe</h3>
-      <p>Direct + referral + premium — sab combine. Minimum ₹100 pe withdraw. Seedha UPI pe 2-3 din mein.</p>
-    </div>
+<section class="section">
+  <div class="eyebrow">How it works</div>
+  <div class="section-title">Three steps to income.</div>
+  <div class="steps">
+    <div class="step"><div class="step-n">STEP 01</div><div class="step-ic">⚡</div><h3>Install & connect UPI</h3><p>Add the VS Code extension, drop in your UPI ID, copy your referral link. 30 seconds.</p></div>
+    <div class="step"><div class="step-n">STEP 02</div><div class="step-ic">💻</div><h3>Code & invite</h3><p>Work as usual. 3 ads rotate per wait. Share your link with developer friends.</p></div>
+    <div class="step"><div class="step-n">STEP 03</div><div class="step-ic">💸</div><h3>Withdraw to UPI</h3><p>Direct + referral + premium combine. Cash out from ₹100, straight to your account.</p></div>
   </div>
 </section>
 
-<section class="advertiser-section" id="advertise">
+<section class="adv-section" id="advertise">
   <div class="adv-inner">
-    <div class="section-eyebrow">// FOR_ADVERTISERS</div>
-    <div class="section-title">10,000+ Indian<br>developers tak pahuncho.</div>
-    <p class="section-sub" style="margin-bottom:0">Real developers. Real IDE. 100% viewable. Minimum ₹200 CPM — premium audience.</p>
+    <div class="eyebrow">For advertisers</div>
+    <div class="section-title">Reach 10,000+ Indian developers.</div>
+    <p class="section-sub" style="margin-bottom:0">The most skilled, hardest-to-reach, ad-blocking audience — in their calmest, most attentive moment.</p>
     <div class="adv-grid">
       <div>
-        <p style="font-size:11px;color:var(--muted2);margin-bottom:14px;font-family:var(--mono);letter-spacing:1px;text-transform:uppercase">LIVE BID QUEUE — Real Data</p>
-        <div class="live-campaigns">
-          <div class="lc-header">
-            <span class="lc-header-title">Active Campaigns</span>
-            <span class="live-indicator"><span class="live-dot"></span>Live</span>
-          </div>
-          <div id="campaigns-list"><div class="lc-loading" id="camp-loading">Loading live campaigns...</div></div>
+        <p style="font-size:11px;color:var(--muted);margin-bottom:14px;font-family:var(--mono);letter-spacing:1px;text-transform:uppercase">Live bid queue — real data</p>
+        <div class="live-camps">
+          <div class="lc-h"><span class="lc-h-t">Active campaigns</span><span class="lc-live"><span class="badge-dot"></span>Live</span></div>
+          <div id="camps"><div class="lc-load">Loading live campaigns…</div></div>
         </div>
-        <div style="margin-top:16px;padding:14px 16px;background:var(--ink3);border:1px solid var(--border2);border-radius:10px;font-size:12px;color:var(--muted2);line-height:1.6">
-          ℹ️ <strong style="color:var(--white)">Real-time data.</strong> Jo bhi campaigns upar dikh rahe hain — woh actual live advertisers hain. Koi demo data nahi.
-        </div>
+        <div class="price-note">💡 <strong>Minimum bid ₹200 per 1,000 impressions.</strong> Premium audience — higher bids win the top slot in rotation.</div>
       </div>
-      <div class="bid-form-box">
-        <div class="bf-title">Campaign Start Karo</div>
-        <div class="bf-sub">India ke best developers tak direct pahuncho. Real CPM bidding — highest bidder pehle dikhta hai.</div>
-        <div class="pricing-note">
-          💡 <strong>Minimum bid: ₹200 per 1,000 impressions</strong><br>
-          Premium audience — Claude Code users India ke most skilled developers hain. Higher bid = top slot in rotation.
-        </div>
-        <div class="form-group"><label>Company / Brand Name</label><input type="text" id="f-company" placeholder="Razorpay, Groww, Postman..."></div>
-        <div class="form-group"><label>Contact Email</label><input type="email" id="f-email" placeholder="marketing@yourcompany.com"></div>
-        <div class="form-group"><label>Ad Text <span style="color:var(--muted);font-weight:normal">(max 60 chars)</span></label><input type="text" id="f-adtext" maxlength="60" placeholder="Your brand · value prop for developers"><div class="char-hint"><span id="char-count">0</span>/60 characters</div></div>
-        <div class="form-group"><label>Landing Page URL</label><input type="url" id="f-url" placeholder="https://yoursite.com/developers"></div>
-        <div class="form-row">
-          <div class="form-group"><label>Bid (₹ per 1K imp)</label><div class="inr-wrap"><span class="inr-pre">₹</span><input type="number" id="f-bid" min="200" placeholder="200" style="padding-left:26px"></div></div>
-          <div class="form-group"><label>Total Budget</label><div class="inr-wrap"><span class="inr-pre">₹</span><input type="number" id="f-budget" min="1000" placeholder="10,000" style="padding-left:26px"></div></div>
-        </div>
-        <div class="form-group"><label>Target Developer Type</label><select id="f-target">
-          <option value="all">All Indian Developers (Max Reach)</option>
-          <option value="web">Frontend / Web Developers</option>
-          <option value="backend">Backend / API Developers</option>
-          <option value="ml">ML / AI / Data Science</option>
-          <option value="startup">Startup Founders / CTOs</option>
-          <option value="mobile">Mobile App Developers</option>
-        </select></div>
-        <button class="btn-primary" onclick="submitCampaign()" style="width:100%;justify-content:center;margin-top:4px">Submit Campaign →</button>
-        <p style="font-size:11px;color:var(--muted);margin-top:12px;text-align:center">Review ke baad 24 ghante mein live. Payment Razorpay ke through.</p>
+      <div class="adv-promo">
+        <h3>Why WaitJI AI</h3>
+        <p>Self-serve campaigns, real-time analytics, and fraud protection that guards every rupee of your spend.</p>
+        <div class="adv-feat"><span class="adv-feat-ic">✓</span><div class="adv-feat-tx"><h4>100% viewable</h4><p>Shown only while the developer watches the screen</p></div></div>
+        <div class="adv-feat"><span class="adv-feat-ic">✓</span><div class="adv-feat-tx"><h4>Click-fraud protection</h4><p>Invalid clicks are blocked and never billed to you</p></div></div>
+        <div class="adv-feat"><span class="adv-feat-ic">✓</span><div class="adv-feat-tx"><h4>Live dashboard</h4><p>Impressions, CTR, spend — updated in real time</p></div></div>
+        <div class="adv-feat"><span class="adv-feat-ic">✓</span><div class="adv-feat-tx"><h4>India-first billing</h4><p>INR pricing, GST invoice, UPI & cards</p></div></div>
+        <div class="adv-cta"><button class="btn-solid btn-lg" style="width:100%;justify-content:center" onclick="openAuth('signup','advertiser')">Create advertiser account →</button></div>
       </div>
     </div>
-  </div>
-</section>
-
-<section class="why-section">
-  <div class="section-eyebrow">// WHY_WAITJI_AI</div>
-  <div class="section-title">Sirf WaitJI AI kyun?</div>
-  <div class="why-grid">
-    <div class="why-card"><div class="why-icon">🎯</div><h3>Highest Quality Audience</h3><p>Claude Code users = India ke most skilled, highest-paid developers. CTOs, senior engineers, founders. Yeh woh log hain jo actually khareedenge.</p></div>
-    <div class="why-card"><div class="why-icon">🔄</div><h3>3 Ads Per Wait State</h3><p>Ek nahi — teen sponsored slots rotate hote hain. Developers ke liye 3x earning, advertisers ke liye 3x inventory.</p></div>
-    <div class="why-card"><div class="why-icon">🌐</div><h3>Referral Network Effect</h3><p>Developers ek dusre ko invite karte hain — 10% lifetime cut milta hai. Isse organic growth aur sustained earning dono hoti hai.</p></div>
-    <div class="why-card"><div class="why-icon">👁️</div><h3>100% Viewability</h3><p>Ad sirf tab dikhta hai jab developer screen dekh raha hota hai. Koi background tab, koi scroll-past. Pure attention.</p></div>
-    <div class="why-card"><div class="why-icon">🇮🇳</div><h3>India-First Platform</h3><p>INR billing. UPI payments. GST invoice. Local WhatsApp support. Indian brands ke liye Indian developers.</p></div>
-    <div class="why-card"><div class="why-icon">📊</div><h3>Transparent Real-time</h3><p>Live dashboard — impressions, CTR, earnings sab real-time. Koi hidden fees, koi delay. Full transparency.</p></div>
   </div>
 </section>
 
 <section class="faq-section" id="faq">
   <div class="faq-inner">
-    <div class="section-eyebrow">// FAQ</div>
-    <div class="section-title" style="margin-bottom:48px">Sawaal jo aate hain.</div>
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">₹15,000/month sach mein possible hai? <span class="faq-arrow">▼</span></div><div class="faq-a">Honest jawab: sirf apni machine se nahi — woh ₹2,000-4,000 deti hai (yeh poori industry ki reality hai, foreign platforms bhi itna hi dete hain). ₹15,000 ke liye <strong>referral network</strong> zaroori hai. Aap 30-50 developers invite karo, unke earnings ka 10% lifetime aapko milega. Direct + referral + premium CPM combine karke ₹15,000 genuinely achievable hai. Hum jhooth nahi bolte — calculator mein realistic numbers dekho.</div></div>
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Foreign spinner-ad apps se kya farak hai? <span class="faq-arrow">▼</span></div><div class="faq-a">Sabse bada farak: woh Indian developers ko <strong>pay hi nahi kar sakte</strong>. Unka payout system (Stripe) India mein paise nahi bhejta — aapka earning account mein dikhता hai but withdraw nahi hota. WaitJI AI UPI se seedha pay karta hai, ₹100 se withdraw. Plus humare paas referral network hai jo unke paas nahi.</div></div>
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">3 ads per wait — yeh annoying nahi hoga? <span class="faq-arrow">▼</span></div><div class="faq-a">Nahi. Ads sirf status bar mein 1-line text hote hain, aur rotate karte hain wait duration ke according. Agar wait 3 second hai toh 1 ad, agar 15 second hai toh 3 ads. Developer ka flow break nahi hota — yeh non-intrusive design hai.</div></div>
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Referral se paisa kab tak milega? <span class="faq-arrow">▼</span></div><div class="faq-a">Lifetime. Jab tak woh developer WaitJI AI use karta hai, aapko unke impressions ka 10% milta rahega. Yeh passive income hai — ek baar invite karo, lambe time tak earning. Isiliye early adopters ko zyada fayda hota hai.</div></div>
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Kya yeh legal hai? Claude terms violate hote hain? <span class="faq-arrow">▼</span></div><div class="faq-a">Bilkul legal. WaitJI AI ek VS Code extension hai jo status bar mein text dikhata hai — VS Code Extension API ka standard documented use. Claude Code ke koi terms violate nahi hote. Hum Anthropic ke saath koi partnership claim nahi karte. Extension sirf aapki local machine pe chalta hai.</div></div>
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Minimum withdrawal aur payout time? <span class="faq-arrow">▼</span></div><div class="faq-a">Minimum ₹100. Request ke baad 2-3 business days mein UPI pe. Razorpay Payouts use karte hain. Koi hidden charges nahi.</div></div>
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Advertisers ke liye minimum ₹200 CPM kyun? <span class="faq-arrow">▼</span></div><div class="faq-a">Quality ensure karne ke liye. Premium developer audience hai — low-value ads se developers ko meaningful earning nahi milti aur brands ko serious leads nahi milte. ₹200 floor se win-win hota hai.</div></div>
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Meri personal data collect hoti hai? <span class="faq-arrow">▼</span></div><div class="faq-a">Sirf anonymous device ID. Koi naam, email, personal info nahi. UPI ID withdrawal ke waqt encrypted store hota hai. Koi third-party data sharing nahi.</div></div>
+    <div class="eyebrow">FAQ</div>
+    <div class="section-title" style="margin-bottom:44px">Common questions.</div>
+    <div class="faq-item"><div class="faq-q" onclick="tf(this)">Is ₹15,000/month realistic?<span class="faq-ar">▾</span></div><div class="faq-a">Honestly: not from one machine alone — that earns ₹2,000–4,000 (this is the industry reality; foreign platforms pay the same or less). ₹15,000 needs a referral network. Invite 30–50 developers and earn 10% of their earnings for life. Direct + referral + premium combined gets you there. We don't sell fantasies — check the calculator.</div></div>
+    <div class="faq-item"><div class="faq-q" onclick="tf(this)">Will 3 ads be annoying?<span class="faq-ar">▾</span></div><div class="faq-a">No. Ads are a single line in the status bar and rotate based on how long the AI takes. A 3-second wait shows one; a 15-second wait shows three. Your flow never breaks.</div></div>
+    <div class="faq-item"><div class="faq-q" onclick="tf(this)">How does fraud protection work?<span class="faq-ar">▾</span></div><div class="faq-a">Every click runs through velocity, cadence, IP and CTR checks. Bot-like or farmed clicks are blocked and never billed to advertisers — protecting their budget and keeping the marketplace honest. Advertisers see exactly how much fraud we saved them.</div></div>
+    <div class="faq-item"><div class="faq-q" onclick="tf(this)">When and how do I get paid?<span class="faq-ar">▾</span></div><div class="faq-a">Withdraw from ₹100 straight to UPI — usually 2–3 business days. No bank-account hassle, no minimums beyond ₹100.</div></div>
+    <div class="faq-item"><div class="faq-q" onclick="tf(this)">Is this legal? Does it break Claude's terms?<span class="faq-ar">▾</span></div><div class="faq-a">Yes, it's legal. It's a VS Code extension showing status-bar text — a standard documented use of the Extension API. No Claude terms are violated and we claim no Anthropic partnership. It runs only on your local machine.</div></div>
   </div>
 </section>
 
-<section class="final-cta">
-  <h2>Aaj install karo.<br>Kal se <em>paisa aayega.</em></h2>
-  <p>Free install. Koi credit card nahi. UPI ID daalo, code karo, invite karo.</p>
+<section class="final">
+  <h2>Stop watching the spinner.<br><span class="grad">Start earning from it.</span></h2>
+  <p>Free to install. No credit card. Just your UPI ID.</p>
   <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
-    <a href="https://marketplace.visualstudio.com" class="btn-primary" style="font-size:16px;padding:18px 36px">⚡ Install VS Code Extension</a>
-    <a href="#advertise" class="btn-secondary" style="font-size:16px;padding:18px 36px">Advertise on WaitJI AI</a>
+    <button class="btn-solid btn-lg" onclick="openAuth('signup','customer')">Start earning →</button>
+    <button class="btn-outline-lg btn-lg" onclick="openAuth('signup','advertiser')">Advertise with us</button>
   </div>
-  <p style="margin-top:32px;font-size:12px;color:var(--muted);font-family:var(--mono)">Made in 🇮🇳 Udaipur · QivaLabs LLP · sales@qivalabs.com</p>
+  <p style="margin-top:30px;font-size:12px;color:var(--muted2);font-family:var(--mono)">Made in Udaipur · QivaLabs LLP · sales@qivalabs.com</p>
 </section>
 
 <footer>
-  <div class="logo" style="font-size:15px"><span class="logo-dot"></span>Wait<em style="color:var(--blue)">JI</em> AI</div>
-  <div class="footer-links">
-    <a href="#faq">FAQ</a>
-    <a href="https://waitjiai.in/privacy">Privacy</a>
-    <a href="https://waitjiai.in/terms">Terms</a>
-    <a href="mailto:sales@qivalabs.com">Contact</a>
-  </div>
-  <div>© 2026 WaitJI AI · QivaLabs LLP</div>
+  <div class="logo" style="font-size:15px"><span class="logo-mark" style="width:26px;height:26px"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.35)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></span>Wait<em>JI</em> AI</div>
+  <div class="foot-links"><a href="#faq">FAQ</a><a href="#">Privacy</a><a href="#">Terms</a><a href="mailto:sales@qivalabs.com">Contact</a></div>
+  <div>© 2026 QivaLabs LLP</div>
 </footer>
 
-<div class="toast" id="toast">
-  <div class="toast-title" id="toast-title">Done!</div>
-  <div class="toast-sub" id="toast-sub"></div>
+<!-- AUTH MODAL -->
+<div class="modal-bg" id="authModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeAuth()">✕</button>
+    <h2 id="authTitle">Get started</h2>
+    <p class="modal-sub" id="authSub">Create your account in seconds</p>
+    <div class="modal-err" id="authErr"></div>
+    <div class="role-toggle" id="roleToggle">
+      <button class="role-btn active" data-role="customer" onclick="setRole('customer')">💻 I want to earn</button>
+      <button class="role-btn" data-role="advertiser" onclick="setRole('advertiser')">📣 I want to advertise</button>
+    </div>
+    <div id="signupFields">
+      <div class="field" id="nameField"><label id="nameLabel">Your name</label><input type="text" id="auName" placeholder="Rahul Sharma"></div>
+      <div class="field" id="companyField" style="display:none"><label>Company name</label><input type="text" id="auCompany" placeholder="Acme Inc"></div>
+      <div class="field" id="upiField"><label>UPI ID (for payouts)</label><input type="text" id="auUpi" placeholder="yourname@upi"></div>
+    </div>
+    <div class="field"><label>Email</label><input type="email" id="auEmail" placeholder="you@email.com"></div>
+    <div class="field"><label>Password</label><input type="password" id="auPass" placeholder="Min 6 characters"></div>
+    <button class="btn-solid" id="authSubmit" onclick="submitAuth()">Create account</button>
+    <div class="modal-switch" id="authSwitch">Already have an account? <a onclick="switchMode('login')">Log in</a></div>
+  </div>
 </div>
+
+<div class="toast" id="toast"><div class="toast-t" id="toastT">Done</div><div class="toast-s" id="toastS"></div></div>
 
 <script>
 const API = 'https://waitjiai-backend.onrender.com';
-const frames = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
-let fi = 0;
-setInterval(() => {
-  fi = (fi+1) % frames.length;
-  document.getElementById('sp1').textContent = frames[fi];
-  document.getElementById('sp2').textContent = frames[(fi+3) % frames.length];
-}, 100);
+let authMode = 'signup', authRole = 'customer';
 
-async function loadStats() {
-  try {
-    const r = await fetch(API + '/v1/stats');
-    const d = await r.json();
-    document.getElementById('tick-imp').textContent = (d.totalImpressions || 0).toLocaleString('en-IN');
-    document.getElementById('tick-camps').textContent = d.activeCampaigns || 0;
-    const earned = parseFloat(d.totalEarnedByDevsRupees || 0);
-    document.getElementById('tick-earn').textContent = '₹' + earned.toLocaleString('en-IN', {minimumFractionDigits:2});
-  } catch(e) {
-    document.getElementById('tick-earn').textContent = '₹0.00';
-    document.getElementById('tick-imp').textContent = '0';
-    document.getElementById('tick-camps').textContent = '0';
-  }
+// spinner
+const fr = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏']; let fi=0;
+setInterval(()=>{ fi=(fi+1)%fr.length; document.getElementById('sp1').textContent=fr[fi]; document.getElementById('sp2').textContent=fr[(fi+3)%fr.length]; },100);
+
+// stats
+async function loadStats(){
+  try{ const d=await (await fetch(API+'/v1/stats')).json();
+    document.getElementById('tk-imp').textContent=(d.totalImpressions||0).toLocaleString('en-IN');
+    document.getElementById('tk-camp').textContent=d.activeCampaigns||0;
+    document.getElementById('tk-earn').textContent='₹'+parseFloat(d.totalEarnedByDevsRupees||0).toLocaleString('en-IN');
+  }catch(e){}
+}
+async function loadCamps(){
+  const el=document.getElementById('camps');
+  try{ const d=await (await fetch(API+'/v1/ads/active')).json(); const ads=d.ads||[];
+    if(!ads.length){ el.innerHTML='<div class="lc-empty"><div style="font-size:24px;margin-bottom:8px">🎯</div><strong>No live campaigns yet.</strong><br>Be the first advertiser — from ₹200 CPM.</div>'; document.getElementById('dad-t').textContent='Be the first advertiser → waitjiai.in'; return; }
+    el.innerHTML=ads.map((a,i)=>`<div class="lc-row"><span class="lc-rank">${String(i+1).padStart(2,'0')}</span><div style="flex:1;min-width:0"><div class="lc-name">${esc(a.advertiser)}</div><div class="lc-txt">${esc(a.text)}</div></div><span class="lc-bid">₹${(a.cpmPaise/100).toFixed(0)}/1K</span><span class="lc-status">Live</span></div>`).join('');
+    const set=a=>{ document.getElementById('dad-t').textContent=a.text; const p=(a.cpmPaise/1000)*3*0.5; document.getElementById('dad-e').textContent='+₹'+(p/100).toFixed(2); };
+    set(ads[0]); let ai=0;
+    setInterval(()=>{ ai=(ai+1)%ads.length; const t=document.getElementById('dad-t'); t.style.opacity=0; t.style.transition='opacity 0.3s'; setTimeout(()=>{set(ads[ai]);t.style.opacity=1;},300); },4000);
+  }catch(e){ el.innerHTML='<div class="lc-empty">📡 Server waking up… refresh in a moment.</div>'; document.getElementById('dad-t').textContent='Your brand here → waitjiai.in'; }
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// calc
+function calc(){
+  const s=+r1.value, cpm=+r3.value, rf=+r4.value;
+  v1.textContent=s; v3.textContent='₹'+cpm; v4.textContent=rf;
+  const direct=(s*3*30/1000)*cpm*0.5;
+  const ref=(rf*40*3*30/1000)*cpm*0.5*0.10;
+  cnum.textContent='₹'+Math.round(direct+ref).toLocaleString('en-IN');
+  cd.textContent='₹'+Math.round(direct).toLocaleString('en-IN');
+  cr.textContent='₹'+Math.round(ref).toLocaleString('en-IN');
 }
 
-async function loadCampaigns() {
-  const list = document.getElementById('campaigns-list');
-  try {
-    const r = await fetch(API + '/v1/ads/active');
-    const d = await r.json();
-    const ads = d.ads || [];
-    if (ads.length === 0) {
-      list.innerHTML = `<div class="lc-empty"><div style="font-size:24px;margin-bottom:10px">🎯</div><strong style="color:var(--white)">Abhi koi live campaign nahi hai.</strong><br>Pehle advertiser bano — ₹200 CPM se shuru karo.</div>`;
-      document.getElementById('demo-ad-text').textContent = 'Be the first advertiser → waitjiai.in';
-      return;
+// faq
+function tf(el){ const it=el.parentElement; const o=it.classList.contains('open'); document.querySelectorAll('.faq-item').forEach(i=>i.classList.remove('open')); if(!o)it.classList.add('open'); }
+
+// auth modal
+function openAuth(mode,role){ authMode=mode; if(role)authRole=role; renderAuth(); document.getElementById('authModal').classList.add('show'); }
+function closeAuth(){ document.getElementById('authModal').classList.remove('show'); document.getElementById('authErr').classList.remove('show'); }
+function setRole(r){ authRole=r; document.querySelectorAll('.role-btn').forEach(b=>b.classList.toggle('active',b.dataset.role===r));
+  document.getElementById('companyField').style.display=r==='advertiser'?'block':'none';
+  document.getElementById('upiField').style.display=r==='customer'?'block':'none';
+  document.getElementById('nameLabel').textContent=r==='advertiser'?'Contact name':'Your name';
+}
+function switchMode(m){ authMode=m; renderAuth(); }
+function renderAuth(){
+  const isLogin=authMode==='login';
+  document.getElementById('authTitle').textContent=isLogin?'Welcome back':'Get started';
+  document.getElementById('authSub').textContent=isLogin?'Log in to your dashboard':'Create your account in seconds';
+  document.getElementById('signupFields').style.display=isLogin?'none':'block';
+  document.getElementById('roleToggle').style.display=isLogin?'none':'flex';
+  document.getElementById('authSubmit').textContent=isLogin?'Log in':'Create account';
+  document.getElementById('authSwitch').innerHTML=isLogin?`New here? <a onclick="switchMode('signup')">Create account</a>`:`Already have an account? <a onclick="switchMode('login')">Log in</a>`;
+  if(!isLogin) setRole(authRole);
+  document.getElementById('authErr').classList.remove('show');
+}
+function showErr(m){ const e=document.getElementById('authErr'); e.textContent=m; e.classList.add('show'); }
+
+async function submitAuth(){
+  const email=document.getElementById('auEmail').value.trim();
+  const password=document.getElementById('auPass').value;
+  if(!email||!password){ showErr('Email and password required'); return; }
+  const btn=document.getElementById('authSubmit'); btn.textContent='Please wait…'; btn.disabled=true;
+  try{
+    let res, data;
+    if(authMode==='login'){
+      res=await fetch(API+'/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+    }else{
+      const body={email,password,role:authRole,name:document.getElementById('auName').value.trim()};
+      if(authRole==='advertiser')body.company=document.getElementById('auCompany').value.trim();
+      if(authRole==='customer')body.upiId=document.getElementById('auUpi').value.trim();
+      res=await fetch(API+'/v1/auth/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     }
-    list.innerHTML = ads.map((ad, i) => `
-      <div class="lc-row">
-        <span class="lc-rank">${String(i+1).padStart(2,'0')}</span>
-        <div style="flex:1;min-width:0">
-          <div class="lc-name">${escHtml(ad.advertiser)}</div>
-          <div class="lc-text">${escHtml(ad.text)}</div>
-        </div>
-        <span class="lc-bid">₹${(ad.cpmPaise/100).toFixed(0)}/1K</span>
-        <span class="lc-status active">Live</span>
-      </div>`).join('');
-    if (ads[0]) {
-      const setAd = (ad) => {
-        document.getElementById('demo-ad-text').textContent = ad.text;
-        // cpmPaise / 1000 = paise per impression, × 3 ads, dev gets 50%
-        const perImpPaise = (ad.cpmPaise / 1000) * 3 * 0.5;
-        document.getElementById('demo-ad-earn').textContent = '+₹' + (perImpPaise/100).toFixed(2);
-      };
-      setAd(ads[0]);
-      let ai = 0;
-      setInterval(() => {
-        ai = (ai+1) % ads.length;
-        const el = document.getElementById('demo-ad-text');
-        el.style.opacity = 0; el.style.transition = 'opacity 0.3s';
-        setTimeout(() => { setAd(ads[ai]); el.style.opacity = 1; }, 300);
-      }, 4000);
-    }
-  } catch(e) {
-    list.innerHTML = `<div class="lc-empty"><div style="font-size:20px;margin-bottom:8px">📡</div>Server connect nahi ho pa raha. Thodi der mein try karo.</div>`;
-    document.getElementById('demo-ad-text').textContent = 'Your brand here → waitjiai.in';
-  }
-}
-function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-
-function calcEarn() {
-  const sessions = parseInt(document.getElementById('r1').value);
-  const cpm = parseInt(document.getElementById('r3').value);
-  const refs = parseInt(document.getElementById('r4').value);
-  document.getElementById('rv1').textContent = sessions;
-  document.getElementById('rv3').textContent = '₹' + cpm;
-  document.getElementById('rv4').textContent = refs;
-
-  const ADS_PER_SESSION = 3;
-  // Direct: sessions × 3 ads × 30 days. CPM is rupees per 1000 imps, dev gets 50%
-  const directImps = sessions * ADS_PER_SESSION * 30;
-  const directEarn = (directImps / 1000) * cpm * 0.5;
-  // Referral: each ref avg 40 sessions/day × 3 ads × 30, you get 10% of their 50%
-  const refImps = refs * 40 * ADS_PER_SESSION * 30;
-  const refEarn = (refImps / 1000) * cpm * 0.5 * 0.10;
-
-  const total = directEarn + refEarn;
-  document.getElementById('earn-val').textContent = '₹' + Math.round(total).toLocaleString('en-IN');
-  document.getElementById('bd-direct').textContent = '₹' + Math.round(directEarn).toLocaleString('en-IN');
-  document.getElementById('bd-ref').textContent = '₹' + Math.round(refEarn).toLocaleString('en-IN');
+    data=await res.json();
+    if(!res.ok){ showErr(data.error||'Something went wrong'); btn.disabled=false; btn.textContent=authMode==='login'?'Log in':'Create account'; return; }
+    // store token + redirect to dashboard
+    localStorage.setItem('waitji_token',data.token);
+    localStorage.setItem('waitji_role',data.user.role);
+    const dash = data.user.role==='admin'?'admin.html':data.user.role==='advertiser'?'advertiser.html':'customer.html';
+    window.location.href=dash;
+  }catch(e){ showErr('Network error — backend may be waking up. Try again in 30s.'); btn.disabled=false; btn.textContent=authMode==='login'?'Log in':'Create account'; }
 }
 
-document.getElementById('f-adtext').addEventListener('input', function() {
-  document.getElementById('char-count').textContent = this.value.length;
-});
+// already logged in? show dashboard link
+(function(){ const t=localStorage.getItem('waitji_token'), r=localStorage.getItem('waitji_role');
+  if(t&&r){ const a=document.querySelector('.nav-actions'); const dash=r==='admin'?'admin.html':r==='advertiser'?'advertiser.html':'customer.html';
+    a.innerHTML=`<a class="btn-solid" href="${dash}">My dashboard →</a>`; }
+})();
 
-async function submitCampaign() {
-  const company = document.getElementById('f-company').value.trim();
-  const email = document.getElementById('f-email').value.trim();
-  const adText = document.getElementById('f-adtext').value.trim();
-  const url = document.getElementById('f-url').value.trim();
-  const bid = parseInt(document.getElementById('f-bid').value);
-  const budget = parseInt(document.getElementById('f-budget').value);
-  const target = document.getElementById('f-target').value;
-  if (!company || !email || !adText || !url) { showToast('⚠️','Kuch fields khali hain','Company, email, ad text aur URL required.'); return; }
-  if (!bid || bid < 200) { showToast('⚠️','Minimum bid ₹200','CPM bid kam se kam ₹200.'); return; }
-  if (!budget || budget < 1000) { showToast('⚠️','Minimum budget ₹1,000','Budget kam se kam ₹1,000.'); return; }
-  try {
-    const res = await fetch(API + '/v1/campaigns', {
-      method:'POST', headers:{'Content-Type':'application/json','X-API-Key':'public'},
-      body:JSON.stringify({advertiser:company, adText, url, bidPerKImpressionsPaise:bid*100, budgetPaise:budget*100, targetingCategory:target, contactEmail:email})
-    });
-    if (res.ok) {
-      showToast('🎉','Campaign Submit Ho Gaya!',`${company} ka campaign 24 ghante mein review hoga.`);
-      ['f-company','f-email','f-adtext','f-url','f-bid','f-budget'].forEach(id => document.getElementById(id).value='');
-      document.getElementById('char-count').textContent='0';
-      setTimeout(loadCampaigns, 2000);
-    } else { showToast('❌','Error aaya','Dobara try karo ya sales@qivalabs.com pe email karo.'); }
-  } catch(e) { showToast('📧','Request Received!',`${company} ka request mila. sales@qivalabs.com se confirm hoga.`); }
-}
-
-function toggleFaq(el) {
-  const item = el.parentElement;
-  const wasOpen = item.classList.contains('open');
-  document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
-  if (!wasOpen) item.classList.add('open');
-}
-function showToast(icon, title, sub) {
-  document.getElementById('toast-title').textContent = icon + ' ' + title;
-  document.getElementById('toast-sub').textContent = sub;
-  const t = document.getElementById('toast');
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 5000);
-}
-
-loadStats(); loadCampaigns(); calcEarn();
-setInterval(loadStats, 30000);
+loadStats(); loadCamps(); calc();
+setInterval(loadStats,30000);
+document.getElementById('authModal').addEventListener('click',e=>{ if(e.target.id==='authModal')closeAuth(); });
 </script>
 </body>
 </html>
