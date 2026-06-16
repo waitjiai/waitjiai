@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WaitJI AI — Earnings Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--indigo:#4F46E5;--indigo-dark:#4338CA;--indigo-soft:#EEF2FF;--sky:#0EA5E9;--green:#10B981;--green-soft:#D1FAE5;--amber:#F59E0B;--red:#EF4444;--bg:#FBFBFD;--surface:#FFFFFF;--surface2:#F6F7FB;--border:#E8EAF0;--border2:#DDE0EA;--ink:#0F1222;--ink2:#3A3F55;--muted:#6B7185;--muted2:#9AA0B4;--sans:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;--shadow-sm:0 1px 3px rgba(15,18,34,.06);--shadow:0 4px 24px rgba(15,18,34,.08);}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.6;}
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:var(--surface);border-bottom:1px solid var(--border);}
+.logo{font-family:var(--mono);font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);}
+.logo-mark{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,var(--indigo),var(--sky));display:flex;align-items:center;justify-content:center;}
+.logo-mark svg{width:17px;height:17px;}
+.logo em{color:var(--indigo);font-style:normal;}
+.topbar-r{display:flex;align-items:center;gap:14px;}
+.role-pill{font-size:11px;font-weight:600;padding:5px 12px;border-radius:100px;background:var(--green-soft);color:#047857;font-family:var(--mono);}
+.user-email{font-size:13px;color:var(--muted);}
+.btn-out{background:transparent;border:1px solid var(--border2);color:var(--ink);padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);}
+.btn-out:hover{border-color:var(--indigo);color:var(--indigo);}
+.wrap{max-width:1080px;margin:0 auto;padding:32px;}
+.page-h{font-family:var(--sans);font-size:26px;font-weight:700;letter-spacing:-0.5px;margin-bottom:4px;}
+.page-sub{color:var(--muted);font-size:14px;margin-bottom:28px;}
+.live-tag{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--green);font-family:var(--mono);font-weight:500;margin-left:10px;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.6s infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.4)}50%{box-shadow:0 0 0 5px rgba(16,185,129,0)}}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px;box-shadow:var(--shadow-sm);}
+.card.hero-card{background:linear-gradient(135deg,var(--indigo),var(--indigo-dark));color:#fff;border:none;}
+.card-label{font-size:12px;color:var(--muted);font-weight:500;margin-bottom:8px;}
+.hero-card .card-label{color:rgba(255,255,255,.8);}
+.card-val{font-family:var(--mono);font-size:30px;font-weight:700;letter-spacing:-1px;}
+.card-sub{font-size:12px;color:var(--muted2);margin-top:4px;}
+.hero-card .card-sub{color:rgba(255,255,255,.7);}
+.grid2{display:grid;grid-template-columns:1.4fr 1fr;gap:20px;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;box-shadow:var(--shadow-sm);}
+.panel-h{font-family:var(--sans);font-size:16px;font-weight:600;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;}
+.activity{display:flex;flex-direction:column;gap:2px;max-height:380px;overflow-y:auto;}
+.act-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border);}
+.act-row:last-child{border-bottom:none;}
+.act-ic{width:34px;height:34px;border-radius:9px;background:var(--indigo-soft);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.act-tx{flex:1;}
+.act-tx h4{font-size:13px;font-weight:600;}
+.act-tx p{font-size:11px;color:var(--muted2);font-family:var(--mono);}
+.act-amt{font-family:var(--mono);font-size:13px;color:var(--green);font-weight:600;}
+.act-empty{text-align:center;padding:40px 20px;color:var(--muted2);font-size:13px;}
+.upi-box{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:18px;}
+.upi-label{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;}
+.upi-val{font-family:var(--mono);font-size:15px;font-weight:600;}
+.upi-input{display:flex;gap:8px;margin-top:8px;}
+.upi-input input{flex:1;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;font-family:var(--mono);font-size:13px;outline:none;}
+.upi-input input:focus{border-color:var(--indigo);}
+.btn-solid{background:var(--indigo);color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);}
+.btn-solid:hover{background:var(--indigo-dark);}
+.btn-solid:disabled{opacity:.5;cursor:not-allowed;}
+.btn-payout{width:100%;justify-content:center;padding:13px;font-size:15px;margin-top:4px;}
+.ref-box{background:linear-gradient(135deg,var(--indigo-soft),#E0F2FE);border:1px solid #C7D2FE;border-radius:12px;padding:18px;margin-top:18px;}
+.ref-box h4{font-size:14px;font-weight:600;margin-bottom:6px;}
+.ref-box p{font-size:12px;color:var(--muted);margin-bottom:10px;}
+.ref-link{display:flex;gap:8px;}
+.ref-link input{flex:1;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;font-family:var(--mono);font-size:12px;outline:none;color:var(--ink2);}
+.loading{text-align:center;padding:60px;color:var(--muted2);font-family:var(--mono);font-size:13px;}
+.toast{position:fixed;bottom:28px;right:28px;background:var(--surface);border:1px solid var(--green);border-radius:12px;padding:14px 20px;box-shadow:var(--shadow);transform:translateY(90px);opacity:0;transition:all .3s;z-index:100;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast-t{font-weight:600;font-size:14px;}
+.toast-s{font-size:12px;color:var(--muted);}
+@media(max-width:860px){.wrap{padding:20px;}.cards{grid-template-columns:repeat(2,1fr);}.grid2{grid-template-columns:1fr;}.topbar{padding:12px 18px;}.user-email{display:none;}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="logo" href="index.html"><span class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.35)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></span>Wait<em>JI</em> AI</a>
+  <div class="topbar-r">
+    <span class="role-pill">EARNER</span>
+    <span class="user-email" id="userEmail">—</span>
+    <button class="btn-out" onclick="logout()">Log out</button>
+  </div>
+</div>
+
+<div class="wrap" id="content">
+  <div class="loading">Loading your dashboard…</div>
+</div>
+
+<div class="toast" id="toast"><div class="toast-t" id="toastT">Done</div><div class="toast-s" id="toastS"></div></div>
+
+<script>
+const API='https://waitjiai-backend.onrender.com';
+const token=localStorage.getItem('waitji_token');
+const role=localStorage.getItem('waitji_role');
+if(!token||role!=='customer'){ window.location.href='index.html'; }
+const H={'Authorization':'Bearer '+token,'Content-Type':'application/json'};
+
+function logout(){ localStorage.clear(); window.location.href='index.html'; }
+function toast(t,s){ document.getElementById('toastT').textContent=t; document.getElementById('toastS').textContent=s||''; const el=document.getElementById('toast'); el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),3500); }
+
+let me=null;
+async function load(){
+  try{
+    const meR=await fetch(API+'/v1/auth/me',{headers:H});
+    if(!meR.ok){ logout(); return; }
+    me=(await meR.json()).user;
+    document.getElementById('userEmail').textContent=me.email;
+    const e=await (await fetch(API+'/v1/customer/earnings',{headers:H})).json();
+    const a=await (await fetch(API+'/v1/customer/activity',{headers:H})).json();
+    render(e,a.activity||[]);
+  }catch(err){ document.getElementById('content').innerHTML='<div class="loading">Backend waking up… <a href="" onclick="location.reload();return false">retry</a></div>'; }
+}
+
+function render(e,activity){
+  const refLink=`https://waitjiai.in/r/${me.id}`;
+  document.getElementById('content').innerHTML=`
+    <h1 class="page-h">Welcome back${me.name?', '+me.name:''} 👋</h1>
+    <p class="page-sub">Your earnings update in real time as you code<span class="live-tag"><span class="live-dot"></span>LIVE</span></p>
+    <div class="cards">
+      <div class="card hero-card"><div class="card-label">Total earned</div><div class="card-val">₹${e.totalEarnedRupees}</div><div class="card-sub">all time</div></div>
+      <div class="card"><div class="card-label">Today</div><div class="card-val" style="color:var(--green)">₹${e.todayRupees}</div><div class="card-sub">last 24 hours</div></div>
+      <div class="card"><div class="card-label">Available to withdraw</div><div class="card-val">₹${e.pendingRupees}</div><div class="card-sub">min ₹100</div></div>
+      <div class="card"><div class="card-label">Impressions</div><div class="card-val">${e.impressions.toLocaleString('en-IN')}</div><div class="card-sub">${e.clicks} clicks</div></div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <div class="panel-h">Live activity <span class="live-tag"><span class="live-dot"></span>auto-refresh</span></div>
+        <div class="activity" id="activity">${activity.length?activity.map(act=>`
+          <div class="act-row"><div class="act-ic">💻</div><div class="act-tx"><h4>Ad impression</h4><p>${new Date(act.ts).toLocaleTimeString('en-IN')}</p></div><div class="act-amt">+₹${(act.earnedPaise/100).toFixed(2)}</div></div>
+        `).join(''):'<div class="act-empty">No activity yet.<br>Install the extension & start coding to see earnings here.</div>'}</div>
+      </div>
+      <div>
+        <div class="panel">
+          <div class="panel-h">Payout</div>
+          <div class="upi-box">
+            <div class="upi-label">Your UPI ID</div>
+            ${me.upiId?`<div class="upi-val">${me.upiId}</div>`:`<div class="upi-input"><input id="upiInput" placeholder="yourname@upi"><button class="btn-solid" onclick="saveUpi()">Save</button></div>`}
+          </div>
+          <button class="btn-solid btn-payout" onclick="payout()" ${parseFloat(e.pendingRupees)<100?'disabled':''}>Withdraw ₹${e.pendingRupees} to UPI</button>
+          <p style="font-size:11px;color:var(--muted2);text-align:center;margin-top:8px">${parseFloat(e.pendingRupees)<100?'Earn ₹100 to unlock withdrawal':'Arrives in 2-3 business days'}</p>
+        </div>
+        <div class="ref-box">
+          <h4>🤝 Your referral link</h4>
+          <p>Earn 10% of everything your referrals make — for life.</p>
+          <div class="ref-link"><input value="${refLink}" readonly id="refInput"><button class="btn-solid" onclick="copyRef()">Copy</button></div>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function saveUpi(){
+  const upi=document.getElementById('upiInput').value.trim();
+  if(!upi){ toast('⚠️ Enter a UPI ID'); return; }
+  await fetch(API+'/v1/customer/profile',{method:'PATCH',headers:H,body:JSON.stringify({upiId:upi})});
+  toast('✓ UPI saved'); load();
+}
+async function payout(){
+  const r=await fetch(API+'/v1/customer/payout',{method:'POST',headers:H});
+  const d=await r.json();
+  if(r.ok){ toast('🎉 Payout requested!','Money arrives in 2-3 days'); load(); }
+  else toast('⚠️ '+(d.error||'Could not process'));
+}
+function copyRef(){ const i=document.getElementById('refInput'); i.select(); navigator.clipboard.writeText(i.value); toast('✓ Referral link copied'); }
+
+load();
+setInterval(load,15000); // real-time refresh every 15s
+</script>
+</body>
+</html>
