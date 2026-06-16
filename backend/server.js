@@ -15,6 +15,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'waitji-dev-secret-change-in-prod';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@waitjiai.in';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'WaitJI@Admin2026';
 const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data.json');
+// Supabase (identity provider for customers + advertisers)
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://tqfjdhneycntoasahstt.supabase.co';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZmpkaG5leWNudG9hc2Foc3R0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mjg1ODcsImV4cCI6MjA5NzIwNDU4N30.u5oqo0c9tmZ7OxZW6R2hbMxUyVrM4nedYsGKC8PR4TA';
 
 // ── Persistent JSON "database" ─────────────────────────────────────────────────
 let db = {
@@ -183,6 +186,30 @@ function getIP(req) {
   return (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
       || req.socket.remoteAddress || 'unknown';
 }
+// ── Supabase token validation ──────────────────────────────────────────────────
+// Validates a Supabase access token by asking Supabase who the user is.
+// Returns { id, email, phone, emailVerified, phoneVerified, provider } or null.
+async function validateSupabaseToken(accessToken) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${accessToken}` },
+    });
+    if (!r.ok) return null;
+    const u = await r.json();
+    if (!u || !u.id) return null;
+    return {
+      id: u.id,
+      email: (u.email || '').toLowerCase(),
+      phone: u.phone || '',
+      emailVerified: !!u.email_confirmed_at,
+      phoneVerified: !!u.phone_confirmed_at,
+      provider: (u.app_metadata && u.app_metadata.provider) || 'email',
+      meta: u.user_metadata || {},
+    };
+  } catch (e) { console.error('Supabase validate error:', e.message); return null; }
+}
+
 function auth(req) {
   const h = req.headers['authorization'] || '';
   const token = h.startsWith('Bearer ') ? h.slice(7) : null;
@@ -209,37 +236,59 @@ const server = http.createServer(async (req, res) => {
   try {
     // ═══════════ PUBLIC ═══════════
     if (method === 'GET' && url === '/health') {
-      return send(res, 200, { status: 'ok', version: '2.0.0', ts: Date.now() });
+      return send(res, 200, { status: 'ok', version: '3.0.0-supabase', ts: Date.now() });
     }
     if (method === 'GET' && url === '/') {
       return send(res, 200, { message: 'WaitJI AI API v2', auth: true });
     }
 
-    // ── Auth: signup ──
-    if (method === 'POST' && url === '/v1/auth/signup') {
+    // ── Auth: Supabase token exchange (customers + advertisers) ──
+    // Frontend logs in via Supabase (verified email / Google / phone),
+    // then exchanges the Supabase token for a WaitJI backend token.
+    if (method === 'POST' && url === '/v1/auth/exchange') {
       const b = await getBody(req);
-      const { email, password, role, name, company, upiId } = b;
-      if (!email || !password || !role) return send(res, 400, { error: 'email, password, role required' });
-      if (!['advertiser', 'customer'].includes(role)) return send(res, 400, { error: 'invalid role' });
-      if (password.length < 6) return send(res, 400, { error: 'password min 6 chars' });
-      const exists = Object.values(db.users).find(u => u.email === email.toLowerCase());
-      if (exists) return send(res, 409, { error: 'email already registered' });
-      const id = uid(role === 'advertiser' ? 'adv_' : 'cust_');
-      const user = {
-        id, email: email.toLowerCase(), passwordHash: hashPassword(password), role,
-        name: name || '', company: company || '', upiId: upiId || '',
-        createdAt: Date.now(), banned: false,
-      };
-      db.users[id] = user; saveDB();
-      const token = signToken({ uid: id, role });
-      return send(res, 201, { token, user: publicUser(user) });
+      const sbUser = await validateSupabaseToken(b.access_token);
+      if (!sbUser) return send(res, 401, { error: 'invalid or expired Supabase session' });
+      // require verified email (Supabase enforces this too, double-check here)
+      if (!sbUser.emailVerified && !sbUser.phoneVerified) {
+        return send(res, 403, { error: 'please verify your email before continuing' });
+      }
+      const profileId = 'sb_' + sbUser.id;
+      let user = db.users[profileId];
+      if (!user) {
+        // first login → create profile. Role chosen at signup (customer/advertiser only).
+        let role = (b.role === 'advertiser') ? 'advertiser' : 'customer';
+        user = {
+          id: profileId, supabaseId: sbUser.id, email: sbUser.email, phone: sbUser.phone,
+          role, name: b.name || sbUser.meta.name || '', company: b.company || sbUser.meta.company || '',
+          upiId: b.upiId || sbUser.meta.upiId || '',
+          provider: sbUser.provider, emailVerified: sbUser.emailVerified, phoneVerified: sbUser.phoneVerified,
+          createdAt: Date.now(), banned: false,
+        };
+        db.users[profileId] = user;
+      } else {
+        // existing → refresh verification status + contact, but NEVER change role here
+        user.email = sbUser.email || user.email;
+        user.phone = sbUser.phone || user.phone;
+        user.emailVerified = sbUser.emailVerified;
+        user.phoneVerified = sbUser.phoneVerified;
+      }
+      if (user.banned) return send(res, 403, { error: 'account suspended' });
+      saveDB();
+      const token = signToken({ uid: user.id, role: user.role });
+      return send(res, 200, { token, user: publicUser(user) });
     }
 
-    // ── Auth: login ──
+    // ── Old direct signup: DISABLED (fake-account prevention) ──
+    if (method === 'POST' && url === '/v1/auth/signup') {
+      return send(res, 410, { error: 'signup now requires email/Google verification — use the website signup' });
+    }
+
+    // ── Auth: login (ADMIN ONLY — internal account, password-based) ──
     if (method === 'POST' && url === '/v1/auth/login') {
       const b = await getBody(req);
       const { email, password } = b;
-      const user = Object.values(db.users).find(u => u.email === (email || '').toLowerCase());
+      const user = Object.values(db.users).find(u => u.email === (email || '').toLowerCase() && u.role === 'admin');
       if (!user || !verifyPassword(password, user.passwordHash)) {
         return send(res, 401, { error: 'invalid credentials' });
       }
@@ -544,7 +593,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 function publicUser(u) {
-  return { id: u.id, email: u.email, role: u.role, name: u.name, company: u.company, upiId: u.upiId, banned: u.banned, createdAt: u.createdAt };
+  return { id: u.id, email: u.email, phone: u.phone || '', role: u.role, name: u.name, company: u.company, upiId: u.upiId, provider: u.provider || 'email', emailVerified: !!u.emailVerified, phoneVerified: !!u.phoneVerified, banned: u.banned, createdAt: u.createdAt };
 }
 
 seed();
