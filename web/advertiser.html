@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WaitJI AI — Advertiser Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--indigo:#4F46E5;--indigo-dark:#4338CA;--indigo-soft:#EEF2FF;--sky:#0EA5E9;--green:#10B981;--green-soft:#D1FAE5;--amber:#F59E0B;--amber-soft:#FEF3C7;--red:#EF4444;--red-soft:#FEE2E2;--bg:#FBFBFD;--surface:#FFFFFF;--surface2:#F6F7FB;--border:#E8EAF0;--border2:#DDE0EA;--ink:#0F1222;--ink2:#3A3F55;--muted:#6B7185;--muted2:#9AA0B4;--sans:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;--shadow-sm:0 1px 3px rgba(15,18,34,.06);--shadow:0 4px 24px rgba(15,18,34,.08);}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.6;}
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:var(--surface);border-bottom:1px solid var(--border);}
+.logo{font-family:var(--mono);font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);}
+.logo-mark{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,var(--indigo),var(--sky));display:flex;align-items:center;justify-content:center;}
+.logo-mark svg{width:17px;height:17px;}.logo em{color:var(--indigo);font-style:normal;}
+.topbar-r{display:flex;align-items:center;gap:14px;}
+.role-pill{font-size:11px;font-weight:600;padding:5px 12px;border-radius:100px;background:var(--indigo-soft);color:var(--indigo);font-family:var(--mono);}
+.user-email{font-size:13px;color:var(--muted);}
+.btn-out{background:transparent;border:1px solid var(--border2);color:var(--ink);padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);}
+.btn-out:hover{border-color:var(--indigo);color:var(--indigo);}
+.wrap{max-width:1080px;margin:0 auto;padding:32px;}
+.page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;}
+.page-h{font-family:var(--sans);font-size:26px;font-weight:700;letter-spacing:-.5px;}
+.page-sub{color:var(--muted);font-size:14px;}
+.btn-solid{background:var(--indigo);color:#fff;border:none;padding:11px 20px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--body);display:inline-flex;align-items:center;gap:7px;}
+.btn-solid:hover{background:var(--indigo-dark);}
+.btn-solid:disabled{opacity:.5;cursor:not-allowed;}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px;box-shadow:var(--shadow-sm);}
+.card.fraud{background:var(--green-soft);border-color:#A7F3D0;}
+.card-label{font-size:12px;color:var(--muted);font-weight:500;margin-bottom:8px;}
+.fraud .card-label{color:#047857;}
+.card-val{font-family:var(--mono);font-size:28px;font-weight:700;letter-spacing:-1px;}
+.fraud .card-val{color:#047857;}
+.card-sub{font-size:12px;color:var(--muted2);margin-top:4px;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;box-shadow:var(--shadow-sm);margin-bottom:20px;}
+.panel-h{font-family:var(--sans);font-size:16px;font-weight:600;margin-bottom:18px;}
+table{width:100%;border-collapse:collapse;}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted2);font-weight:600;padding:10px 12px;border-bottom:1px solid var(--border);}
+td{padding:13px 12px;border-bottom:1px solid var(--border);font-size:13px;}
+tr:last-child td{border-bottom:none;}
+.camp-name{font-weight:600;}
+.camp-txt{font-size:12px;color:var(--muted);}
+.status{font-size:10px;padding:3px 9px;border-radius:100px;font-weight:600;}
+.status.active{background:var(--green-soft);color:#047857;}
+.status.pending{background:var(--amber-soft);color:#92400E;}
+.status.paused{background:var(--surface2);color:var(--muted);}
+.status.rejected{background:var(--red-soft);color:#B91C1C;}
+.status.completed{background:var(--indigo-soft);color:var(--indigo);}
+.bar{height:6px;background:var(--surface2);border-radius:100px;overflow:hidden;margin-top:4px;}
+.bar-fill{height:100%;background:var(--indigo);border-radius:100px;}
+.empty{text-align:center;padding:50px;color:var(--muted2);}
+.empty-ic{font-size:36px;margin-bottom:12px;}
+.mini-btn{background:var(--surface2);border:1px solid var(--border2);padding:5px 10px;border-radius:7px;font-size:12px;cursor:pointer;font-family:var(--body);font-weight:600;color:var(--ink2);}
+.mini-btn:hover{border-color:var(--indigo);color:var(--indigo);}
+.loading{text-align:center;padding:60px;color:var(--muted2);font-family:var(--mono);}
+/* modal */
+.modal-bg{position:fixed;inset:0;background:rgba(15,18,34,.5);backdrop-filter:blur(4px);z-index:1000;display:none;align-items:center;justify-content:center;padding:24px;}
+.modal-bg.show{display:flex;}
+.modal{background:var(--surface);border-radius:20px;padding:32px;max-width:460px;width:100%;box-shadow:var(--shadow);max-height:92vh;overflow-y:auto;}
+.modal h2{font-family:var(--sans);font-size:22px;font-weight:700;margin-bottom:4px;}
+.modal-sub{font-size:13px;color:var(--muted);margin-bottom:22px;}
+.field{margin-bottom:15px;}
+.field label{display:block;font-size:12px;font-weight:600;margin-bottom:6px;}
+.field input,.field select{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:9px;padding:11px 13px;font-family:var(--body);font-size:14px;outline:none;}
+.field input:focus,.field select:focus{border-color:var(--indigo);}
+.field .hint{font-size:11px;color:var(--muted2);margin-top:4px;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.price-note{background:var(--indigo-soft);border:1px solid #C7D2FE;border-radius:9px;padding:11px 13px;font-size:12px;color:var(--indigo-dark);margin-bottom:18px;}
+.modal-actions{display:flex;gap:10px;margin-top:8px;}
+.modal-err{background:var(--red-soft);color:#B91C1C;padding:10px 13px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none;}
+.modal-err.show{display:block;}
+.toast{position:fixed;bottom:28px;right:28px;background:var(--surface);border:1px solid var(--green);border-radius:12px;padding:14px 20px;box-shadow:var(--shadow);transform:translateY(90px);opacity:0;transition:all .3s;z-index:1100;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast-t{font-weight:600;font-size:14px;}.toast-s{font-size:12px;color:var(--muted);}
+@media(max-width:860px){.wrap{padding:20px;}.cards{grid-template-columns:repeat(2,1fr);}.topbar{padding:12px 18px;}.user-email{display:none;}.page-head{flex-direction:column;gap:14px;align-items:flex-start;}table{font-size:12px;}th,td{padding:9px 8px;}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="logo" href="index.html"><span class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.35)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></span>Wait<em>JI</em> AI</a>
+  <div class="topbar-r"><span class="role-pill">ADVERTISER</span><span class="user-email" id="userEmail">—</span><button class="btn-out" onclick="logout()">Log out</button></div>
+</div>
+<div class="wrap" id="content"><div class="loading">Loading…</div></div>
+
+<div class="modal-bg" id="campModal">
+  <div class="modal">
+    <h2>New campaign</h2>
+    <p class="modal-sub">Goes live after admin review (usually within 24h)</p>
+    <div class="modal-err" id="campErr"></div>
+    <div class="price-note">💡 Minimum bid ₹200 per 1,000 impressions. Higher bids win the top slot in rotation.</div>
+    <div class="field"><label>Ad text (max 60 chars)</label><input id="cAd" maxlength="60" placeholder="Your brand · short value prop"><div class="hint"><span id="cCount">0</span>/60</div></div>
+    <div class="field"><label>Landing page URL</label><input id="cUrl" placeholder="https://yoursite.com/developers"></div>
+    <div class="row2">
+      <div class="field"><label>Bid ₹ / 1K impressions</label><input id="cBid" type="number" min="200" placeholder="200"></div>
+      <div class="field"><label>Total budget ₹</label><input id="cBudget" type="number" min="1000" placeholder="10000"></div>
+    </div>
+    <div class="field"><label>Target developers</label><select id="cTarget">
+      <option value="all">All Indian developers</option><option value="web">Frontend / Web</option><option value="backend">Backend / API</option><option value="ml">ML / AI / Data</option><option value="startup">Founders / CTOs</option><option value="mobile">Mobile</option>
+    </select></div>
+    <div class="modal-actions"><button class="btn-out" style="flex:1" onclick="closeCamp()">Cancel</button><button class="btn-solid" style="flex:2;justify-content:center" id="campSubmit" onclick="createCamp()">Launch campaign</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><div class="toast-t" id="toastT">Done</div><div class="toast-s" id="toastS"></div></div>
+
+<script>
+const API='https://waitjiai-backend.onrender.com';
+const token=localStorage.getItem('waitji_token');
+const role=localStorage.getItem('waitji_role');
+if(!token||role!=='advertiser'){ window.location.href='index.html'; }
+const H={'Authorization':'Bearer '+token,'Content-Type':'application/json'};
+function logout(){ localStorage.clear(); window.location.href='index.html'; }
+function toast(t,s){ document.getElementById('toastT').textContent=t; document.getElementById('toastS').textContent=s||''; const el=document.getElementById('toast'); el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),3500); }
+
+let me=null;
+async function load(){
+  try{
+    const meR=await fetch(API+'/v1/auth/me',{headers:H}); if(!meR.ok){logout();return;}
+    me=(await meR.json()).user; document.getElementById('userEmail').textContent=me.email;
+    const a=await (await fetch(API+'/v1/advertiser/analytics',{headers:H})).json();
+    const c=await (await fetch(API+'/v1/advertiser/campaigns',{headers:H})).json();
+    render(a,c.campaigns||[]);
+  }catch(e){ document.getElementById('content').innerHTML='<div class="loading">Backend waking up… <a href="" onclick="location.reload();return false">retry</a></div>'; }
+}
+function render(a,camps){
+  document.getElementById('content').innerHTML=`
+    <div class="page-head">
+      <div><h1 class="page-h">Campaigns & analytics</h1><p class="page-sub">${me.company||me.email}</p></div>
+      <button class="btn-solid" onclick="openCamp()">+ New campaign</button>
+    </div>
+    <div class="cards">
+      <div class="card"><div class="card-label">Impressions</div><div class="card-val">${(+a.impressions).toLocaleString('en-IN')}</div><div class="card-sub">across ${a.campaigns} campaigns</div></div>
+      <div class="card"><div class="card-label">Valid clicks</div><div class="card-val">${a.validClicks}</div><div class="card-sub">CTR ${a.ctr}%</div></div>
+      <div class="card"><div class="card-label">Total spent</div><div class="card-val">₹${a.spentRupees}</div><div class="card-sub">${a.activeCampaigns} active</div></div>
+      <div class="card fraud"><div class="card-label">🛡️ Fraud blocked</div><div class="card-val">₹${a.savedFromFraudRupees}</div><div class="card-sub">${a.blockedClicks} invalid clicks stopped</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h">Your campaigns</div>
+      ${camps.length?`<table><thead><tr><th>Campaign</th><th>Bid</th><th>Budget used</th><th>Status</th><th></th></tr></thead><tbody>
+      ${camps.map(c=>{const pct=Math.min(100,(c.spentPaise/c.budgetPaise*100)).toFixed(0);return `
+        <tr><td><div class="camp-name">${esc(c.advertiser)}</div><div class="camp-txt">${esc(c.adText)}</div></td>
+        <td style="font-family:var(--mono)">₹${(c.bidPaise/100).toFixed(0)}/1K</td>
+        <td><div style="font-size:12px;font-family:var(--mono)">₹${(c.spentPaise/100).toFixed(0)} / ₹${(c.budgetPaise/100).toFixed(0)}</div><div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div></td>
+        <td><span class="status ${c.status}">${c.status}</span></td>
+        <td>${c.status==='active'?`<button class="mini-btn" onclick="toggleCamp('${c.id}','paused')">Pause</button>`:c.status==='paused'?`<button class="mini-btn" onclick="toggleCamp('${c.id}','active')">Resume</button>`:''}</td></tr>`;}).join('')}
+      </tbody></table>`:`<div class="empty"><div class="empty-ic">📣</div><strong>No campaigns yet.</strong><br><span style="font-size:13px;color:var(--muted)">Create your first campaign to reach Indian developers.</span></div>`}
+    </div>`;
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function openCamp(){ document.getElementById('campModal').classList.add('show'); }
+function closeCamp(){ document.getElementById('campModal').classList.remove('show'); document.getElementById('campErr').classList.remove('show'); }
+document.getElementById('cAd').addEventListener('input',function(){document.getElementById('cCount').textContent=this.value.length;});
+
+async function createCamp(){
+  const adText=document.getElementById('cAd').value.trim();
+  const url=document.getElementById('cUrl').value.trim();
+  const bid=+document.getElementById('cBid').value;
+  const budget=+document.getElementById('cBudget').value;
+  const target=document.getElementById('cTarget').value;
+  const err=document.getElementById('campErr');
+  if(!adText||!url){ err.textContent='Ad text and URL required'; err.classList.add('show'); return; }
+  if(!bid||bid<200){ err.textContent='Minimum bid is ₹200'; err.classList.add('show'); return; }
+  if(!budget||budget<1000){ err.textContent='Minimum budget is ₹1,000'; err.classList.add('show'); return; }
+  const btn=document.getElementById('campSubmit'); btn.disabled=true; btn.textContent='Creating…';
+  try{
+    const r=await fetch(API+'/v1/advertiser/campaigns',{method:'POST',headers:H,body:JSON.stringify({adText,url,bidPaise:bid*100,budgetPaise:budget*100,targetingCategory:target})});
+    const d=await r.json();
+    if(r.ok){ closeCamp(); toast('🎉 Campaign created!','Live after admin review'); ['cAd','cUrl','cBid','cBudget'].forEach(i=>document.getElementById(i).value=''); document.getElementById('cCount').textContent='0'; load(); }
+    else{ err.textContent=d.error||'Failed'; err.classList.add('show'); }
+  }catch(e){ err.textContent='Network error'; err.classList.add('show'); }
+  btn.disabled=false; btn.textContent='Launch campaign';
+}
+async function toggleCamp(id,status){
+  await fetch(API+'/v1/advertiser/campaigns/'+id,{method:'PATCH',headers:H,body:JSON.stringify({status})});
+  toast('✓ Campaign '+(status==='paused'?'paused':'resumed')); load();
+}
+document.getElementById('campModal').addEventListener('click',e=>{if(e.target.id==='campModal')closeCamp();});
+load();
+setInterval(load,20000);
+</script>
+</body>
+</html>
