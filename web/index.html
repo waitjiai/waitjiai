@@ -3,602 +3,159 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WaitJI AI — Earn while Claude Code thinks</title>
-<meta name="description" content="India's AI ad marketplace. Developers earn passive income during AI wait-states. Advertisers reach premium developers.">
+<title>WaitJI AI — Launching 25 June</title>
+<meta name="description" content="India's AI ad marketplace launches 25 June. Developers earn passive income during AI wait-states. Join the waitlist for early access.">
+<meta property="og:title" content="WaitJI AI — Earn while Claude Code thinks · Launching 25 June">
+<meta property="og:description" content="Turn your AI wait-time into UPI income. Join the waitlist — we launch 25 June.">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-:root {
-  /* Light palette — Indigo + Sky + warm white */
-  --indigo:#4F46E5; --indigo-dark:#4338CA; --indigo-soft:#EEF2FF;
-  --sky:#0EA5E9; --sky-soft:#E0F2FE;
-  --violet:#7C3AED;
-  --green:#10B981; --green-soft:#D1FAE5;
-  --amber:#F59E0B; --red:#EF4444; --red-soft:#FEE2E2;
-  --bg:#FBFBFD; --surface:#FFFFFF; --surface2:#F6F7FB;
-  --border:#E8EAF0; --border2:#DDE0EA;
-  --ink:#0F1222; --ink2:#3A3F55; --muted:#6B7185; --muted2:#9AA0B4;
-  --sans:'Space Grotesk',sans-serif; --body:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
-  --shadow-sm:0 1px 3px rgba(15,18,34,0.06); --shadow:0 4px 24px rgba(15,18,34,0.08);
-  --shadow-lg:0 12px 48px rgba(79,70,229,0.14);
-}
-* { margin:0; padding:0; box-sizing:border-box; }
-html { scroll-behavior:smooth; }
-body { background:var(--bg); color:var(--ink); font-family:var(--body); line-height:1.6; overflow-x:hidden; }
-
-/* NAV */
-nav { position:fixed; top:0; left:0; right:0; z-index:100; display:flex; align-items:center; justify-content:space-between; padding:14px 48px; background:rgba(251,251,253,0.8); backdrop-filter:blur(20px); border-bottom:1px solid var(--border); }
-.logo { font-family:var(--mono); font-size:18px; font-weight:600; color:var(--ink); letter-spacing:-0.5px; display:flex; align-items:center; gap:9px; }
-.logo-mark { width:30px; height:30px; border-radius:8px; background:linear-gradient(135deg,var(--indigo),var(--sky)); display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow-sm); }
-.logo-mark svg { width:18px; height:18px; }
-.logo em { color:var(--indigo); font-style:normal; }
-.nav-links { display:flex; gap:30px; align-items:center; list-style:none; }
-.nav-links a { color:var(--muted); font-size:14px; text-decoration:none; font-weight:500; transition:color 0.2s; }
-.nav-links a:hover { color:var(--ink); }
-.nav-actions { display:flex; gap:10px; align-items:center; }
-.btn-ghost { background:transparent; color:var(--ink); border:1px solid var(--border2); font-weight:600; padding:9px 18px; border-radius:9px; font-size:13px; cursor:pointer; font-family:var(--body); transition:all 0.2s; }
-.btn-ghost:hover { border-color:var(--indigo); color:var(--indigo); }
-.btn-solid { background:var(--indigo); color:#fff; font-weight:600; padding:9px 20px; border-radius:9px; font-size:13px; cursor:pointer; border:none; font-family:var(--body); transition:all 0.2s; text-decoration:none; display:inline-flex; align-items:center; gap:7px; }
-.btn-solid:hover { background:var(--indigo-dark); box-shadow:var(--shadow-lg); transform:translateY(-1px); }
-
-/* HERO */
-.hero { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:120px 48px 80px; text-align:center; position:relative; overflow:hidden; }
-.hero-bg { position:absolute; inset:0; z-index:0; background:radial-gradient(ellipse 60% 50% at 50% 30%, var(--indigo-soft) 0%, transparent 70%), radial-gradient(ellipse 50% 40% at 80% 80%, var(--sky-soft) 0%, transparent 60%); }
-.hero-content { position:relative; z-index:1; max-width:860px; }
-.badge { display:inline-flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border2); border-radius:100px; padding:7px 18px; margin-bottom:32px; font-size:13px; font-weight:500; color:var(--ink2); box-shadow:var(--shadow-sm); }
-.badge-dot { width:7px; height:7px; border-radius:50%; background:var(--green); animation:pulse 1.8s infinite; }
-@keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.4)} 50%{box-shadow:0 0 0 5px rgba(16,185,129,0)} }
-.hero h1 { font-family:var(--sans); font-size:clamp(42px,7.5vw,82px); font-weight:800; line-height:1.02; letter-spacing:-2.5px; margin-bottom:24px; color:var(--ink); }
-.hero h1 .grad { background:linear-gradient(120deg,var(--indigo),var(--sky)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
-.hero-sub { font-size:19px; color:var(--muted); max-width:560px; margin:0 auto 40px; }
-.hero-sub strong { color:var(--ink); font-weight:600; }
-.hero-ctas { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-bottom:56px; }
-.btn-lg { padding:15px 30px; font-size:15px; border-radius:11px; }
-.btn-outline-lg { background:var(--surface); color:var(--ink); border:1px solid var(--border2); font-weight:600; cursor:pointer; font-family:var(--body); transition:all 0.2s; }
-.btn-outline-lg:hover { border-color:var(--indigo); color:var(--indigo); }
-
-.ticker { display:inline-flex; align-items:center; gap:0; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:8px; box-shadow:var(--shadow); }
-.ticker-item { padding:14px 28px; text-align:center; }
-.ticker-num { font-family:var(--mono); font-size:26px; font-weight:600; color:var(--indigo); }
-.ticker-label { font-size:11px; color:var(--muted2); margin-top:2px; font-weight:500; }
-.ticker-sep { width:1px; height:36px; background:var(--border); }
-
-/* SECTIONS */
-.section { padding:100px 48px; max-width:1080px; margin:0 auto; }
-.eyebrow { font-family:var(--mono); font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--indigo); margin-bottom:14px; font-weight:500; }
-.section-title { font-family:var(--sans); font-size:clamp(28px,4vw,42px); font-weight:700; letter-spacing:-1.2px; margin-bottom:14px; line-height:1.1; }
-.section-sub { color:var(--muted); font-size:17px; margin-bottom:52px; max-width:520px; }
-
-/* DEMO */
-.demo-wrap { display:grid; grid-template-columns:1fr 1fr; gap:18px; max-width:780px; }
-.demo-box { background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:var(--shadow-sm); }
-.demo-box.highlight { border-color:var(--indigo); box-shadow:var(--shadow); }
-.demo-bar { padding:11px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:6px; background:var(--surface2); }
-.demo-dot { width:11px; height:11px; border-radius:50%; }
-.demo-tab { font-family:var(--mono); font-size:11px; color:var(--muted2); margin-left:6px; }
-.demo-body { padding:20px; font-family:var(--mono); font-size:12px; line-height:2.1; }
-.demo-line { display:flex; align-items:center; gap:8px; color:var(--muted); }
-.demo-faint { color:var(--border2); margin-top:6px; font-size:11px; }
-.demo-ad { margin-top:8px; display:flex; align-items:center; gap:8px; background:var(--indigo-soft); border-left:3px solid var(--indigo); padding:7px 12px; border-radius:0 7px 7px 0; }
-.demo-ad-tag { font-size:9px; background:var(--indigo); color:#fff; padding:1px 6px; border-radius:4px; font-weight:700; }
-.demo-ad-copy { color:var(--ink); font-size:11px; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.demo-ad-earn { color:var(--green); font-size:11px; font-weight:600; }
-.demo-note { margin-top:10px; font-size:10px; color:var(--indigo); font-weight:500; }
-
-/* EARN / CALC */
-.earn-section { background:var(--surface); border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
-.earn-inner { max-width:1080px; margin:0 auto; padding:100px 48px; display:grid; grid-template-columns:1fr 1.05fr; gap:60px; align-items:center; }
-.streams { display:flex; flex-direction:column; gap:12px; margin-top:28px; }
-.stream { display:flex; align-items:center; gap:14px; background:var(--surface2); border:1px solid var(--border); border-radius:13px; padding:16px 18px; }
-.stream-ic { width:42px; height:42px; border-radius:11px; background:var(--indigo-soft); display:flex; align-items:center; justify-content:center; font-size:19px; flex-shrink:0; }
-.stream-tx { flex:1; }
-.stream-tx h4 { font-size:15px; font-weight:600; margin-bottom:1px; font-family:var(--sans); }
-.stream-tx p { font-size:12.5px; color:var(--muted); }
-.stream-amt { font-family:var(--mono); font-weight:600; color:var(--green); font-size:15px; }
-.calc { background:var(--surface); border:1px solid var(--border2); border-radius:20px; padding:32px; box-shadow:var(--shadow); }
-.calc-h { font-family:var(--sans); font-size:16px; font-weight:600; margin-bottom:4px; }
-.calc-sub { font-size:13px; color:var(--muted); margin-bottom:26px; }
-.rg { margin-bottom:22px; }
-.rg label { display:flex; justify-content:space-between; font-size:13px; color:var(--ink2); margin-bottom:9px; font-weight:500; }
-.rg label span { color:var(--indigo); font-family:var(--mono); font-weight:600; }
-.rg .tip { font-size:11px; color:var(--muted2); margin-top:5px; }
-input[type=range] { width:100%; height:5px; accent-color:var(--indigo); cursor:pointer; }
-.calc-out { margin-top:26px; padding:26px; background:linear-gradient(135deg,var(--indigo-soft),var(--sky-soft)); border-radius:14px; text-align:center; }
-.calc-num { font-family:var(--mono); font-size:42px; font-weight:700; color:var(--indigo); }
-.calc-lbl { font-size:12px; color:var(--ink2); margin-top:4px; font-weight:500; }
-.calc-bd { display:flex; justify-content:center; gap:18px; margin-top:14px; font-size:11px; font-family:var(--mono); }
-.calc-bd b { color:var(--green); }
-
-/* REFERRAL */
-.ref-card { background:linear-gradient(135deg,var(--ink) 0%,#1A1F3D 100%); border-radius:24px; padding:52px; display:grid; grid-template-columns:1.2fr 1fr; gap:48px; align-items:center; color:#fff; overflow:hidden; position:relative; box-shadow:var(--shadow-lg); }
-.ref-card::after { content:''; position:absolute; top:-40%; right:-10%; width:50%; height:180%; background:radial-gradient(circle,rgba(79,70,229,0.5) 0%,transparent 65%); }
-.ref-c { position:relative; z-index:1; }
-.ref-badge { display:inline-block; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:#C7D2FE; font-family:var(--mono); font-size:11px; padding:6px 14px; border-radius:100px; margin-bottom:18px; }
-.ref-c h2 { font-family:var(--sans); font-size:32px; font-weight:700; letter-spacing:-1px; margin-bottom:14px; line-height:1.12; }
-.ref-c p { color:#B8BED8; font-size:15px; margin-bottom:16px; }
-.ref-c p:last-child { margin-bottom:0; }
-.ref-c strong { color:#fff; }
-.ref-v { position:relative; z-index:1; text-align:center; }
-.ref-mult { font-family:var(--mono); font-size:76px; font-weight:700; background:linear-gradient(135deg,#818CF8,#38BDF8); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; line-height:1; }
-.ref-mult-l { color:#B8BEDF; font-size:13px; margin-top:6px; }
-
-/* STEPS */
-.steps { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin-top:52px; }
-.step { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:32px 26px; box-shadow:var(--shadow-sm); transition:all 0.2s; }
-.step:hover { box-shadow:var(--shadow); transform:translateY(-3px); }
-.step-n { font-family:var(--mono); font-size:11px; color:var(--indigo); letter-spacing:1px; margin-bottom:18px; font-weight:600; }
-.step-ic { font-size:26px; margin-bottom:12px; }
-.step h3 { font-family:var(--sans); font-size:17px; font-weight:600; margin-bottom:8px; }
-.step p { font-size:13.5px; color:var(--muted); }
-
-/* ADVERTISER */
-.adv-section { background:var(--surface); border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
-.adv-inner { max-width:1080px; margin:0 auto; padding:100px 48px; }
-.adv-grid { display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:start; margin-top:52px; }
-.live-camps { background:var(--bg); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
-.lc-h { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
-.lc-h-t { font-size:14px; font-weight:600; font-family:var(--sans); }
-.lc-live { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--green); font-family:var(--mono); font-weight:500; }
-.lc-empty { padding:36px; text-align:center; color:var(--muted); font-size:13px; }
-.lc-row { padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:14px; }
-.lc-row:last-child { border-bottom:none; }
-.lc-rank { font-family:var(--mono); font-size:11px; color:var(--muted2); width:22px; }
-.lc-name { flex:1; font-weight:600; font-size:13px; min-width:0; }
-.lc-txt { font-size:11px; color:var(--muted); }
-.lc-bid { font-family:var(--mono); font-size:12px; color:var(--indigo); font-weight:600; }
-.lc-status { font-size:10px; padding:3px 9px; border-radius:100px; background:var(--green-soft); color:#047857; font-weight:600; }
-.lc-load { padding:28px; text-align:center; color:var(--muted2); font-size:12px; font-family:var(--mono); }
-.adv-promo { background:var(--bg); border:1px solid var(--border2); border-radius:16px; padding:32px; }
-.adv-promo h3 { font-family:var(--sans); font-size:22px; font-weight:700; margin-bottom:8px; }
-.adv-promo > p { font-size:14px; color:var(--muted); margin-bottom:24px; }
-.adv-feat { display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
-.adv-feat:last-of-type { border-bottom:none; }
-.adv-feat-ic { color:var(--green); font-weight:700; flex-shrink:0; }
-.adv-feat-tx h4 { font-size:14px; font-weight:600; margin-bottom:1px; }
-.adv-feat-tx p { font-size:12.5px; color:var(--muted); }
-.adv-cta { margin-top:24px; }
-.price-note { background:var(--indigo-soft); border:1px solid #C7D2FE; border-radius:10px; padding:13px 15px; font-size:12.5px; color:var(--indigo-dark); margin-top:20px; }
-
-/* FAQ */
-.faq-section { background:var(--bg); }
-.faq-inner { max-width:720px; margin:0 auto; padding:100px 48px; }
-.faq-item { border-bottom:1px solid var(--border); }
-.faq-q { padding:20px 0; font-size:15px; font-weight:600; cursor:pointer; display:flex; justify-content:space-between; gap:16px; align-items:center; font-family:var(--sans); }
-.faq-q:hover { color:var(--indigo); }
-.faq-ar { color:var(--muted2); transition:transform 0.2s; flex-shrink:0; }
-.faq-item.open .faq-ar { transform:rotate(180deg); }
-.faq-a { display:none; padding-bottom:20px; font-size:14px; color:var(--muted); }
-.faq-item.open .faq-a { display:block; }
-
-/* FINAL */
-.final { padding:110px 48px; text-align:center; background:linear-gradient(180deg,var(--bg),var(--indigo-soft)); }
-.final h2 { font-family:var(--sans); font-size:clamp(34px,5.5vw,58px); font-weight:800; letter-spacing:-1.5px; margin-bottom:18px; line-height:1.1; }
-.final h2 .grad { background:linear-gradient(120deg,var(--indigo),var(--sky)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
-.final p { color:var(--muted); font-size:17px; margin-bottom:36px; }
-
-/* FOOTER */
-footer { border-top:1px solid var(--border); padding:32px 48px; display:flex; justify-content:space-between; align-items:center; color:var(--muted2); font-size:13px; background:var(--surface); }
-footer a { color:var(--muted); text-decoration:none; }
-footer a:hover { color:var(--ink); }
-.foot-links { display:flex; gap:22px; }
-
-/* MODAL */
-.modal-bg { position:fixed; inset:0; background:rgba(15,18,34,0.5); backdrop-filter:blur(4px); z-index:1000; display:none; align-items:center; justify-content:center; padding:24px; }
-.modal-bg.show { display:flex; }
-.modal { background:var(--surface); border-radius:20px; padding:36px; max-width:420px; width:100%; box-shadow:var(--shadow-lg); position:relative; max-height:92vh; overflow-y:auto; }
-.modal-close { position:absolute; top:18px; right:18px; background:var(--surface2); border:none; width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:16px; color:var(--muted); }
-.modal-close:hover { background:var(--border); }
-.modal h2 { font-family:var(--sans); font-size:24px; font-weight:700; margin-bottom:6px; }
-.modal-sub { font-size:14px; color:var(--muted); margin-bottom:26px; }
-.role-toggle { display:flex; gap:8px; margin-bottom:24px; background:var(--surface2); padding:5px; border-radius:11px; }
-.role-btn { flex:1; padding:10px; border-radius:8px; border:none; background:transparent; cursor:pointer; font-family:var(--body); font-size:13px; font-weight:600; color:var(--muted); transition:all 0.2s; }
-.role-btn.active { background:var(--surface); color:var(--indigo); box-shadow:var(--shadow-sm); }
-.field { margin-bottom:16px; }
-.field label { display:block; font-size:12px; font-weight:600; color:var(--ink2); margin-bottom:6px; }
-.field input { width:100%; background:var(--surface2); border:1px solid var(--border2); border-radius:10px; padding:12px 14px; font-family:var(--body); font-size:14px; outline:none; transition:all 0.2s; }
-.field input:focus { border-color:var(--indigo); background:var(--surface); }
-.modal .btn-solid { width:100%; justify-content:center; padding:13px; font-size:15px; margin-top:8px; }
-.modal-switch { text-align:center; margin-top:18px; font-size:13px; color:var(--muted); }
-.modal-switch a { color:var(--indigo); font-weight:600; cursor:pointer; text-decoration:none; }
-.btn-google { width:100%; display:flex; align-items:center; justify-content:center; gap:10px; background:var(--surface); border:1px solid var(--border2); border-radius:11px; padding:12px; font-family:var(--body); font-size:14px; font-weight:600; color:var(--ink); cursor:pointer; transition:all 0.2s; }
-.btn-google:hover { border-color:var(--indigo); background:var(--surface2); }
-.auth-divider { display:flex; align-items:center; gap:12px; margin:18px 0; }
-.auth-divider::before, .auth-divider::after { content:''; flex:1; height:1px; background:var(--border); }
-.auth-divider span { font-size:12px; color:var(--muted2); }
-.modal-err { background:var(--red-soft); color:#B91C1C; padding:11px 14px; border-radius:9px; font-size:13px; margin-bottom:16px; display:none; }
-.modal-err.show { display:block; }
-
-/* TOAST */
-.toast { position:fixed; bottom:28px; right:28px; background:var(--surface); border:1px solid var(--green); border-radius:12px; padding:14px 20px; box-shadow:var(--shadow-lg); transform:translateY(90px); opacity:0; transition:all 0.3s; z-index:1100; max-width:340px; }
-.toast.show { transform:translateY(0); opacity:1; }
-.toast-t { font-weight:600; font-size:14px; margin-bottom:2px; }
-.toast-s { font-size:12.5px; color:var(--muted); }
-
-@media(max-width:860px){
-  nav { padding:12px 18px; }
-  .nav-links { display:none; }
-  .hero { padding:100px 22px 60px; }
-  .section, .earn-inner, .adv-inner, .faq-inner { padding:60px 22px; }
-  .demo-wrap, .earn-inner, .adv-grid, .steps, .ref-card { grid-template-columns:1fr; }
-  .ref-card { padding:34px; gap:30px; }
-  .ticker { flex-direction:column; }
-  .ticker-sep { width:50px; height:1px; }
-  footer { flex-direction:column; gap:14px; text-align:center; }
-}
+:root{--indigo:#4F46E5;--indigo-dark:#4338CA;--sky:#0EA5E9;--green:#10B981;--ink:#0F1222;--sans:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;}
+*{margin:0;padding:0;box-sizing:border-box;}html{scroll-behavior:smooth;}
+body{background:var(--ink);color:#fff;font-family:var(--body);min-height:100vh;overflow-x:hidden;}
+.bg{position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse 70% 55% at 50% -10%,#1E2547 0%,var(--ink) 65%),radial-gradient(ellipse 50% 40% at 80% 90%,rgba(14,165,233,0.08) 0%,transparent 60%);}
+.grid-lines{position:fixed;inset:0;z-index:0;opacity:0.03;background-image:linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px);background-size:60px 60px;}
+.glow-top{position:fixed;top:-200px;left:50%;transform:translateX(-50%);width:900px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(79,70,229,0.18) 0%,transparent 65%);z-index:0;pointer-events:none;}
+nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:18px 48px;background:rgba(15,18,34,0.7);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,0.06);}
+.logo{font-family:var(--mono);font-size:18px;font-weight:600;color:#fff;letter-spacing:-0.5px;display:flex;align-items:center;gap:10px;}
+.logo-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--indigo),var(--sky));display:flex;align-items:center;justify-content:center;}
+.logo em{color:#A5B4FC;font-style:normal;}
+.nav-r{font-size:13px;color:#6B7185;}.nav-r a{color:#818CF8;text-decoration:none;font-weight:600;}.nav-r a:hover{color:#fff;}
+.wrap{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:100px 24px 80px;text-align:center;}
+.badge{display:inline-flex;align-items:center;gap:10px;background:rgba(79,70,229,0.15);border:1px solid rgba(79,70,229,0.4);border-radius:100px;padding:8px 20px;margin-bottom:36px;font-size:13px;font-weight:500;color:#C7D2FE;font-family:var(--mono);}
+.badge-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.8s infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.5)}50%{box-shadow:0 0 0 6px rgba(16,185,129,0)}}
+h1{font-family:var(--sans);font-size:clamp(46px,8vw,88px);font-weight:800;line-height:1.02;letter-spacing:-2.5px;margin-bottom:24px;max-width:900px;}
+h1 .grad{background:linear-gradient(120deg,#818CF8,#38BDF8);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.sub{font-size:clamp(16px,2.5vw,20px);color:#B8BED8;max-width:560px;margin:0 auto 48px;line-height:1.6;}.sub strong{color:#fff;}
+.countdown{display:flex;align-items:center;gap:8px;margin-bottom:52px;flex-wrap:wrap;justify-content:center;}
+.cd-block{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:20px 24px;min-width:100px;text-align:center;backdrop-filter:blur(10px);}
+.cd-num{font-family:var(--mono);font-size:clamp(36px,6vw,56px);font-weight:700;color:#fff;line-height:1;display:block;}
+.cd-label{font-size:11px;color:#6B7185;text-transform:uppercase;letter-spacing:1.5px;margin-top:6px;font-weight:500;}
+.cd-sep{font-family:var(--mono);font-size:40px;color:rgba(255,255,255,0.2);margin-bottom:18px;}
+.form-wrap{width:100%;max-width:520px;margin:0 auto;}
+.form-label{font-size:13px;color:#6B7185;margin-bottom:14px;}
+.role-row{display:flex;gap:10px;justify-content:center;margin-bottom:20px;}
+.role-btn{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:#9AA0B4;padding:10px 22px;border-radius:10px;font-family:var(--body);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;}
+.role-btn.active{background:rgba(79,70,229,0.2);border-color:rgba(79,70,229,0.6);color:#C7D2FE;}
+.form-row{display:flex;gap:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:7px;backdrop-filter:blur(10px);}
+.form-row input{flex:1;background:transparent;border:none;outline:none;padding:12px 16px;font-family:var(--body);font-size:15px;color:#fff;min-width:0;}
+.form-row input::placeholder{color:#6B7185;}
+.form-row button{background:linear-gradient(135deg,var(--indigo),#6366F1);color:#fff;border:none;padding:13px 26px;border-radius:10px;font-family:var(--body);font-size:15px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;flex-shrink:0;}
+.form-row button:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(79,70,229,0.4);}
+.form-row button:disabled{opacity:0.6;cursor:wait;transform:none;}
+.err{font-size:13px;color:#F87171;margin-top:10px;display:none;}.err.show{display:block;}
+.success{display:none;flex-direction:column;align-items:center;gap:14px;padding:32px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:18px;max-width:520px;margin:0 auto;}
+.success .ic{font-size:48px;}.success h3{font-family:var(--sans);font-size:22px;font-weight:700;}
+.success p{font-size:14px;color:#B8BED8;line-height:1.6;}.success .pos{font-family:var(--mono);font-size:28px;font-weight:700;color:var(--green);}
+.success.show{display:flex;}
+.joined-bar{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:18px;font-size:13px;color:#6B7185;}
+.joined-avatars{display:flex;}.joined-avatars span{width:28px;height:28px;border-radius:50%;border:2px solid var(--ink);display:flex;align-items:center;justify-content:center;font-size:13px;margin-left:-8px;background:linear-gradient(135deg,var(--indigo),var(--sky));}.joined-avatars span:first-child{margin-left:0;}
+.joined-count{color:#fff;font-weight:600;}
+.perks{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;max-width:700px;margin:60px auto 0;}
+.perk{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:12px 18px;font-size:14px;color:#B8BED8;}.perk .pi{font-size:18px;}
+.what{max-width:780px;margin:70px auto 0;text-align:left;}
+.what h2{font-family:var(--sans);font-size:28px;font-weight:700;margin-bottom:28px;text-align:center;}
+.what-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.what-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:24px;}
+.what-card .wic{font-size:28px;margin-bottom:12px;}.what-card h3{font-family:var(--sans);font-size:17px;font-weight:600;margin-bottom:6px;}
+.what-card p{font-size:13.5px;color:#9AA0B4;line-height:1.6;}
+.share{margin-top:60px;}.share p{font-size:14px;color:#6B7185;margin-bottom:14px;}
+.share-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+.sbtn{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#B8BED8;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);text-decoration:none;display:inline-flex;align-items:center;gap:8px;transition:all 0.2s;}
+.sbtn:hover{border-color:rgba(255,255,255,0.3);color:#fff;}
+footer{position:relative;z-index:1;border-top:1px solid rgba(255,255,255,0.06);padding:24px 48px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#4A5068;flex-wrap:wrap;gap:10px;}
+footer a{color:#6B7185;text-decoration:none;}footer a:hover{color:#fff;}
+@media(max-width:640px){nav{padding:14px 18px;}.what-grid{grid-template-columns:1fr;}.form-row{flex-direction:column;}footer{flex-direction:column;text-align:center;padding:20px;}}
 </style>
 </head>
 <body>
-
+<div class="bg"></div><div class="grid-lines"></div><div class="glow-top"></div>
 <nav>
-  <div class="logo">
-    <span class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.35)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></span>
-    Wait<em>JI</em> AI
-  </div>
-  <ul class="nav-links">
-    <li><a href="#how">How it works</a></li>
-    <li><a href="#earn">Earnings</a></li>
-    <li><a href="#advertise">Advertise</a></li>
-    <li><a href="#faq">FAQ</a></li>
-  </ul>
-  <div class="nav-actions">
-    <button class="btn-ghost" onclick="openAuth('login')">Log in</button>
-    <button class="btn-solid" onclick="openAuth('signup')">Get started</button>
-  </div>
+  <div class="logo"><span class="logo-mark"><svg viewBox="0 0 24 24" width="19" height="19" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.4)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></span>Wait<em>JI</em> AI</div>
+  <div class="nav-r">Partner with us → <a href="mailto:sales@qivalabs.com">sales@qivalabs.com</a></div>
 </nav>
-
-<section class="hero">
-  <div class="hero-bg"></div>
-  <div class="hero-content">
-    <div class="badge"><span class="badge-dot"></span>India's AI ad marketplace · UPI payouts</div>
-    <h1>Claude Code thinks.<br><span class="grad">You get paid.</span></h1>
-    <p class="hero-sub">Turn the seconds you spend waiting for AI into passive income. Install once, keep coding — <strong>earnings land in your UPI</strong>. Build a referral network and it compounds.</p>
-    <div class="hero-ctas">
-      <button class="btn-solid btn-lg" onclick="openAuth('signup','customer')">Start earning →</button>
-      <button class="btn-outline-lg btn-lg" onclick="openAuth('signup','advertiser')">Advertise with us</button>
+<div class="wrap">
+  <div class="badge"><span class="badge-dot"></span>LAUNCHING 25 JUNE 2026 · INDIA'S AI AD MARKETPLACE</div>
+  <h1>Claude Code thinks.<br><span class="grad">You get paid.</span></h1>
+  <p class="sub">India's first AI ad marketplace — turning your <strong>AI wait-time into UPI income</strong>. Developers earn. Brands reach. Launching 25 June.</p>
+  <div class="countdown">
+    <div class="cd-block"><span class="cd-num" id="cd-d">07</span><div class="cd-label">Days</div></div>
+    <div class="cd-sep">:</div>
+    <div class="cd-block"><span class="cd-num" id="cd-h">00</span><div class="cd-label">Hours</div></div>
+    <div class="cd-sep">:</div>
+    <div class="cd-block"><span class="cd-num" id="cd-m">00</span><div class="cd-label">Minutes</div></div>
+    <div class="cd-sep">:</div>
+    <div class="cd-block"><span class="cd-num" id="cd-s">00</span><div class="cd-label">Seconds</div></div>
+  </div>
+  <div class="form-wrap">
+    <div class="form-label">Join as:</div>
+    <div class="role-row">
+      <button class="role-btn active" data-role="developer" onclick="setRole(this)">💻 Developer (earn)</button>
+      <button class="role-btn" data-role="advertiser" onclick="setRole(this)">📣 Brand (advertise)</button>
     </div>
-    <div class="ticker">
-      <div class="ticker-item"><div class="ticker-num" id="tk-earn">₹0</div><div class="ticker-label">Paid to developers</div></div>
-      <div class="ticker-sep"></div>
-      <div class="ticker-item"><div class="ticker-num" id="tk-imp">0</div><div class="ticker-label">Impressions served</div></div>
-      <div class="ticker-sep"></div>
-      <div class="ticker-item"><div class="ticker-num" id="tk-camp">0</div><div class="ticker-label">Active campaigns</div></div>
-      <div class="ticker-sep"></div>
-      <div class="ticker-item"><div class="ticker-num">50%</div><div class="ticker-label">Revenue share</div></div>
+    <div id="formBox">
+      <div class="form-row">
+        <input type="email" id="wlEmail" placeholder="Enter your email address" autocomplete="email">
+        <button id="wlBtn" onclick="joinWaitlist()">Join waitlist →</button>
+      </div>
+      <div class="err" id="wlErr"></div>
+    </div>
+    <div class="success" id="successBox">
+      <div class="ic">🎉</div>
+      <h3>You're on the list!</h3>
+      <div class="pos" id="posText">#1</div>
+      <p>We'll email you on 25 June with your early access link.<br>Help us grow — share with developer friends 👇</p>
+    </div>
+    <div class="joined-bar">
+      <div class="joined-avatars"><span>👨‍💻</span><span>👩‍💻</span><span>🧑‍💻</span></div>
+      <span><span class="joined-count" id="joinedCount">—</span> developers already joined</span>
     </div>
   </div>
-</section>
-
-<section class="section" id="how">
-  <div class="eyebrow">Before / after</div>
-  <div class="section-title">One quiet line.<br>Real income.</div>
-  <p class="section-sub">Three sponsored slots rotate while the AI works. Your flow never breaks — your balance just grows.</p>
-  <div class="demo-wrap">
-    <div class="demo-box">
-      <div class="demo-bar"><span class="demo-dot" style="background:#FF5F57"></span><span class="demo-dot" style="background:#FFBD2E"></span><span class="demo-dot" style="background:#28C840"></span><span class="demo-tab">Without WaitJI AI</span></div>
-      <div class="demo-body">
-        <div class="demo-line"><span id="sp1">⠋</span><span>Thinking…</span></div>
-        <div class="demo-faint"># just waiting</div>
-        <div class="demo-faint"># earning nothing</div>
-      </div>
-    </div>
-    <div class="demo-box highlight">
-      <div class="demo-bar"><span class="demo-dot" style="background:#FF5F57"></span><span class="demo-dot" style="background:#FFBD2E"></span><span class="demo-dot" style="background:#28C840"></span><span class="demo-tab">With WaitJI AI</span></div>
-      <div class="demo-body">
-        <div class="demo-line"><span id="sp2">⠙</span><span>Thinking…</span></div>
-        <div class="demo-ad"><span class="demo-ad-tag">AD</span><span class="demo-ad-copy" id="dad-t">Loading live ad…</span><span class="demo-ad-earn" id="dad-e">+₹0.30</span></div>
-        <div class="demo-note">↻ 3 ads rotate per wait → 3× earning</div>
-      </div>
+  <div class="perks">
+    <div class="perk"><span class="pi">⚡</span>Early access on 25 June</div>
+    <div class="perk"><span class="pi">💰</span>50% revenue share — forever</div>
+    <div class="perk"><span class="pi">🤝</span>10% referral — lifetime</div>
+    <div class="perk"><span class="pi">🇮🇳</span>UPI payouts — India-first</div>
+    <div class="perk"><span class="pi">🛡️</span>Click-fraud protection</div>
+    <div class="perk"><span class="pi">📊</span>Real-time earnings dashboard</div>
+  </div>
+  <div class="what">
+    <h2>What is WaitJI AI?</h2>
+    <div class="what-grid">
+      <div class="what-card"><div class="wic">⏳</div><h3>The problem</h3><p>Every AI prompt takes 5–15 seconds to think. You've been staring at a spinner — for free. That's hours of dead, unpaid time every week.</p></div>
+      <div class="what-card"><div class="wic">💡</div><h3>The fix</h3><p>WaitJI AI shows one quiet sponsored line during that wait. Advertisers pay. You keep 50%, straight to UPI. Install once, keep coding.</p></div>
+      <div class="what-card"><div class="wic">📈</div><h3>How it scales</h3><p>One machine earns coffee + API money (₹2–4K/month). The real income comes from referrals — earn 10% of your network's earnings, for life.</p></div>
+      <div class="what-card"><div class="wic">🎯</div><h3>For advertisers</h3><p>Reach Indian developers in their most attentive moment. INR pricing, GST invoice, live analytics, click-fraud protection on every rupee.</p></div>
     </div>
   </div>
-</section>
-
-<section class="earn-section" id="earn">
-  <div class="earn-inner">
-    <div>
-      <div class="eyebrow">Real earning potential</div>
-      <div class="section-title" style="margin-bottom:10px">Three income<br>streams. Combined.</div>
-      <p style="color:var(--muted);font-size:15px">Honest numbers — your single machine earns coffee-and-API money. The referral network is where it scales.</p>
-      <div class="streams">
-        <div class="stream"><div class="stream-ic">💻</div><div class="stream-tx"><h4>Direct impressions</h4><p>3 ads every AI session, 50% share</p></div><div class="stream-amt">₹2K–4K</div></div>
-        <div class="stream"><div class="stream-ic">🤝</div><div class="stream-tx"><h4>Referral network</h4><p>10% lifetime of invited devs' earnings</p></div><div class="stream-amt">₹2K–9K</div></div>
-        <div class="stream"><div class="stream-ic">⭐</div><div class="stream-tx"><h4>Premium CPM</h4><p>Top brands bid ₹800–1500 per 1K</p></div><div class="stream-amt">₹1K–2K</div></div>
-      </div>
+  <div class="share">
+    <p>Know a developer? Share WaitJI AI 👇</p>
+    <div class="share-btns">
+      <a class="sbtn" href="https://twitter.com/intent/tweet?text=WaitJI+AI+is+launching+25+June+%E2%80%94+earn+passive+UPI+income+while+Claude+Code+thinks+%F0%9F%9A%80&url=https://waitjiai.vercel.app" target="_blank">𝕏 Share on X</a>
+      <a class="sbtn" href="https://www.linkedin.com/sharing/share-offsite/?url=https://waitjiai.vercel.app" target="_blank">in LinkedIn</a>
+      <button class="sbtn" onclick="copyLink()">🔗 Copy link</button>
     </div>
-    <div class="calc">
-      <div class="calc-h">Estimate your earnings</div>
-      <div class="calc-sub">Drag the sliders — see realistic numbers</div>
-      <div class="rg"><label>Daily Claude sessions <span id="v1">120</span></label><input type="range" id="r1" min="10" max="200" value="120" oninput="calc()"><div class="tip">Heavy developer = 80–150 / day</div></div>
-      <div class="rg"><label>Ad CPM rate <span id="v3">₹800</span></label><input type="range" id="r3" min="200" max="2000" value="800" step="50" oninput="calc()"><div class="tip">Premium brands bid ₹800–1500</div></div>
-      <div class="rg"><label>Developers invited <span id="v4">30</span></label><input type="range" id="r4" min="0" max="100" value="30" oninput="calc()"><div class="tip">10% of each referral, lifetime</div></div>
-      <div class="calc-out">
-        <div class="calc-num" id="cnum">₹8,640</div>
-        <div class="calc-lbl">Estimated monthly earning</div>
-        <div class="calc-bd"><span>Direct <b id="cd">₹4,320</b></span><span>Referral <b id="cr">₹4,320</b></span></div>
-      </div>
-      <p style="font-size:11px;color:var(--muted2);margin-top:12px;text-align:center">Estimate based on 3 slots + live bids. Actual varies.</p>
-    </div>
-  </div>
-</section>
-
-<section class="section">
-  <div class="ref-card">
-    <div class="ref-c">
-      <div class="ref-badge">The real money maker</div>
-      <h2>Build a network.<br>Earn in your sleep.</h2>
-      <p>One machine has a ceiling. <strong>The referral engine doesn't.</strong> Invite developers and earn <strong>10% of everything they make</strong> — for as long as they use WaitJI AI.</p>
-      <p>30 active referrals can mean <strong>₹4,000–9,000 / month</strong> on top of your own earnings. It keeps coming while you sleep.</p>
-    </div>
-    <div class="ref-v"><div class="ref-mult">10%</div><div class="ref-mult-l">lifetime cut · per referral</div></div>
-  </div>
-</section>
-
-<section class="section">
-  <div class="eyebrow">How it works</div>
-  <div class="section-title">Three steps to income.</div>
-  <div class="steps">
-    <div class="step"><div class="step-n">STEP 01</div><div class="step-ic">⚡</div><h3>Install & connect UPI</h3><p>Add the VS Code extension, drop in your UPI ID, copy your referral link. 30 seconds.</p></div>
-    <div class="step"><div class="step-n">STEP 02</div><div class="step-ic">💻</div><h3>Code & invite</h3><p>Work as usual. 3 ads rotate per wait. Share your link with developer friends.</p></div>
-    <div class="step"><div class="step-n">STEP 03</div><div class="step-ic">💸</div><h3>Withdraw to UPI</h3><p>Direct + referral + premium combine. Cash out from ₹100, straight to your account.</p></div>
-  </div>
-</section>
-
-<section class="adv-section" id="advertise">
-  <div class="adv-inner">
-    <div class="eyebrow">For advertisers</div>
-    <div class="section-title">Reach 10,000+ Indian developers.</div>
-    <p class="section-sub" style="margin-bottom:0">The most skilled, hardest-to-reach, ad-blocking audience — in their calmest, most attentive moment.</p>
-    <div class="adv-grid">
-      <div>
-        <p style="font-size:11px;color:var(--muted);margin-bottom:14px;font-family:var(--mono);letter-spacing:1px;text-transform:uppercase">Live bid queue — real data</p>
-        <div class="live-camps">
-          <div class="lc-h"><span class="lc-h-t">Active campaigns</span><span class="lc-live"><span class="badge-dot"></span>Live</span></div>
-          <div id="camps"><div class="lc-load">Loading live campaigns…</div></div>
-        </div>
-        <div class="price-note">💡 <strong>Minimum bid ₹200 per 1,000 impressions.</strong> Premium audience — higher bids win the top slot in rotation.</div>
-      </div>
-      <div class="adv-promo">
-        <h3>Why WaitJI AI</h3>
-        <p>Self-serve campaigns, real-time analytics, and fraud protection that guards every rupee of your spend.</p>
-        <div class="adv-feat"><span class="adv-feat-ic">✓</span><div class="adv-feat-tx"><h4>100% viewable</h4><p>Shown only while the developer watches the screen</p></div></div>
-        <div class="adv-feat"><span class="adv-feat-ic">✓</span><div class="adv-feat-tx"><h4>Click-fraud protection</h4><p>Invalid clicks are blocked and never billed to you</p></div></div>
-        <div class="adv-feat"><span class="adv-feat-ic">✓</span><div class="adv-feat-tx"><h4>Live dashboard</h4><p>Impressions, CTR, spend — updated in real time</p></div></div>
-        <div class="adv-feat"><span class="adv-feat-ic">✓</span><div class="adv-feat-tx"><h4>India-first billing</h4><p>INR pricing, GST invoice, UPI & cards</p></div></div>
-        <div class="adv-cta"><button class="btn-solid btn-lg" style="width:100%;justify-content:center" onclick="openAuth('signup','advertiser')">Create advertiser account →</button></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="faq-section" id="faq">
-  <div class="faq-inner">
-    <div class="eyebrow">FAQ</div>
-    <div class="section-title" style="margin-bottom:44px">Common questions.</div>
-    <div class="faq-item"><div class="faq-q" onclick="tf(this)">Is ₹15,000/month realistic?<span class="faq-ar">▾</span></div><div class="faq-a">Honestly: not from one machine alone — that earns ₹2,000–4,000 (this is the industry reality; foreign platforms pay the same or less). ₹15,000 needs a referral network. Invite 30–50 developers and earn 10% of their earnings for life. Direct + referral + premium combined gets you there. We don't sell fantasies — check the calculator.</div></div>
-    <div class="faq-item"><div class="faq-q" onclick="tf(this)">Will 3 ads be annoying?<span class="faq-ar">▾</span></div><div class="faq-a">No. Ads are a single line in the status bar and rotate based on how long the AI takes. A 3-second wait shows one; a 15-second wait shows three. Your flow never breaks.</div></div>
-    <div class="faq-item"><div class="faq-q" onclick="tf(this)">How does fraud protection work?<span class="faq-ar">▾</span></div><div class="faq-a">Every click runs through velocity, cadence, IP and CTR checks. Bot-like or farmed clicks are blocked and never billed to advertisers — protecting their budget and keeping the marketplace honest. Advertisers see exactly how much fraud we saved them.</div></div>
-    <div class="faq-item"><div class="faq-q" onclick="tf(this)">When and how do I get paid?<span class="faq-ar">▾</span></div><div class="faq-a">Withdraw from ₹100 straight to UPI — usually 2–3 business days. No bank-account hassle, no minimums beyond ₹100.</div></div>
-    <div class="faq-item"><div class="faq-q" onclick="tf(this)">Is this legal? Does it break Claude's terms?<span class="faq-ar">▾</span></div><div class="faq-a">Yes, it's legal. It's a VS Code extension showing status-bar text — a standard documented use of the Extension API. No Claude terms are violated and we claim no Anthropic partnership. It runs only on your local machine.</div></div>
-  </div>
-</section>
-
-<section class="final">
-  <h2>Stop watching the spinner.<br><span class="grad">Start earning from it.</span></h2>
-  <p>Free to install. No credit card. Just your UPI ID.</p>
-  <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
-    <button class="btn-solid btn-lg" onclick="openAuth('signup','customer')">Start earning →</button>
-    <button class="btn-outline-lg btn-lg" onclick="openAuth('signup','advertiser')">Advertise with us</button>
-  </div>
-  <p style="margin-top:30px;font-size:12px;color:var(--muted2);font-family:var(--mono)">Made in Udaipur · QivaLabs LLP · sales@qivalabs.com</p>
-</section>
-
-<footer>
-  <div class="logo" style="font-size:15px"><span class="logo-mark" style="width:26px;height:26px"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.35)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></span>Wait<em>JI</em> AI</div>
-  <div class="foot-links"><a href="#faq">FAQ</a><a href="#">Privacy</a><a href="#">Terms</a><a href="mailto:sales@qivalabs.com">Contact</a></div>
-  <div>© 2026 QivaLabs LLP</div>
-</footer>
-
-<!-- AUTH MODAL -->
-<div class="modal-bg" id="authModal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeAuth()">✕</button>
-
-    <!-- main auth view -->
-    <div id="authMain">
-      <h2 id="authTitle">Get started</h2>
-      <p class="modal-sub" id="authSub">Create your account in seconds</p>
-      <div class="modal-err" id="authErr"></div>
-      <div class="role-toggle" id="roleToggle">
-        <button class="role-btn active" data-role="customer" onclick="setRole('customer')">💻 I want to earn</button>
-        <button class="role-btn" data-role="advertiser" onclick="setRole('advertiser')">📣 I want to advertise</button>
-      </div>
-
-      <button class="btn-google" id="googleBtn" onclick="googleLogin()">
-        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
-        Continue with Google
-      </button>
-      <div class="auth-divider"><span>or</span></div>
-
-      <div id="signupFields">
-        <div class="field" id="nameField"><label id="nameLabel">Your name</label><input type="text" id="auName" placeholder="Rahul Sharma"></div>
-        <div class="field" id="companyField" style="display:none"><label>Company name</label><input type="text" id="auCompany" placeholder="Acme Inc"></div>
-        <div class="field" id="upiField"><label>UPI ID (for payouts)</label><input type="text" id="auUpi" placeholder="yourname@upi"></div>
-      </div>
-      <div class="field"><label>Email</label><input type="email" id="auEmail" placeholder="you@email.com"></div>
-      <div class="field"><label>Password</label><input type="password" id="auPass" placeholder="Min 6 characters"></div>
-      <button class="btn-solid" id="authSubmit" onclick="submitAuth()">Create account</button>
-      <div class="modal-switch" id="authSwitch">Already have an account? <a onclick="switchMode('login')">Log in</a></div>
-    </div>
-
-    <!-- email verification sent view -->
-    <div id="authVerify" style="display:none;text-align:center">
-      <div style="font-size:48px;margin-bottom:12px">📧</div>
-      <h2>Check your email</h2>
-      <p class="modal-sub" style="margin-bottom:20px">We sent a verification link to <strong id="verifyEmail">your email</strong>. Click it to activate your account, then come back and log in.</p>
-      <div style="background:var(--indigo-soft);border-radius:10px;padding:14px;font-size:13px;color:var(--indigo-dark);margin-bottom:18px">Didn't get it? Check spam, or wait a minute and try again.</div>
-      <button class="btn-solid" style="width:100%;justify-content:center" onclick="switchMode('login')">Back to log in</button>
-    </div>
-
   </div>
 </div>
-
-<div class="toast" id="toast"><div class="toast-t" id="toastT">Done</div><div class="toast-s" id="toastS"></div></div>
-
+<footer>
+  <div>© 2026 QivaLabs LLP · Made in Udaipur 🇮🇳</div>
+  <div style="display:flex;gap:18px;"><a href="mailto:sales@qivalabs.com">Contact</a><a href="#">Privacy</a><a href="#">Terms</a></div>
+</footer>
 <script>
-const API = 'https://waitjiai-backend.onrender.com';
-// ── Supabase (login + verification) ──
-const SUPABASE_URL = 'https://tqfjdhneycntoasahstt.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZmpkaG5leWNudG9hc2Foc3R0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mjg1ODcsImV4cCI6MjA5NzIwNDU4N30.u5oqo0c9tmZ7OxZW6R2hbMxUyVrM4nedYsGKC8PR4TA';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-let authMode = 'signup', authRole = 'customer';
-
-// spinner
-const fr = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏']; let fi=0;
-setInterval(()=>{ fi=(fi+1)%fr.length; document.getElementById('sp1').textContent=fr[fi]; document.getElementById('sp2').textContent=fr[(fi+3)%fr.length]; },100);
-
-// stats
-async function loadStats(){
-  try{ const d=await (await fetch(API+'/v1/stats')).json();
-    document.getElementById('tk-imp').textContent=(d.totalImpressions||0).toLocaleString('en-IN');
-    document.getElementById('tk-camp').textContent=d.activeCampaigns||0;
-    document.getElementById('tk-earn').textContent='₹'+parseFloat(d.totalEarnedByDevsRupees||0).toLocaleString('en-IN');
-  }catch(e){}
-}
-async function loadCamps(){
-  const el=document.getElementById('camps');
-  try{ const d=await (await fetch(API+'/v1/ads/active')).json(); const ads=d.ads||[];
-    if(!ads.length){ el.innerHTML='<div class="lc-empty"><div style="font-size:24px;margin-bottom:8px">🎯</div><strong>No live campaigns yet.</strong><br>Be the first advertiser — from ₹200 CPM.</div>'; document.getElementById('dad-t').textContent='Be the first advertiser → waitjiai.in'; return; }
-    el.innerHTML=ads.map((a,i)=>`<div class="lc-row"><span class="lc-rank">${String(i+1).padStart(2,'0')}</span><div style="flex:1;min-width:0"><div class="lc-name">${esc(a.advertiser)}</div><div class="lc-txt">${esc(a.text)}</div></div><span class="lc-bid">₹${(a.cpmPaise/100).toFixed(0)}/1K</span><span class="lc-status">Live</span></div>`).join('');
-    const set=a=>{ document.getElementById('dad-t').textContent=a.text; const p=(a.cpmPaise/1000)*3*0.5; document.getElementById('dad-e').textContent='+₹'+(p/100).toFixed(2); };
-    set(ads[0]); let ai=0;
-    setInterval(()=>{ ai=(ai+1)%ads.length; const t=document.getElementById('dad-t'); t.style.opacity=0; t.style.transition='opacity 0.3s'; setTimeout(()=>{set(ads[ai]);t.style.opacity=1;},300); },4000);
-  }catch(e){ el.innerHTML='<div class="lc-empty">📡 Server waking up… refresh in a moment.</div>'; document.getElementById('dad-t').textContent='Your brand here → waitjiai.in'; }
-}
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-
-// calc
-function calc(){
-  const s=+r1.value, cpm=+r3.value, rf=+r4.value;
-  v1.textContent=s; v3.textContent='₹'+cpm; v4.textContent=rf;
-  const direct=(s*3*30/1000)*cpm*0.5;
-  const ref=(rf*40*3*30/1000)*cpm*0.5*0.10;
-  cnum.textContent='₹'+Math.round(direct+ref).toLocaleString('en-IN');
-  cd.textContent='₹'+Math.round(direct).toLocaleString('en-IN');
-  cr.textContent='₹'+Math.round(ref).toLocaleString('en-IN');
-}
-
-// faq
-function tf(el){ const it=el.parentElement; const o=it.classList.contains('open'); document.querySelectorAll('.faq-item').forEach(i=>i.classList.remove('open')); if(!o)it.classList.add('open'); }
-
-// auth modal
-function openAuth(mode,role){ authMode=mode; if(role)authRole=role; renderAuth(); document.getElementById('authModal').classList.add('show'); }
-function closeAuth(){ document.getElementById('authModal').classList.remove('show'); document.getElementById('authErr').classList.remove('show'); }
-function setRole(r){ authRole=r; document.querySelectorAll('.role-btn').forEach(b=>b.classList.toggle('active',b.dataset.role===r));
-  document.getElementById('companyField').style.display=r==='advertiser'?'block':'none';
-  document.getElementById('upiField').style.display=r==='customer'?'block':'none';
-  document.getElementById('nameLabel').textContent=r==='advertiser'?'Contact name':'Your name';
-}
-function switchMode(m){ authMode=m; renderAuth(); }
-function showView(v){ document.getElementById('authMain').style.display=v==='main'?'block':'none'; document.getElementById('authVerify').style.display=v==='verify'?'block':'none'; }
-function renderAuth(){
-  showView('main');
-  const isLogin=authMode==='login';
-  document.getElementById('authTitle').textContent=isLogin?'Welcome back':'Get started';
-  document.getElementById('authSub').textContent=isLogin?'Log in to your dashboard':'Create your account in seconds';
-  document.getElementById('signupFields').style.display=isLogin?'none':'block';
-  document.getElementById('roleToggle').style.display=isLogin?'none':'flex';
-  document.getElementById('authSubmit').textContent=isLogin?'Log in':'Create account';
-  document.getElementById('authSwitch').innerHTML=isLogin?`New here? <a onclick="switchMode('signup')">Create account</a>`:`Already have an account? <a onclick="switchMode('login')">Log in</a>`;
-  if(!isLogin) setRole(authRole);
-  document.getElementById('authErr').classList.remove('show');
-}
-function showErr(m){ const e=document.getElementById('authErr'); e.textContent=m; e.classList.add('show'); }
-
-// Exchange a Supabase session for a WaitJI backend token, then route to dashboard
-async function exchangeAndRoute(extra={}){
-  const { data:{ session } } = await sb.auth.getSession();
-  if(!session){ showErr('Could not start session. Please try again.'); return false; }
-  const r=await fetch(API+'/v1/auth/exchange',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({ access_token:session.access_token, ...extra })});
-  const d=await r.json();
-  if(!r.ok){ showErr(d.error||'Could not sign you in.'); return false; }
-  localStorage.setItem('waitji_token',d.token);
-  localStorage.setItem('waitji_role',d.user.role);
-  const dash=d.user.role==='advertiser'?'advertiser.html':'customer.html';
-  window.location.href=dash;
-  return true;
-}
-
-// Google login (works for both signup + login)
-async function googleLogin(){
-  const role = authMode==='signup' ? authRole : 'customer';
-  // remember chosen role across the OAuth redirect
-  localStorage.setItem('waitji_pending_role', role);
-  const { error } = await sb.auth.signInWithOAuth({ provider:'google',
-    options:{ redirectTo: window.location.origin + window.location.pathname } });
-  if(error) showErr(error.message);
-}
-
-async function submitAuth(){
-  const email=document.getElementById('auEmail').value.trim();
-  const password=document.getElementById('auPass').value;
-  if(!email||!password){ showErr('Email and password required'); return; }
-  const btn=document.getElementById('authSubmit'); const orig=btn.textContent; btn.textContent='Please wait…'; btn.disabled=true;
-  const reset=()=>{ btn.disabled=false; btn.textContent=orig; };
-  try{
-    if(authMode==='login'){
-      // Admin? try the internal Render login first (admin isn't in Supabase)
-      const adminTry=await fetch(API+'/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
-      if(adminTry.ok){ const d=await adminTry.json(); localStorage.setItem('waitji_token',d.token); localStorage.setItem('waitji_role',d.user.role); window.location.href='admin.html'; return; }
-      // else normal user via Supabase
-      const { error }=await sb.auth.signInWithPassword({ email, password });
-      if(error){
-        if(/confirm/i.test(error.message)){ showErr('Please verify your email first — check your inbox.'); }
-        else showErr('Wrong email or password.');
-        reset(); return;
-      }
-      await exchangeAndRoute(); reset();
-    }else{
-      // SIGNUP via Supabase (sends verification email)
-      const meta={ role:authRole, name:document.getElementById('auName').value.trim() };
-      if(authRole==='advertiser') meta.company=document.getElementById('auCompany').value.trim();
-      if(authRole==='customer') meta.upiId=document.getElementById('auUpi').value.trim();
-      const { data, error }=await sb.auth.signUp({ email, password,
-        options:{ data:meta, emailRedirectTo: window.location.origin + window.location.pathname } });
-      if(error){ showErr(error.message); reset(); return; }
-      // store role so we can set it after they verify + log in
-      localStorage.setItem('waitji_pending_role', authRole);
-      // show "check your email" screen
-      document.getElementById('verifyEmail').textContent=email;
-      showView('verify'); reset();
-    }
-  }catch(e){ showErr('Network error — please try again.'); reset(); }
-}
-
-// On page load: if returning from Google OAuth or email-verify link, finish login
-(async function(){
-  try{
-    const { data:{ session } } = await sb.auth.getSession();
-    if(session){
-      // user just verified / logged in via Supabase redirect → exchange + route
-      const role=localStorage.getItem('waitji_pending_role')||'customer';
-      const extra={ role };
-      const r=await fetch(API+'/v1/auth/exchange',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ access_token:session.access_token, ...extra })});
-      if(r.ok){ const d=await r.json(); localStorage.removeItem('waitji_pending_role');
-        localStorage.setItem('waitji_token',d.token); localStorage.setItem('waitji_role',d.user.role);
-        const dash=d.user.role==='advertiser'?'advertiser.html':'customer.html';
-        if(!location.pathname.endsWith(dash)) window.location.href=dash; return; }
-    }
-  }catch(e){}
-  // else: show "My dashboard" if already have a backend token
-  const t=localStorage.getItem('waitji_token'), r=localStorage.getItem('waitji_role');
-  if(t&&r){ const a=document.querySelector('.nav-actions'); const dash=r==='admin'?'admin.html':r==='advertiser'?'advertiser.html':'customer.html';
-    a.innerHTML=`<a class="btn-solid" href="${dash}">My dashboard →</a>`; }
-})();
-
-loadStats(); loadCamps(); calc();
-setInterval(loadStats,30000);
-document.getElementById('authModal').addEventListener('click',e=>{ if(e.target.id==='authModal')closeAuth(); });
+const SUPABASE_URL='https://tqfjdhneycntoasahstt.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZmpkaG5leWNudG9hc2Foc3R0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mjg1ODcsImV4cCI6MjA5NzIwNDU4N30.u5oqo0c9tmZ7OxZW6R2hbMxUyVrM4nedYsGKC8PR4TA';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+let selectedRole='developer';
+function setRole(btn){document.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');selectedRole=btn.dataset.role;}
+function tick(){const now=new Date();const launch=new Date('2026-06-25T00:00:00+05:30');const diff=Math.max(0,launch-now);const d=Math.floor(diff/86400000);const h=Math.floor((diff%86400000)/3600000);const m=Math.floor((diff%3600000)/60000);const s=Math.floor((diff%60000)/1000);document.getElementById('cd-d').textContent=String(d).padStart(2,'0');document.getElementById('cd-h').textContent=String(h).padStart(2,'0');document.getElementById('cd-m').textContent=String(m).padStart(2,'0');document.getElementById('cd-s').textContent=String(s).padStart(2,'0');}
+tick();setInterval(tick,1000);
+async function loadCount(){try{const{count}=await sb.from('waitlist').select('*',{count:'exact',head:true});document.getElementById('joinedCount').textContent=(count||0).toLocaleString('en-IN');}catch(e){document.getElementById('joinedCount').textContent='0';}}
+loadCount();
+async function joinWaitlist(){const email=document.getElementById('wlEmail').value.trim().toLowerCase();const err=document.getElementById('wlErr');err.classList.remove('show');if(!email||!email.includes('@')){err.textContent='Please enter a valid email.';err.classList.add('show');return;}const btn=document.getElementById('wlBtn');btn.disabled=true;btn.textContent='Joining…';try{const{data:existing}=await sb.from('waitlist').select('id,position').eq('email',email).maybeSingle();if(existing){showSuccess(existing.position);return;}const{data,error}=await sb.from('waitlist').insert([{email,role:selectedRole,joined_at:new Date().toISOString()}]).select('id,position').maybeSingle();if(error){if(error.code==='23505'){err.textContent='This email is already on the list!';err.classList.add('show');}else{err.textContent='Something went wrong — please try again.';err.classList.add('show');}btn.disabled=false;btn.textContent='Join waitlist →';return;}showSuccess(data?.position||null);loadCount();}catch(e){err.textContent='Network error — please try again.';err.classList.add('show');btn.disabled=false;btn.textContent='Join waitlist →';}}
+function showSuccess(pos){document.getElementById('formBox').style.display='none';document.getElementById('successBox').classList.add('show');document.getElementById('posText').textContent=pos?'#'+pos:'🎉';}
+function copyLink(){navigator.clipboard.writeText('https://waitjiai.vercel.app');const b=event.target;b.textContent='Copied ✓';setTimeout(()=>b.textContent='🔗 Copy link',1500);}
+document.getElementById('wlEmail').addEventListener('keydown',e=>{if(e.key==='Enter')joinWaitlist();});
 </script>
 </body>
 </html>
