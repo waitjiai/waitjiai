@@ -73,7 +73,7 @@ footer a{color:#6B7185;text-decoration:none;}footer a:hover{color:#fff;}
 <div class="bg"></div><div class="grid-lines"></div><div class="glow-top"></div>
 <nav>
   <div class="logo"><span class="logo-mark"><svg viewBox="0 0 24 24" width="19" height="19" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.4)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></span>Wait<em>JI</em> AI</div>
-  <div class="nav-r">Partner with us → <a href="mailto:sales@qivalabs.com">sales@qivalabs.com</a></div>
+  <div class="nav-r">Partner with us → <a href="mailto:sales@waitjiai.in">sales@waitjiai.in</a></div>
 </nav>
 <div class="wrap">
   <div class="badge"><span class="badge-dot"></span>LAUNCHING 25 JUNE 2026 · INDIA'S AI AD MARKETPLACE</div>
@@ -132,15 +132,15 @@ footer a{color:#6B7185;text-decoration:none;}footer a:hover{color:#fff;}
   <div class="share">
     <p>Know a developer? Share WaitJI AI 👇</p>
     <div class="share-btns">
-      <a class="sbtn" href="https://twitter.com/intent/tweet?text=WaitJI+AI+is+launching+25+June+%E2%80%94+earn+passive+UPI+income+while+Claude+Code+thinks+%F0%9F%9A%80&url=https://waitjiai.vercel.app" target="_blank">𝕏 Share on X</a>
-      <a class="sbtn" href="https://www.linkedin.com/sharing/share-offsite/?url=https://waitjiai.vercel.app" target="_blank">in LinkedIn</a>
+      <a class="sbtn" href="https://twitter.com/intent/tweet?text=WaitJI+AI+is+launching+25+June+%E2%80%94+earn+passive+UPI+income+while+Claude+Code+thinks+%F0%9F%9A%80&url=https://waitjiai.in" target="_blank">𝕏 Share on X</a>
+      <a class="sbtn" href="https://www.linkedin.com/sharing/share-offsite/?url=https://waitjiai.in" target="_blank">in LinkedIn</a>
       <button class="sbtn" onclick="copyLink()">🔗 Copy link</button>
     </div>
   </div>
 </div>
 <footer>
   <div>© 2026 QivaLabs LLP · Made in Udaipur 🇮🇳</div>
-  <div style="display:flex;gap:18px;"><a href="mailto:sales@qivalabs.com">Contact</a><a href="#">Privacy</a><a href="#">Terms</a></div>
+  <div style="display:flex;gap:18px;"><a href="mailto:admin@waitjiai.in">Contact</a><a href="#">Privacy</a><a href="#">Terms</a></div>
 </footer>
 <script>
 const SUPABASE_URL='https://tqfjdhneycntoasahstt.supabase.co';
@@ -154,7 +154,7 @@ async function loadCount(){try{const{count}=await sb.from('waitlist').select('*'
 loadCount();
 async function joinWaitlist(){const email=document.getElementById('wlEmail').value.trim().toLowerCase();const err=document.getElementById('wlErr');err.classList.remove('show');if(!email||!email.includes('@')){err.textContent='Please enter a valid email.';err.classList.add('show');return;}const btn=document.getElementById('wlBtn');btn.disabled=true;btn.textContent='Joining…';try{const{data:existing}=await sb.from('waitlist').select('id,position').eq('email',email).maybeSingle();if(existing){showSuccess(existing.position);return;}const{data,error}=await sb.from('waitlist').insert([{email,role:selectedRole,joined_at:new Date().toISOString()}]).select('id,position').maybeSingle();if(error){if(error.code==='23505'){err.textContent='This email is already on the list!';err.classList.add('show');}else{err.textContent='Something went wrong — please try again.';err.classList.add('show');}btn.disabled=false;btn.textContent='Join waitlist →';return;}showSuccess(data?.position||null);loadCount();}catch(e){err.textContent='Network error — please try again.';err.classList.add('show');btn.disabled=false;btn.textContent='Join waitlist →';}}
 function showSuccess(pos){document.getElementById('formBox').style.display='none';document.getElementById('successBox').classList.add('show');document.getElementById('posText').textContent=pos?'#'+pos:'🎉';}
-function copyLink(){navigator.clipboard.writeText('https://waitjiai.vercel.app');const b=event.target;b.textContent='Copied ✓';setTimeout(()=>b.textContent='🔗 Copy link',1500);}
+function copyLink(){navigator.clipboard.writeText('https://waitjiai.in');const b=event.target;b.textContent='Copied ✓';setTimeout(()=>b.textContent='🔗 Copy link',1500);}
 document.getElementById('wlEmail').addEventListener('keydown',e=>{if(e.key==='Enter')joinWaitlist();});
 </script>
 </body>
