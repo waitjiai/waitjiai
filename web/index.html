@@ -147,29 +147,7 @@ footer{padding:40px 0;border-top:1px solid var(--bd);margin-top:40px;}
 .footer-inner{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--m);}
 .footer-inner a{color:var(--m);}
 .footer-inner a:hover{color:var(--i);}
-/* ── AUTH MODAL ── */
-.auth-overlay{display:none;position:fixed;inset:0;background:rgba(15,18,34,.5);z-index:200;align-items:center;justify-content:center;padding:20px;}
-.auth-overlay.show{display:flex;}
-.auth-modal{background:var(--sf);border-radius:20px;padding:32px;width:100%;max-width:380px;box-shadow:0 20px 50px -10px rgba(15,18,34,.2);position:relative;}
-.auth-close{position:absolute;top:18px;right:18px;background:none;border:none;font-size:18px;color:var(--m);cursor:pointer;}
-.auth-tabs{display:flex;background:var(--bg2);border-radius:10px;padding:4px;margin-bottom:20px;}
-.auth-tab{flex:1;text-align:center;padding:9px;border-radius:7px;font-size:13.5px;font-weight:600;cursor:pointer;color:var(--m);}
-.auth-tab.active{background:var(--sf);color:var(--ink);box-shadow:0 1px 4px rgba(15,18,34,.08);}
-.auth-role-row{display:none;gap:8px;margin-bottom:16px;}
-.auth-role-row.show{display:flex;}
-.auth-role-btn{flex:1;padding:9px;border-radius:9px;border:1px solid var(--bd);background:var(--sf);font-size:12.5px;font-weight:600;cursor:pointer;color:var(--m);}
-.auth-role-btn.active{border-color:var(--i);background:#EEF2FF;color:var(--i);}
-.auth-input{width:100%;padding:11px 14px;border:1px solid var(--bd);border-radius:9px;font-size:14px;font-family:var(--body);margin-bottom:12px;}
-.auth-input:focus{outline:none;border-color:var(--i);}
-.auth-submit{width:100%;padding:13px;border-radius:10px;border:none;font-weight:700;font-size:14px;cursor:pointer;background:var(--i);color:#fff;}
-.auth-submit:hover{background:var(--id);}
-.auth-submit:disabled{opacity:.6;cursor:wait;}
-.auth-msg{font-size:12.5px;border-radius:9px;padding:10px 13px;margin-top:12px;display:none;line-height:1.6;}
-.auth-msg.show{display:block;}
-.auth-msg.err{background:#FEE2E2;color:#B91C1C;border:1px solid #FCA5A5;}
-.auth-msg.info{background:#EEF2FF;color:#3730A3;border:1px solid #C7D2FE;}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -182,7 +160,7 @@ footer{padding:40px 0;border-top:1px solid var(--bd);margin-top:40px;}
       <a href="#faq">FAQ</a>
       <a href="advertiser.html">For advertisers</a>
     </div>
-    <a href="javascript:void(0)" onclick="openAuth()" class="nav-cta">Log in</a>
+    <a href="login.html" class="nav-cta">Log in</a>
   </div>
 </nav>
 
@@ -307,24 +285,6 @@ footer{padding:40px 0;border-top:1px solid var(--bd);margin-top:40px;}
   </div>
 </section>
 
-<div class="auth-overlay" id="authOverlay">
-  <div class="auth-modal">
-    <button class="auth-close" onclick="closeAuth()">✕</button>
-    <div class="auth-tabs">
-      <div class="auth-tab active" id="authTabLogin" onclick="setAuthMode('login')">Log in</div>
-      <div class="auth-tab" id="authTabSignup" onclick="setAuthMode('signup')">Sign up</div>
-    </div>
-    <div class="auth-role-row" id="authRoleRow">
-      <button class="auth-role-btn active" id="authRoleDev" onclick="setAuthRole('customer')">💻 Developer</button>
-      <button class="auth-role-btn" id="authRoleAdv" onclick="setAuthRole('advertiser')">📣 Advertiser</button>
-    </div>
-    <input type="email" id="authEmail" class="auth-input" placeholder="Email address" autocomplete="email">
-    <input type="password" id="authPassword" class="auth-input" placeholder="Password" autocomplete="current-password">
-    <button class="auth-submit" id="authSubmitBtn" onclick="submitAuth()">Log in →</button>
-    <div class="auth-msg" id="authMsg"></div>
-  </div>
-</div>
-
 <footer>
   <div class="wrap footer-inner">
     <span>© 2026 QivaLabs LLP · Made in Udaipur 🇮🇳</span>
@@ -337,94 +297,6 @@ footer{padding:40px 0;border-top:1px solid var(--bd);margin-top:40px;}
   </div>
 </footer>
 
-<script>
-const SUPABASE_URL='https://tqfjdhneycntoasahstt.supabase.co';
-const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZmpkaG5leWNudG9hc2Foc3R0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mjg1ODcsImV4cCI6MjA5NzIwNDU4N30.u5oqo0c9tmZ7OxZW6R2hbMxUyVrM4nedYsGKC8PR4TA';
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
-const API_BASE='https://waitjiai-backend.onrender.com';
-
-// ── AUTH MODAL ──────────────────────────────────────────────────────────────
-let authMode='login';
-let authRole='customer';
-
-function openAuth(){ document.getElementById('authOverlay').classList.add('show'); }
-function closeAuth(){ document.getElementById('authOverlay').classList.remove('show'); hideAuthMsg(); }
-
-function setAuthMode(m){
-  authMode=m;
-  document.getElementById('authTabLogin').classList.toggle('active', m==='login');
-  document.getElementById('authTabSignup').classList.toggle('active', m==='signup');
-  document.getElementById('authRoleRow').classList.toggle('show', m==='signup');
-  document.getElementById('authSubmitBtn').textContent = m==='login' ? 'Log in →' : 'Create account →';
-  hideAuthMsg();
-}
-function setAuthRole(r){
-  authRole=r;
-  document.getElementById('authRoleDev').classList.toggle('active', r==='customer');
-  document.getElementById('authRoleAdv').classList.toggle('active', r==='advertiser');
-}
-function showAuthMsg(text,type){ const el=document.getElementById('authMsg'); el.textContent=text; el.className='auth-msg show '+(type||'err'); }
-function hideAuthMsg(){ document.getElementById('authMsg').classList.remove('show'); }
-
-async function submitAuth(){
-  const email=document.getElementById('authEmail').value.trim().toLowerCase();
-  const password=document.getElementById('authPassword').value;
-  hideAuthMsg();
-  if(!email||!email.includes('@')){ showAuthMsg('Please enter a valid email.'); return; }
-  if(!password||password.length<6){ showAuthMsg('Password must be at least 6 characters.'); return; }
-
-  const btn=document.getElementById('authSubmitBtn');
-  btn.disabled=true; btn.textContent='Please wait…';
-  try{
-    if(authMode==='signup') await doSignup(email,password);
-    else await doLogin(email,password);
-  } catch(e){
-    showAuthMsg('Something went wrong. Please try again.');
-  } finally {
-    btn.disabled=false;
-    btn.textContent = authMode==='login' ? 'Log in →' : 'Create account →';
-  }
-}
-
-async function doSignup(email,password){
-  const { data, error } = await sb.auth.signUp({ email, password });
-  if(error){ showAuthMsg(error.message || 'Could not create account.'); return; }
-  if(!data.session){
-    showAuthMsg('Account created — check ' + email + ' for a verification link, then log in.', 'info');
-    return;
-  }
-  await exchangeAndRedirect(data.session.access_token, authRole);
-}
-
-async function doLogin(email,password){
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  if(error){
-    if(error.message && error.message.toLowerCase().includes('confirm')){
-      showAuthMsg('Please verify your email first — check your inbox.');
-    } else {
-      showAuthMsg('Incorrect email or password.');
-    }
-    return;
-  }
-  await exchangeAndRedirect(data.session.access_token, null);
-}
-
-async function exchangeAndRedirect(accessToken, role){
-  const body = { access_token: accessToken };
-  if (role) body.role = role;
-  const res = await fetch(API_BASE + '/v1/auth/exchange', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-  });
-  const result = await res.json();
-  if(!res.ok){
-    showAuthMsg(res.status===403 ? 'Please verify your email before continuing.' : (result.error || 'Login failed.'));
-    return;
-  }
-  localStorage.setItem('waitji_token', result.token);
-  localStorage.setItem('waitji_role', result.user.role);
-  window.location.href = result.user.role==='advertiser' ? 'advertiser.html' : 'customer.html';
-}
-</script>
 <script>
 // live ticker demo, purely illustrative, resets every loop
 let demoEarn = 0;
