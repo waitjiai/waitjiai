@@ -188,6 +188,182 @@ function renderAdvertisers(advs){
 function renderCustomers(custs){
   document.getElementById('tabContent').innerHTML=`<div class="panel"><div class="panel-h">Earners (${custs.length})</div>
     ${custs.length?`<table><thead><tr><th>Name</th><th>Email</th><th>Impressions</th><th>Earned</th><th>Fraud flags</th><th>Status</th><th></th></tr></thead><tbody>
+    ${custs.map(c=>`<tr><td style="font-weight:600">${esc(c.name||'—')}</td><td class="mono">${esc(c.email)}</td><td>${c.impressions.toLocaleString('en-IN')}</td><td class="mono">₹${c.earnedRupees}</td><td>${c.fraudFlags>0?`<span class="sev high">${c.fraudFlags}</span>`:'<span style="color:var(--green)">0</span>'}</td><td>${c.banned?`<span class="sev high">banned</span><div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(c.banReason||'')}</div>`:'<span class="status active">active</span>'}</td><td><button class="mini-btn" onclick="switchRole('${c.id}','advertiser')" title="Account was registered as the wrong role? Fix it here.">Make advertiser</button> <button class="mini-btn ${c.banned?'green':'red'}" onclick="banUser('${c.id}',${!c.banned})">${c.banned?'Unban':'Ban'}</button></td></tr>`).join('')}
+    </tbody></table>`:`<div class="empty"><div class="empty-ic">💻</div>No earners yet.</div>`}</div>`;
+}
+async function switchRole(id,newRole){
+  if(!confirm('Switch this account to "'+newRole+'"? They will need to log out and back in to see the new dashboard.')) return;
+  await fetch(API+'/v1/admin/users/'+id,{method:'PATCH',headers:H,body:JSON.stringify({role:newRole})});
+  toast('✓ Role updated to '+newRole);
+  render();
+}
+async function banUser(id,banned){
+  let reason=null;
+  if(banned){
+    reason=prompt('Reason for ban (e.g. "Ad policy violation", "Nudity in content", "Click fraud")','');
+    if(reason===null) return; // cancelled
+    if(!reason.trim()) reason='Not specified';
+  }
+  await fetch(API+'/v1/admin/users/'+id,{method:'PATCH',headers:H,body:JSON.stringify({banned,reason})});
+  toast(banned?'🚫 User banned':'✓ User unbanned', banned?reason:'');
+  render();
+}
+
+const DEFAULT_LAUNCH_EMAIL = `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#FBFBFD;padding:32px 24px">
+  <img src="https://waitjiai.in/logo-192.png" width="48" height="48" alt="WaitJI AI" style="bor.panel-h{font-family:var(--sans);font-size:16px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+table{width:100%;border-collapse:collapse;}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted2);font-weight:600;padding:10px 12px;border-bottom:1px solid var(--border);}
+td{padding:12px;border-bottom:1px solid var(--border);font-size:13px;}
+tr:last-child td{border-bottom:none;}
+.mono{font-family:var(--mono);font-size:12px;}
+.status{font-size:10px;padding:3px 9px;border-radius:100px;font-weight:600;}
+.status.active{background:var(--green-soft);color:#047857;}
+.status.pending{background:var(--amber-soft);color:#92400E;}
+.status.paused{background:var(--surface2);color:var(--muted);}
+.status.rejected{background:var(--red-soft);color:#B91C1C;}
+.status.completed{background:var(--indigo-soft);color:var(--indigo);}
+.sev{font-size:10px;padding:3px 9px;border-radius:100px;font-weight:600;}
+.sev.critical{background:var(--red);color:#fff;}
+.sev.high{background:var(--red-soft);color:#B91C1C;}
+.sev.medium{background:var(--amber-soft);color:#92400E;}
+.mini-btn{background:var(--surface2);border:1px solid var(--border2);padding:5px 11px;border-radius:7px;font-size:12px;cursor:pointer;font-family:var(--body);font-weight:600;color:var(--ink2);margin-right:5px;}
+.mini-btn:hover{border-color:var(--indigo);color:var(--indigo);}
+.mini-btn.green{color:#047857;border-color:#A7F3D0;}.mini-btn.green:hover{background:var(--green-soft);}
+.mini-btn.red{color:#B91C1C;border-color:#FCA5A5;}.mini-btn.red:hover{background:var(--red-soft);}
+.empty{text-align:center;padding:46px;color:var(--muted2);}
+.empty-ic{font-size:34px;margin-bottom:10px;}
+.fraud-types{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
+.ftype{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:12px;}
+.ftype b{font-family:var(--mono);color:var(--red);font-size:15px;display:block;}
+.thresholds{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:6px;}
+.thresh{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:11px 13px;}
+.thresh-k{font-size:11px;color:var(--muted);}
+.thresh-v{font-family:var(--mono);font-weight:600;font-size:14px;color:var(--indigo);}
+.loading{text-align:center;padding:60px;color:var(--muted2);font-family:var(--mono);}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--ink2);}
+.hide{display:none;}
+.toast{position:fixed;bottom:28px;right:28px;background:var(--surface);border:1px solid var(--green);border-radius:12px;padding:14px 20px;box-shadow:var(--shadow);transform:translateY(90px);opacity:0;transition:all .3s;z-index:100;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast-t{font-weight:600;font-size:14px;}.toast-s{font-size:12px;color:var(--muted);}
+@media(max-width:860px){.wrap{padding:20px;}.cards{grid-template-columns:repeat(2,1fr);}.topbar{padding:12px 18px;}.user-email{display:none;}table{font-size:12px;}th,td{padding:8px;}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="logo" href="index.html"><span class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.35)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></span>Wait<em>JI</em> AI · Admin</a>
+  <div class="topbar-r"><span class="role-pill">ADMIN</span><span class="user-email" id="userEmail">—</span><button class="btn-out" onclick="logout()">Log out</button></div>
+</div>
+<div class="wrap">
+  <h1 class="page-h">Platform control</h1>
+  <p class="page-sub">Full visibility into advertisers, earners, campaigns & security</p>
+  <div class="tabs">
+    <button class="tab active" data-tab="overview" onclick="showTab('overview')">Overview</button>
+    <button class="tab" data-tab="security" onclick="showTab('security')">🛡️ Security</button>
+    <button class="tab" data-tab="campaigns" onclick="showTab('campaigns')">Campaigns</button>
+    <button class="tab" data-tab="advertisers" onclick="showTab('advertisers')">Advertisers</button>
+    <button class="tab" data-tab="customers" onclick="showTab('customers')">Earners</button>
+    <button class="tab" data-tab="waitlist" onclick="showTab('waitlist')">📧 Waitlist</button>
+  </div>
+  <div id="tabContent"><div class="loading">Loading…</div></div>
+</div>
+<div class="toast" id="toast"><div class="toast-t" id="toastT">Done</div><div class="toast-s" id="toastS"></div></div>
+
+<script>
+const API='https://waitjiai-backend.onrender.com';
+const token=localStorage.getItem('waitji_token');
+const role=localStorage.getItem('waitji_role');
+if(!token||role!=='admin'){ window.location.href='login.html'; }
+const H={'Authorization':'Bearer '+token,'Content-Type':'application/json'};
+function logout(){ localStorage.clear(); window.location.href='login.html'; }
+function toast(t,s){ document.getElementById('toastT').textContent=t; document.getElementById('toastS').textContent=s||''; const el=document.getElementById('toast'); el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),3500); }
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+let curTab='overview';
+async function init(){
+  try{ const meR=await fetch(API+'/v1/auth/me',{headers:H}); if(!meR.ok){logout();return;} const me=(await meR.json()).user; document.getElementById('userEmail').textContent=me.email; showTab('overview'); }
+  catch(e){ document.getElementById('tabContent').innerHTML='<div class="loading">Backend waking up… <a href="" onclick="location.reload();return false">retry</a></div>'; }
+}
+function showTab(t){ curTab=t; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t)); render(); }
+
+async function render(){
+  const c=document.getElementById('tabContent'); c.innerHTML='<div class="loading">Loading…</div>';
+  try{
+    if(curTab==='overview') return renderOverview(await get('/v1/admin/overview'));
+    if(curTab==='security') return renderSecurity(await get('/v1/admin/security'));
+    if(curTab==='campaigns') return renderCampaigns((await get('/v1/admin/campaigns')).campaigns);
+    if(curTab==='advertisers') return renderAdvertisers((await get('/v1/admin/advertisers')).advertisers);
+    if(curTab==='customers') return renderCustomers((await get('/v1/admin/customers')).customers);
+    if(curTab==='waitlist') return renderWaitlist(await get('/v1/admin/waitlist'));
+  }catch(e){ c.innerHTML='<div class="loading">Error loading data. <a href="" onclick="location.reload();return false">retry</a></div>'; }
+}
+async function get(p){ const r=await fetch(API+p,{headers:H}); return r.json(); }
+
+function renderOverview(d){
+  document.getElementById('tabContent').innerHTML=`
+    <div class="cards">
+      <div class="card"><div class="card-label">Total registered users</div><div class="card-val">${d.totalRegisteredUsers}</div><div class="card-sub">${d.advertisers} advertisers · ${d.customers} earners</div></div>
+      <div class="card safe"><div class="card-label">Active users (7d)</div><div class="card-val">${d.activeUsers7d}</div><div class="card-sub">used the platform recently</div></div>
+      <div class="card"><div class="card-label">⚡ Extension installs</div><div class="card-val">${d.extensionInstalls!=null?d.extensionInstalls.toLocaleString('en-IN'):'—'}</div><div class="card-sub">${d.extensionInstalls!=null?'live from VS Code Marketplace':'marketplace data unavailable'}</div></div>
+      <div class="card danger"><div class="card-label">🛡️ Fraud flags</div><div class="card-val">${d.fraudFlags}</div><div class="card-sub">${d.blockedClicks} clicks blocked</div></div>
+    </div>
+    <div class="cards">
+      <div class="card"><div class="card-label">Advertisers</div><div class="card-val">${d.advertisers}</div><div class="card-sub">${d.campaigns} campaigns</div></div>
+      <div class="card"><div class="card-label">Active campaigns</div><div class="card-val">${d.activeCampaigns}</div><div class="card-sub">${d.pendingCampaigns} pending review</div></div>
+      <div class="card safe"><div class="card-label">Platform revenue</div><div class="card-val">₹${d.platformRevenueRupees}</div><div class="card-sub">50% take rate</div></div>
+      <div class="card"><div class="card-label">Payouts owed</div><div class="card-val">₹${d.payoutsOwedRupees}</div><div class="card-sub">to earners</div></div>
+    </div>
+    <div class="cards">
+      <div class="card"><div class="card-label">Valid clicks</div><div class="card-val">${d.validClicks}</div><div class="card-sub">billed to advertisers</div></div>
+      <div class="card"><div class="card-label">Banned users</div><div class="card-val">${d.bannedUsers}</div><div class="card-sub">policy enforcement</div></div>
+    </div>
+    ${d.pendingCampaigns>0?`<div class="panel" style="background:var(--amber-soft);border-color:#FDE68A"><div class="panel-h">⏳ ${d.pendingCampaigns} campaign(s) awaiting review</div><button class="mini-btn" onclick="showTab('campaigns')">Review now →</button></div>`:''}`;
+}
+
+function renderSecurity(d){
+  document.getElementById('tabContent').innerHTML=`
+    <div class="cards">
+      <div class="card danger"><div class="card-label">Total fraud flags</div><div class="card-val">${d.flags.length}</div><div class="card-sub">lifetime</div></div>
+      <div class="card danger"><div class="card-label">Blocked clicks</div><div class="card-val">${d.blockedClicks}</div><div class="card-sub">invalid / fraudulent</div></div>
+      <div class="card safe"><div class="card-label">💰 Advertiser money saved</div><div class="card-val">₹${d.moneySavedRupees}</div><div class="card-sub">fraud never billed</div></div>
+      <div class="card"><div class="card-label">Fraud types</div><div class="card-val">${Object.keys(d.byType).length}</div><div class="card-sub">detection rules firing</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-h">🛡️ Active detection thresholds</div>
+      <div class="thresholds">
+        <div class="thresh"><div class="thresh-k">Max clicks / min</div><div class="thresh-v">${d.thresholds.MAX_CLICKS_PER_MIN}</div></div>
+        <div class="thresh"><div class="thresh-k">Max clicks / IP / hr</div><div class="thresh-v">${d.thresholds.MAX_CLICKS_PER_IP_HR}</div></div>
+        <div class="thresh"><div class="thresh-k">Max impressions / min</div><div class="thresh-v">${d.thresholds.MAX_IMPRESSIONS_PER_MIN}</div></div>
+        <div class="thresh"><div class="thresh-k">Min gap between clicks</div><div class="thresh-v">${d.thresholds.MIN_MS_BETWEEN_CLICKS}ms</div></div>
+        <div class="thresh"><div class="thresh-k">CTR alert threshold</div><div class="thresh-v">${(d.thresholds.CTR_ALERT_THRESHOLD*100)}%</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-h">Fraud flag log</div>
+      ${d.flags.length?`<div class="fraud-types">${Object.entries(d.byType).map(([k,v])=>`<div class="ftype">${k.replace(/_/g,' ')}<b>${v}</b></div>`).join('')}</div>
+      <table><thead><tr><th>User</th><th>Type</th><th>Detail</th><th>Severity</th><th>Time</th></tr></thead><tbody>
+      ${d.flags.slice(0,40).map(f=>`<tr><td class="mono">${esc(f.userEmail)}</td><td>${f.type.replace(/_/g,' ')}</td><td class="mono">${esc(f.detail)}</td><td><span class="sev ${f.severity}">${f.severity}</span></td><td class="mono">${new Date(f.ts).toLocaleString('en-IN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'})}</td></tr>`).join('')}
+      </tbody></table>`:`<div class="empty"><div class="empty-ic">🛡️</div><strong>No fraud detected yet.</strong><br><span style="font-size:13px;color:var(--muted)">The system is monitoring every click in real time.</span></div>`}
+    </div>`;
+}
+
+function renderCampaigns(camps){
+  document.getElementById('tabContent').innerHTML=`<div class="panel"><div class="panel-h">All campaigns (${camps.length})</div>
+    ${camps.length?`<table><thead><tr><th>Advertiser</th><th>Ad text</th><th>Bid</th><th>Spent</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+    ${camps.map(c=>`<tr><td class="camp-name" style="font-weight:600">${esc(c.advertiser)}</td><td style="font-size:12px;color:var(--muted)">${esc(c.adText)}</td><td class="mono">₹${(c.bidPaise/100).toFixed(0)}/1K</td><td class="mono">₹${(c.spentPaise/100).toFixed(0)}</td><td><span class="status ${c.status}">${c.status}</span></td>
+    <td>${c.status==='pending'?`<button class="mini-btn green" onclick="setCamp('${c.id}','active')">Approve</button><button class="mini-btn red" onclick="setCamp('${c.id}','rejected')">Reject</button>`:c.status==='active'?`<button class="mini-btn" onclick="setCamp('${c.id}','paused')">Pause</button>`:c.status==='paused'?`<button class="mini-btn green" onclick="setCamp('${c.id}','active')">Activate</button>`:'—'}</td></tr>`).join('')}
+    </tbody></table>`:`<div class="empty"><div class="empty-ic">📣</div>No campaigns yet.</div>`}</div>`;
+}
+async function setCamp(id,status){ await fetch(API+'/v1/admin/campaigns/'+id,{method:'PATCH',headers:H,body:JSON.stringify({status})}); toast('✓ Campaign '+status); render(); }
+
+function renderAdvertisers(advs){
+  document.getElementById('tabContent').innerHTML=`<div class="panel"><div class="panel-h">Advertisers (${advs.length})</div>
+    ${advs.length?`<table><thead><tr><th>Company</th><th>Email</th><th>Campaigns</th><th>Spent</th><th>Status</th><th></th></tr></thead><tbody>
+    ${advs.map(a=>`<tr><td style="font-weight:600">${esc(a.company||a.name||'—')}</td><td class="mono">${esc(a.email)}</td><td>${a.campaigns}</td><td class="mono">₹${a.totalSpentRupees}</td><td>${a.banned?`<span class="sev high">banned</span><div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(a.banReason||'')}</div>`:'<span class="status active">active</span>'}</td><td><button class="mini-btn ${a.banned?'green':'red'}" onclick="banUser('${a.id}',${!a.banned})">${a.banned?'Unban':'Ban'}</button></td></tr>`).join('')}
+    </tbody></table>`:`<div class="empty"><div class="empty-ic">📣</div>No advertisers yet.</div>`}</div>`;
+}
+function renderCustomers(custs){
+  document.getElementById('tabContent').innerHTML=`<div class="panel"><div class="panel-h">Earners (${custs.length})</div>
+    ${custs.length?`<table><thead><tr><th>Name</th><th>Email</th><th>Impressions</th><th>Earned</th><th>Fraud flags</th><th>Status</th><th></th></tr></thead><tbody>
     ${custs.map(c=>`<tr><td style="font-weight:600">${esc(c.name||'—')}</td><td class="mono">${esc(c.email)}</td><td>${c.impressions.toLocaleString('en-IN')}</td><td class="mono">₹${c.earnedRupees}</td><td>${c.fraudFlags>0?`<span class="sev high">${c.fraudFlags}</span>`:'<span style="color:var(--green)">0</span>'}</td><td>${c.banned?`<span class="sev high">banned</span><div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(c.banReason||'')}</div>`:'<span class="status active">active</span>'}</td><td><button class="mini-btn ${c.banned?'green':'red'}" onclick="banUser('${c.id}',${!c.banned})">${c.banned?'Unban':'Ban'}</button></td></tr>`).join('')}
     </tbody></table>`:`<div class="empty"><div class="empty-ic">💻</div>No earners yet.</div>`}</div>`;
 }
