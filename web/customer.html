@@ -127,6 +127,13 @@ function render(e,activity){
       </div>
       <div>
         <div class="panel">
+          <div class="panel-h">Profile</div>
+          <div class="upi-box">
+            <div class="upi-label">Your name</div>
+            <div class="upi-input"><input id="nameInput" placeholder="Your full name" value="${me.name?esc(me.name):''}"><button class="btn-solid" onclick="saveName()">Save</button></div>
+          </div>
+        </div>
+        <div class="panel">
           <div class="panel-h">Payout</div>
           <div class="upi-box">
             <div class="upi-label">Your UPI ID</div>
@@ -142,6 +149,14 @@ function render(e,activity){
         </div>
       </div>
     </div>`;
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+async function saveName(){
+  const name=document.getElementById('nameInput').value.trim();
+  if(!name){ toast('⚠️ Enter your name'); return; }
+  await fetch(API+'/v1/customer/profile',{method:'PATCH',headers:H,body:JSON.stringify({name})});
+  toast('✓ Name saved'); load();
 }
 
 async function saveUpi(){
