@@ -128,6 +128,25 @@ nav{position:sticky;top:0;z-index:100;background:rgba(251,251,253,.9);backdrop-f
 .trust-card p{font-size:12.5px;color:var(--m);line-height:1.6;}
 @media(max-width:760px){.trust-grid{grid-template-columns:1fr;}}
 
+/* live bidding */
+.bidding-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;}
+@media(max-width:760px){.bidding-grid{grid-template-columns:1fr;}}
+.bid-card{background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:24px;}
+.bid-card-h{font-family:var(--sans);font-weight:700;font-size:14.5px;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.live-tag2{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:#047857;background:#D1FAE5;padding:3px 9px;border-radius:100px;}
+.live-dot2{width:6px;height:6px;border-radius:50%;background:#10B981;animation:pulse 2s infinite;}
+.bid-loading{text-align:center;color:var(--m2);font-family:var(--mono);font-size:12px;padding:40px 0;}
+.bid-bars{display:flex;align-items:flex-end;gap:3px;height:140px;}
+.bid-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;}
+.bid-bar{width:100%;background:var(--i);border-radius:3px 3px 0 0;min-height:2px;transition:height .3s;}
+.bid-bar-empty{background:var(--bd);}
+.bid-axis{display:flex;justify-content:space-between;margin-top:8px;font-size:9.5px;color:var(--m2);font-family:var(--mono);}
+.bid-empty{text-align:center;color:var(--m2);font-size:12.5px;padding:40px 10px;}
+.camp-live-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--bd);}
+.camp-live-row:last-child{border-bottom:none;}
+.camp-live-name{font-size:13px;font-weight:600;flex:1;}
+.camp-live-text{font-size:11.5px;color:var(--m);}
+.camp-live-bid{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--i);background:#EEF2FF;padding:3px 9px;border-radius:100px;}
 /* faq */
 .faq{max-width:680px;margin:0 auto;}
 .faq-item{background:var(--sf);border:1px solid var(--bd);border-radius:13px;margin-bottom:10px;overflow:hidden;}
@@ -157,6 +176,7 @@ footer{padding:40px 0;border-top:1px solid var(--bd);margin-top:40px;}
     <div class="nav-links">
       <a href="#how">How it works</a>
       <a href="#calculator">Earnings calculator</a>
+      <a href="#bidding">Live bidding</a>
       <a href="#faq">FAQ</a>
       <a href="advertiser.html">For advertisers</a>
     </div>
@@ -261,6 +281,24 @@ footer{padding:40px 0;border-top:1px solid var(--bd);margin-top:40px;}
   </div>
 </section>
 
+<section class="section" id="bidding" style="background:var(--bg2);">
+  <div class="wrap">
+    <div class="section-tag">LIVE BIDDING</div>
+    <h2>See exactly who's bidding right now</h2>
+    <p class="sub">Real numbers from the live platform — not a mockup. Updates automatically every 30 seconds.</p>
+    <div class="bidding-grid">
+      <div class="bid-card">
+        <div class="bid-card-h">Daily bidding volume <span class="live-tag2"><span class="live-dot2"></span>live</span></div>
+        <div id="biddingChart"><div class="bid-loading">Loading…</div></div>
+      </div>
+      <div class="bid-card">
+        <div class="bid-card-h">Active campaigns right now</div>
+        <div id="activeCampaignsList"><div class="bid-loading">Loading…</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="section" id="faq">
   <div class="wrap">
     <div class="section-tag">FAQ</div>
@@ -331,6 +369,56 @@ function calcEarn(){
   document.getElementById('bdRef').textContent = '₹' + referral.toLocaleString('en-IN');
 }
 calcEarn();
+
+// ── LIVE BIDDING (real data from backend, no mock numbers) ──
+const BIDDING_API = 'https://waitjiai-backend.onrender.com';
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function renderBiddingChart(daily){
+  const max = Math.max(1, ...daily.map(d => parseFloat(d.spentRupees)));
+  const hasAny = daily.some(d => parseFloat(d.spentRupees) > 0);
+  const el = document.getElementById('biddingChart');
+  if(!hasAny){
+    el.innerHTML = '<div class="bid-empty">No bidding spend yet — be the first advertiser to show up here.</div>';
+    return;
+  }
+  const bars = daily.map(d => {
+    const v = parseFloat(d.spentRupees);
+    const h = Math.max(2, Math.round((v / max) * 130));
+    return `<div class="bid-bar-col" title="₹${v} on ${d.date}"><div class="bid-bar${v===0?' bid-bar-empty':''}" style="height:${h}px"></div></div>`;
+  }).join('');
+  const firstDate = daily[0].date.slice(5);
+  const lastDate = daily[daily.length-1].date.slice(5);
+  el.innerHTML = `<div class="bid-bars">${bars}</div><div class="bid-axis"><span>${firstDate}</span><span>${lastDate}</span></div>`;
+}
+
+function renderActiveCampaigns(camps){
+  const el = document.getElementById('activeCampaignsList');
+  if(!camps.length){
+    el.innerHTML = '<div class="bid-empty">No campaigns are live right now.<br>Advertisers — be the first: <a href="login.html?mode=signup&role=advertiser" style="color:var(--i);font-weight:600">create a campaign →</a></div>';
+    return;
+  }
+  el.innerHTML = camps.map(c => `
+    <div class="camp-live-row">
+      <div style="flex:1"><div class="camp-live-name">${escHtml(c.advertiser)}</div><div class="camp-live-text">${escHtml(c.adText)}</div></div>
+      <div class="camp-live-bid">₹${(c.bidPaise/100).toFixed(0)}/1K</div>
+    </div>`).join('');
+}
+
+async function loadBiddingData(){
+  try{
+    const res = await fetch(BIDDING_API + '/v1/public/bidding-stats');
+    if(!res.ok) throw new Error('bad response');
+    const data = await res.json();
+    renderBiddingChart(data.dailyBidding || []);
+    renderActiveCampaigns(data.activeCampaigns || []);
+  } catch(e){
+    document.getElementById('biddingChart').innerHTML = '<div class="bid-empty">Couldn\'t load live data right now. Refresh in a moment.</div>';
+    document.getElementById('activeCampaignsList').innerHTML = '';
+  }
+}
+loadBiddingData();
+setInterval(loadBiddingData, 30000);
 
 // FAQ accordion
 function toggleFaq(el){
