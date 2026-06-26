@@ -88,10 +88,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1
 const API='https://waitjiai-backend.onrender.com';
 const token=localStorage.getItem('waitji_token');
 const role=localStorage.getItem('waitji_role');
-if(!token||role!=='customer'){ window.location.href='index.html'; }
+if(!token||role!=='customer'){ window.location.href='login.html'; }
 const H={'Authorization':'Bearer '+token,'Content-Type':'application/json'};
 
-function logout(){ localStorage.clear(); window.location.href='index.html'; }
+function logout(){ localStorage.clear(); window.location.href='login.html'; }
 function toast(t,s){ document.getElementById('toastT').textContent=t; document.getElementById('toastS').textContent=s||''; const el=document.getElementById('toast'); el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),3500); }
 
 let me=null;
