@@ -47,6 +47,8 @@ tr:last-child td{border-bottom:none;}
 .status.paused{background:var(--surface2);color:var(--muted);}
 .status.rejected{background:var(--red-soft);color:#B91C1C;}
 .status.completed{background:var(--indigo-soft);color:var(--indigo);}
+.rank-pill{font-family:var(--mono);font-size:12px;font-weight:700;padding:3px 10px;border-radius:100px;background:var(--surface2);color:var(--ink2);}
+.rank-pill.rank-1{background:var(--green-soft);color:#047857;}
 .bar{height:6px;background:var(--surface2);border-radius:100px;overflow:hidden;margin-top:4px;}
 .bar-fill{height:100%;background:var(--indigo);border-radius:100px;}
 .empty{text-align:center;padding:50px;color:var(--muted2);}
@@ -102,6 +104,17 @@ tr:last-child td{border-bottom:none;}
   </div>
 </div>
 
+<div class="modal-bg" id="profileModal">
+  <div class="modal">
+    <h2>Company profile</h2>
+    <p class="modal-sub">Shown on your campaigns and dashboard</p>
+    <div class="modal-err" id="profileErr"></div>
+    <div class="field"><label>Company name</label><input id="pCompany" placeholder="Your company name"></div>
+    <div class="field"><label>Contact name</label><input id="pName" placeholder="Your name"></div>
+    <div class="modal-actions"><button class="btn-out" style="flex:1" onclick="closeProfile()">Cancel</button><button class="btn-solid" style="flex:2;justify-content:center" id="profileSubmit" onclick="saveProfile()">Save</button></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"><div class="toast-t" id="toastT">Done</div><div class="toast-s" id="toastS"></div></div>
 
 <script>
@@ -124,30 +137,56 @@ async function load(){
   }catch(e){ document.getElementById('content').innerHTML='<div class="loading">Backend waking up… <a href="" onclick="location.reload();return false">retry</a></div>'; }
 }
 function render(a,camps){
+  const activeRanked=camps.filter(c=>c.status==='active'&&c.rank);
+  const bestRank=activeRanked.length?activeRanked.reduce((b,c)=>c.rank<b.rank?c:b):null;
   document.getElementById('content').innerHTML=`
     <div class="page-head">
-      <div><h1 class="page-h">Campaigns & analytics</h1><p class="page-sub">${me.company||me.email}</p></div>
+      <div><h1 class="page-h">${esc(me.company||'Add your company name')}</h1><p class="page-sub">${me.email} · <a href="javascript:void(0)" onclick="openProfile()" style="color:var(--indigo);font-weight:600">Edit company profile</a></p></div>
       <button class="btn-solid" onclick="openCamp()">+ New campaign</button>
     </div>
     <div class="cards">
+      <div class="card"><div class="card-label">${bestRank?'Best live position':'Live position'}</div><div class="card-val">${bestRank?('#'+bestRank.rank+' of '+bestRank.totalActive):'—'}</div><div class="card-sub">${bestRank?'by bid, across all active campaigns':'no active campaign yet'}</div></div>
       <div class="card"><div class="card-label">Impressions</div><div class="card-val">${(+a.impressions).toLocaleString('en-IN')}</div><div class="card-sub">across ${a.campaigns} campaigns</div></div>
       <div class="card"><div class="card-label">Valid clicks</div><div class="card-val">${a.validClicks}</div><div class="card-sub">CTR ${a.ctr}%</div></div>
       <div class="card"><div class="card-label">Total spent</div><div class="card-val">₹${a.spentRupees}</div><div class="card-sub">${a.activeCampaigns} active</div></div>
       <div class="card fraud"><div class="card-label">🛡️ Fraud blocked</div><div class="card-val">₹${a.savedFromFraudRupees}</div><div class="card-sub">${a.blockedClicks} invalid clicks stopped</div></div>
     </div>
     <div class="panel">
-      <div class="panel-h">Your campaigns</div>
-      ${camps.length?`<table><thead><tr><th>Campaign</th><th>Bid</th><th>Budget used</th><th>Status</th><th></th></tr></thead><tbody>
+      <div class="panel-h">Your campaigns — live bidding position</div>
+      ${camps.length?`<table><thead><tr><th>Campaign</th><th>Bid</th><th>Live rank</th><th>Budget used</th><th>Status</th><th></th></tr></thead><tbody>
       ${camps.map(c=>{const pct=Math.min(100,(c.spentPaise/c.budgetPaise*100)).toFixed(0);return `
         <tr><td><div class="camp-name">${esc(c.advertiser)}</div><div class="camp-txt">${esc(c.adText)}</div></td>
         <td style="font-family:var(--mono)">₹${(c.bidPaise/100).toFixed(0)}/1K</td>
+        <td>${c.status==='active'&&c.rank?`<span class="rank-pill ${c.rank===1?'rank-1':''}">#${c.rank} of ${c.totalActive}</span>`:'<span style="color:var(--muted2)">—</span>'}</td>
         <td><div style="font-size:12px;font-family:var(--mono)">₹${(c.spentPaise/100).toFixed(0)} / ₹${(c.budgetPaise/100).toFixed(0)}</div><div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div></td>
         <td><span class="status ${c.status}">${c.status}</span></td>
         <td>${c.status==='active'?`<button class="mini-btn" onclick="toggleCamp('${c.id}','paused')">Pause</button>`:c.status==='paused'?`<button class="mini-btn" onclick="toggleCamp('${c.id}','active')">Resume</button>`:''}</td></tr>`;}).join('')}
       </tbody></table>`:`<div class="empty"><div class="empty-ic">📣</div><strong>No campaigns yet.</strong><br><span style="font-size:13px;color:var(--muted)">Create your first campaign to reach Indian developers.</span></div>`}
     </div>`;
 }
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function openProfile(){
+  document.getElementById('pCompany').value=me.company||'';
+  document.getElementById('pName').value=me.name||'';
+  document.getElementById('profileErr').classList.remove('show');
+  document.getElementById('profileModal').classList.add('show');
+}
+function closeProfile(){ document.getElementById('profileModal').classList.remove('show'); }
+async function saveProfile(){
+  const company=document.getElementById('pCompany').value.trim();
+  const name=document.getElementById('pName').value.trim();
+  const err=document.getElementById('profileErr');
+  if(!company){ err.textContent='Company name required'; err.classList.add('show'); return; }
+  const btn=document.getElementById('profileSubmit'); btn.disabled=true; btn.textContent='Saving…';
+  try{
+    const r=await fetch(API+'/v1/advertiser/profile',{method:'PATCH',headers:H,body:JSON.stringify({company,name})});
+    if(r.ok){ closeProfile(); toast('✓ Profile updated'); load(); }
+    else{ err.textContent='Could not save. Try again.'; err.classList.add('show'); }
+  }catch(e){ err.textContent='Network error'; err.classList.add('show'); }
+  btn.disabled=false; btn.textContent='Save';
+}
+document.getElementById('profileModal').addEventListener('click',e=>{if(e.target.id==='profileModal')closeProfile();});
 
 function openCamp(){ document.getElementById('campModal').classList.add('show'); }
 function closeCamp(){ document.getElementById('campModal').classList.remove('show'); document.getElementById('campErr').classList.remove('show'); }
