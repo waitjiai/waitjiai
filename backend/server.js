@@ -301,6 +301,396 @@ const server = http.createServer(async (req, res) => {
       const profileId = 'sb_' + sbUser.id;
       let user = db.users[profileId];
       if (!user) {
+        // first login → create profile. Role is read from Supabase user_metadata
+        // (set at signup time) first, since the actual profile-creating exchange
+        // call often happens on the FIRST LOGIN after email verification, not
+        // at signup itself — by then the signup screen's role choice is long gone
+        // unless we persisted it into Supabase metadata. Body role is a fallback only.
+        let role = (sbUser.meta.role === 'advertiser' || b.role === 'advertiser') ? 'advertiser' : 'customer';
+        user = {
+          id: profileId, supabaseId: sbUser.id, email: sbUser.email, phone: sbUser.phone,
+          role, name: b.name || sbUser.meta.name || '', company: b.company || sbUser.meta.company || '',
+          upiId: b.upiId || sbUser.meta.upiId || '',
+          provider: sbUser.provider, emailVerified: sbUser.emailVerified, phoneVerified: sbUser.phoneVerified,
+          createdAt: Date.now(), banned: false,
+        };
+        db.users[profileId] = user;
+      } else {
+        // existing → refresh verification status + contact, but NEVER change role here
+        user.email = sbUser.email || user.email;
+        user.phone = sbUser.phone || user.phone;
+        user.emailVerified = sbUser.emailVerified;
+        user.phoneVerified = sbUser.phoneVerified;
+      }
+      if (user.banned) return send(res, 403, { error: 'account suspended' });
+      saveDB();
+      const token = signToken({ uid: user.id, role: user.role });
+      return send(res, 200, { token, user: publicUser(user) });
+    }
+
+    // ── Old direct signup: DISABLED (fake-account prevention) ──
+    if (method === 'POST' && url === '/v1/auth/signup') {
+      return send(res, 410, { error: 'signup now requires email/Google verification — use the website signup' });
+    }
+
+    // ── Auth: login (ADMIN ONLY — internal account, password-based) ──
+    if (method === 'POST' && url === '/v1/auth/login') {
+      const b = await getBody(req);
+      const { email, password } = b;
+      const user = Object.values(db.users).find(u => u.email === (email || '').toLowerCase() && u.role === 'admin');
+      if (!user || !verifyPassword(password, user.passwordHash)) {
+        return send(res, 401, { error: 'invalid credentials' });
+      }
+      if (user.banned) return send(res, 403, { error: 'account suspended' });
+      const token = signToken({ uid: user.id, role: user.role });
+      return send(res, 200, { token, user: publicUser(user) });
+    }
+
+    // ── Auth: me ──
+    if (method === 'GET' && url === '/v1/auth/me') {
+      const user = auth(req);
+      if (!user) return send(res, 401, { error: 'unauthorized' });
+      return send(res, 200, { user: publicUser(user) });
+    }
+
+    // ═══════════ ADS SERVING (public, used by extension) ═══════════
+    if (method === 'GET' && url === '/v1/ads/active') {
+      const ads = Object.values(db.campaigns)
+        .filter(c => c.status === 'active' && c.spentPaise < c.budgetPaise)
+        .sort((a, b) => b.bidPaise - a.bidPaise)
+        .slice(0, 3)
+        .map(c => ({ id: c.id, text: c.adText, url: c.url, advertiser: c.advertiser, cpmPaise: c.bidPaise }));
+      return send(res, 200, { ads, servedAt: Date.now() });
+    }
+
+    // ── Record impression (with fraud check) ──
+    if (method === 'POST' && url === '/v1/impression') {
+      const b = await getBody(req);
+      const c = db.campaigns[b.campaignId];
+      if (!c) return send(res, 404, { error: 'campaign not found' });
+      const userId = b.userId || 'anon';
+
+      const check = validateImpression(userId, ip);
+      if (!check.valid) return send(res, 200, { success: false, reason: check.reason, billed: false });
+
+      const earnPaise = Math.floor(c.bidPaise / 1000 / 2); // 50% of per-impression
+      const advCostPaise = Math.floor(c.bidPaise / 1000);
+      // budget guard
+      if (c.spentPaise + advCostPaise > c.budgetPaise) {
+        c.status = 'completed'; saveDB();
+        return send(res, 200, { success: false, reason: 'budget_exhausted', billed: false });
+      }
+      c.spentPaise += advCostPaise;
+      db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, costPaise: advCostPaise, ts: Date.now(), ip, clicked: false });
+      saveDB();
+      return send(res, 200, { success: true, earnedPaise: earnPaise, billed: true });
+    }
+
+    // ── Record click (with fraud validation — protects advertiser money) ──
+    if (method === 'POST' && url === '/v1/click') {
+      const b = await getBody(req);
+      const c = db.campaigns[b.campaignId];
+      if (!c) return send(res, 404, { error: 'campaign not found' });
+      const userId = b.userId || 'anon';
+
+      const check = validateClick(userId, c.id, ip);
+      const clickCostPaiseForRecord = Math.floor(c.bidPaise / 1000) * 50;
+      const clickRecord = { id: uid('cl_'), userId, campaignId: c.id, ts: Date.now(), ip, valid: check.valid, reason: check.reason, costPaise: check.valid ? clickCostPaiseForRecord : 0 };
+      db.clicks.push(clickRecord);
+
+      if (!check.valid) {
+        saveDB();
+        return send(res, 200, { success: false, reason: check.reason, billed: false });
+      }
+      // valid click bills advertiser 50x impression, dev earns 50% of that
+      const clickCostPaise = Math.floor(c.bidPaise / 1000) * 50;
+      const clickEarnPaise = Math.floor(clickCostPaise / 2);
+      if (c.spentPaise + clickCostPaise <= c.budgetPaise) {
+        c.spentPaise += clickCostPaise;
+      }
+      saveDB();
+      return send(res, 200, { success: true, earnedPaise: clickEarnPaise, billed: true });
+    }
+
+    // ═══════════ ADVERTISER ═══════════
+    if (url.startsWith('/v1/advertiser')) {
+      const user = auth(req);
+      if (!user || user.role !== 'advertiser') return send(res, 403, { error: 'advertiser access required' });
+
+      // create campaign
+      if (method === 'POST' && url === '/v1/advertiser/campaigns') {
+        const b = await getBody(req);
+        if (!b.adText || !b.url || !b.bidPaise) return send(res, 400, { error: 'adText, url, bidPaise required' });
+        if (b.bidPaise < 20000) return send(res, 400, { error: 'minimum bid ₹200 per 1K (20000 paise)' });
+        const id = uid('c_');
+        db.campaigns[id] = {
+          id, advertiserId: user.id, advertiser: user.company || user.name || user.em  try {
+    const r = await fetch('https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json;api-version=3.0-preview.1' },
+      body: JSON.stringify({ filters: [{ criteria: [{ filterType: 7, value: EXTENSION_ID }] }], flags: 914 }),
+    });
+    if (!r.ok) throw new Error('marketplace http ' + r.status);
+    const data = await r.json();
+    const ext = data.results?.[0]?.extensions?.[0];
+    const stats = ext?.statistics || [];
+    const installCount = stats.find(s => s.statisticName === 'install')?.value ?? null;
+    const avgRating = stats.find(s => s.statisticName === 'averagerating')?.value ?? null;
+    const ratingCount = stats.find(s => s.statisticName === 'ratingcount')?.value ?? null;
+    extensionStatsCache = { installCount, avgRating, ratingCount, fetchedAt: Date.now(), error: null };
+  } catch (e) {
+    console.error('Marketplace stats fetch failed:', e.message);
+    // keep stale cache if we have one; otherwise mark as unavailable (never fabricate a number)
+    if (extensionStatsCache.installCount === null) extensionStatsCache = { installCount: null, fetchedAt: Date.now(), error: e.message };
+  }
+  return extensionStatsCache;
+}
+
+// ── Persistent JSON "database" ─────────────────────────────────────────────────
+let db = {
+  users: {},        // id -> { id, email, passwordHash, role, name, company, upiId, createdAt, banned }
+  campaigns: {},    // id -> { id, advertiserId, advertiser, adText, url, bidPaise, budgetPaise, spentPaise, status, createdAt }
+  impressions: [],  // { id, userId, campaignId, earnedPaise, ts, ip, clicked }
+  clicks: [],       // { id, userId, campaignId, ts, ip, valid, reason }
+  fraudFlags: [],   // { id, userId, type, detail, ts, severity }
+  payouts: [],      // { id, userId, amountPaise, status, ts }
+  sentLaunchEmails: {}, // { email: { sentAt, subject } } — duplicate-send protection for bulk waitlist emails
+};
+
+function loadDB() {
+  try {
+    if (fs.existsSync(DB_FILE)) {
+      db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+      // ensure arrays/objects exist
+      db.users ||= {}; db.campaigns ||= {}; db.impressions ||= [];
+      db.clicks ||= []; db.fraudFlags ||= []; db.payouts ||= [];
+      db.sentLaunchEmails ||= {};
+    }
+  } catch (e) { console.error('DB load error:', e.message); }
+}
+let saveTimer = null;
+function saveDB() {
+  // debounce writes
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { fs.writeFileSync(DB_FILE, JSON.stringify(db)); }
+    catch (e) { console.error('DB save error:', e.message); }
+  }, 300);
+}
+loadDB();
+
+// ── Seed demo campaigns + admin (first run only) ───────────────────────────────
+function seed() {
+  if (Object.keys(db.users).length === 0) {
+    // create admin
+    const adminId = 'admin';
+    db.users[adminId] = {
+      id: adminId, email: ADMIN_EMAIL, passwordHash: hashPassword(ADMIN_PASSWORD),
+      role: 'admin', name: 'Platform Admin', createdAt: Date.now(), banned: false,
+    };
+    console.log('Seeded admin:', ADMIN_EMAIL);
+  }
+  saveDB();
+}
+
+// ── Crypto helpers ─────────────────────────────────────────────────────────────
+function hashPassword(pw) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(pw, salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+function verifyPassword(pw, stored) {
+  if (!stored || !stored.includes(':')) return false;
+  const [salt, hash] = stored.split(':');
+  const test = crypto.scryptSync(pw, salt, 64).toString('hex');
+  return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(test));
+}
+// Minimal JWT (HS256)
+function signToken(payload) {
+  const header = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const body = b64url(JSON.stringify({ ...payload, iat: Date.now(), exp: Date.now() + 7 * 864e5 }));
+  const sig = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
+  return `${header}.${body}.${sig}`;
+}
+function verifyToken(token) {
+  try {
+    const [header, body, sig] = token.split('.');
+    const expected = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
+    if (sig !== expected) return null;
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString());
+    if (payload.exp < Date.now()) return null;
+    return payload;
+  } catch { return null; }
+}
+function b64url(s) { return Buffer.from(s).toString('base64url'); }
+function uid(prefix = '') { return prefix + crypto.randomBytes(8).toString('hex'); }
+
+// ── Fraud detection engine ─────────────────────────────────────────────────────
+const FRAUD = {
+  // thresholds
+  MAX_CLICKS_PER_MIN: 10,        // a human can't click an ad 10x/min legitimately
+  MAX_CLICKS_PER_IP_HR: 50,      // per-IP hourly ceiling
+  MAX_IMPRESSIONS_PER_MIN: 60,   // 1/sec is already abnormal
+  MIN_MS_BETWEEN_CLICKS: 1500,   // human reaction floor
+  CTR_ALERT_THRESHOLD: 0.25,     // >25% CTR = almost certainly fraud (normal is <2%)
+};
+
+function recentCount(arr, userId, windowMs) {
+  const cut = Date.now() - windowMs;
+  return arr.filter(x => x.userId === userId && x.ts > cut).length;
+}
+function recentByIP(arr, ip, windowMs) {
+  const cut = Date.now() - windowMs;
+  return arr.filter(x => x.ip === ip && x.ts > cut).length;
+}
+function flagFraud(userId, type, detail, severity = 'medium') {
+  const flag = { id: uid('f_'), userId, type, detail, ts: Date.now(), severity };
+  db.fraudFlags.push(flag);
+  // auto-ban on critical
+  if (severity === 'critical' && db.users[userId]) {
+    db.users[userId].banned = true;
+  }
+  saveDB();
+  return flag;
+}
+
+/**
+ * Validate a click. Returns { valid, reason }.
+ * Invalid clicks are NOT billed to the advertiser — protecting their money.
+ */
+function validateClick(userId, campaignId, ip) {
+  // 1. rapid-fire clicks by user
+  const userClicksLastMin = recentCount(db.clicks, userId, 60_000);
+  if (userClicksLastMin >= FRAUD.MAX_CLICKS_PER_MIN) {
+    flagFraud(userId, 'click_velocity', `${userClicksLastMin} clicks/min`, 'high');
+    return { valid: false, reason: 'click_velocity_exceeded' };
+  }
+  // 2. time since last click (bot-like cadence)
+  const userClicks = db.clicks.filter(c => c.userId === userId);
+  const last = userClicks[userClicks.length - 1];
+  if (last && (Date.now() - last.ts) < FRAUD.MIN_MS_BETWEEN_CLICKS) {
+    flagFraud(userId, 'click_cadence', `gap ${Date.now() - last.ts}ms`, 'high');
+    return { valid: false, reason: 'clicks_too_fast' };
+  }
+  // 3. per-IP hourly ceiling (click farms share IPs)
+  const ipClicksLastHr = recentByIP(db.clicks, ip, 3_600_000);
+  if (ipClicksLastHr >= FRAUD.MAX_CLICKS_PER_IP_HR) {
+    flagFraud(userId, 'ip_abuse', `IP ${ip}: ${ipClicksLastHr} clicks/hr`, 'critical');
+    return { valid: false, reason: 'ip_rate_limit' };
+  }
+  // 4. abnormal CTR for this user (clicks / impressions)
+  const userImps = db.impressions.filter(i => i.userId === userId).length;
+  const userClickCount = userClicks.length;
+  if (userImps > 20) {
+    const ctr = userClickCount / userImps;
+    if (ctr > FRAUD.CTR_ALERT_THRESHOLD) {
+      flagFraud(userId, 'abnormal_ctr', `CTR ${(ctr * 100).toFixed(1)}%`, 'high');
+      return { valid: false, reason: 'abnormal_ctr' };
+    }
+  }
+  return { valid: true, reason: 'ok' };
+}
+
+function validateImpression(userId, ip) {
+  const impsLastMin = recentCount(db.impressions, userId, 60_000);
+  if (impsLastMin >= FRAUD.MAX_IMPRESSIONS_PER_MIN) {
+    flagFraud(userId, 'impression_velocity', `${impsLastMin} imp/min`, 'high');
+    return { valid: false, reason: 'impression_velocity' };
+  }
+  return { valid: true, reason: 'ok' };
+}
+
+// ── HTTP helpers ────────────────────────────────────────────────────────────────
+function send(res, code, obj) {
+  res.writeHead(code, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(obj));
+}
+function getBody(req) {
+  return new Promise(resolve => {
+    let d = ''; req.on('data', c => d += c);
+    req.on('end', () => { try { resolve(JSON.parse(d || '{}')); } catch { resolve({}); } });
+  });
+}
+function getIP(req) {
+  return (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+      || req.socket.remoteAddress || 'unknown';
+}
+// ── Supabase token validation ──────────────────────────────────────────────────
+// Validates a Supabase access token by asking Supabase who the user is.
+// Returns { id, email, phone, emailVerified, phoneVerified, provider } or null.
+async function validateSupabaseToken(accessToken) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${accessToken}` },
+    });
+    if (!r.ok) return null;
+    const u = await r.json();
+    if (!u || !u.id) return null;
+    return {
+      id: u.id,
+      email: (u.email || '').toLowerCase(),
+      phone: u.phone || '',
+      emailVerified: !!u.email_confirmed_at,
+      phoneVerified: !!u.phone_confirmed_at,
+      provider: (u.app_metadata && u.app_metadata.provider) || 'email',
+      meta: u.user_metadata || {},
+    };
+  } catch (e) { console.error('Supabase validate error:', e.message); return null; }
+}
+
+function auth(req) {
+  const h = req.headers['authorization'] || '';
+  const token = h.startsWith('Bearer ') ? h.slice(7) : null;
+  if (!token) return null;
+  const payload = verifyToken(token);
+  if (!payload) return null;
+  const user = db.users[payload.uid];
+  if (!user || user.banned) return null;
+  // touch activity timestamp (debounced — only write if >5 min stale, avoids hammering disk on every request)
+  const now = Date.now();
+  if (!user.lastActiveAt || now - user.lastActiveAt > 5 * 60 * 1000) {
+    user.lastActiveAt = now;
+    saveDB();
+  }
+  return user;
+}
+
+// ── Server ────────────────────────────────────────────────────────────────────
+const server = http.createServer(async (req, res) => {
+  const url = req.url.split('?')[0];
+  const method = req.method;
+  const ip = getIP(req);
+
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-API-Key');
+  if (method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+  try {
+    // ═══════════ PUBLIC ═══════════
+    if (method === 'GET' && url === '/health') {
+      return send(res, 200, { status: 'ok', version: '3.0.0-supabase', ts: Date.now() });
+    }
+    if (method === 'GET' && url === '/') {
+      return send(res, 200, { message: 'WaitJI AI API v2', auth: true });
+    }
+
+    // ── Auth: Supabase token exchange (customers + advertisers) ──
+    // Frontend logs in via Supabase (verified email / Google / phone),
+    // then exchanges the Supabase token for a WaitJI backend token.
+    if (method === 'POST' && url === '/v1/auth/exchange') {
+      const b = await getBody(req);
+      const sbUser = await validateSupabaseToken(b.access_token);
+      if (!sbUser) return send(res, 401, { error: 'invalid or expired Supabase session' });
+      // require verified email (Supabase enforces this too, double-check here)
+      if (!sbUser.emailVerified && !sbUser.phoneVerified) {
+        return send(res, 403, { error: 'please verify your email before continuing' });
+      }
+      const profileId = 'sb_' + sbUser.id;
+      let user = db.users[profileId];
+      if (!user) {
         // first login → create profile. Role chosen at signup (customer/advertiser only).
         let role = (b.role === 'advertiser') ? 'advertiser' : 'customer';
         user = {
