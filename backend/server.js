@@ -13,7 +13,7 @@ const path = require('path');
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'waitji-dev-secret-change-in-prod';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@waitjiai.in';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'WaitJI@Admin2026';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Waitji@admin';
 const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data.json');
 // Supabase (identity provider for customers + advertisers)
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://tqfjdhneycntoasahstt.supabase.co';
@@ -332,7 +332,7 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { success: false, reason: 'budget_exhausted', billed: false });
       }
       c.spentPaise += advCostPaise;
-      db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, ts: Date.now(), ip, clicked: false });
+      db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, costPaise: advCostPaise, ts: Date.now(), ip, clicked: false });
       saveDB();
       return send(res, 200, { success: true, earnedPaise: earnPaise, billed: true });
     }
@@ -345,7 +345,8 @@ const server = http.createServer(async (req, res) => {
       const userId = b.userId || 'anon';
 
       const check = validateClick(userId, c.id, ip);
-      const clickRecord = { id: uid('cl_'), userId, campaignId: c.id, ts: Date.now(), ip, valid: check.valid, reason: check.reason };
+      const clickCostPaiseForRecord = Math.floor(c.bidPaise / 1000) * 50;
+      const clickRecord = { id: uid('cl_'), userId, campaignId: c.id, ts: Date.now(), ip, valid: check.valid, reason: check.reason, costPaise: check.valid ? clickCostPaiseForRecord : 0 };
       db.clicks.push(clickRecord);
 
       if (!check.valid) {
@@ -383,10 +384,27 @@ const server = http.createServer(async (req, res) => {
         return send(res, 201, { campaign: db.campaigns[id] });
       }
 
-      // list my campaigns
+      // list my campaigns (includes live rank among all active campaigns, by bid)
       if (method === 'GET' && url === '/v1/advertiser/campaigns') {
         const mine = Object.values(db.campaigns).filter(c => c.advertiserId === user.id);
-        return send(res, 200, { campaigns: mine });
+        const activeSorted = Object.values(db.campaigns)
+          .filter(c => c.status === 'active')
+          .sort((a, b) => b.bidPaise - a.bidPaise || a.createdAt - b.createdAt);
+        const totalActive = activeSorted.length;
+        const withRank = mine.map(c => {
+          const idx = activeSorted.findIndex(x => x.id === c.id);
+          return { ...c, rank: idx >= 0 ? idx + 1 : null, totalActive };
+        });
+        return send(res, 200, { campaigns: withRank });
+      }
+
+      // update advertiser profile (company / name)
+      if (method === 'PATCH' && url === '/v1/advertiser/profile') {
+        const b = await getBody(req);
+        if (typeof b.company === 'string') user.company = b.company.trim();
+        if (typeof b.name === 'string') user.name = b.name.trim();
+        saveDB();
+        return send(res, 200, { user: publicUser(user) });
       }
 
       // my analytics
@@ -573,6 +591,42 @@ const server = http.createServer(async (req, res) => {
         saveDB();
         return send(res, 200, { user: publicUser(target) });
       }
+    }
+
+    // ── public bidding stats (for homepage live bidding section) ──
+    if (method === 'GET' && url === '/v1/public/bidding-stats') {
+      const activeCampaigns = Object.values(db.campaigns)
+        .filter(c => c.status === 'active')
+        .sort((a, b) => b.bidPaise - a.bidPaise)
+        .map(c => ({ advertiser: c.advertiser, adText: c.adText, bidPaise: c.bidPaise, targetingCategory: c.targetingCategory }));
+
+      // last 14 days of real spend, grouped by calendar day (no fabricated history)
+      const days = 14;
+      const dayMs = 864e5;
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const buckets = [];
+      for (let i = days - 1; i >= 0; i--) {
+        const dayStart = today.getTime() - i * dayMs;
+        buckets.push({ date: new Date(dayStart).toISOString().slice(0, 10), start: dayStart, end: dayStart + dayMs, spentPaise: 0, impressions: 0 });
+      }
+      function addToBucket(ts, costPaise) {
+        const b = buckets.find(b => ts >= b.start && ts < b.end);
+        if (b) { b.spentPaise += (costPaise || 0); b.impressions += 1; }
+      }
+      db.impressions.forEach(i => addToBucket(i.ts, i.costPaise));
+      db.clicks.filter(c => c.valid).forEach(c => addToBucket(c.ts, c.costPaise));
+
+      const dailyBidding = buckets.map(b => ({ date: b.date, spentRupees: (b.spentPaise / 100).toFixed(2), impressions: b.impressions }));
+      const todayBucket = buckets[buckets.length - 1];
+
+      return send(res, 200, {
+        activeCampaignsCount: activeCampaigns.length,
+        activeCampaigns,
+        todaySpentRupees: (todayBucket.spentPaise / 100).toFixed(2),
+        todayImpressions: todayBucket.impressions,
+        dailyBidding,
+        updatedAt: Date.now(),
+      });
     }
 
     // ── public stats (for website ticker) ──
