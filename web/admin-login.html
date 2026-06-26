@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>WaitJI AI</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<style>
+:root{
+  --i:#4F46E5;--id:#4338CA;--ink:#0F1222;--m:#6B7185;--bg:#0F1222;--sf:#171A2C;--bd:#272B45;
+  --sans:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:#fff;font-family:var(--body);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:36px;max-width:360px;width:100%;}
+.mark{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,var(--i),#0EA5E9);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;}
+h1{font-family:var(--mono);font-size:13px;font-weight:600;text-align:center;color:var(--m);letter-spacing:1px;margin-bottom:24px;text-transform:uppercase;}
+.field{width:100%;padding:12px 14px;border:1px solid var(--bd);border-radius:9px;font-size:14px;background:#0F1222;color:#fff;margin-bottom:12px;font-family:var(--body);}
+.field:focus{outline:none;border-color:var(--i);}
+.submit{width:100%;padding:13px;border-radius:10px;border:none;font-weight:700;font-size:14px;cursor:pointer;background:var(--i);color:#fff;margin-top:4px;}
+.submit:hover{background:var(--id);}
+.submit:disabled{opacity:.6;cursor:wait;}
+.msg{font-size:12.5px;border-radius:9px;padding:11px 13px;margin-top:14px;display:none;line-height:1.6;}
+.msg.show{display:block;}
+.msg.err{background:#3a1414;color:#fca5a5;border:1px solid #5c1f1f;}
+.msg.warn{background:#3a2e14;color:#fde68a;border:1px solid #5c4a1f;}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="mark"><svg viewBox="0 0 24 24" width="18" height="18" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.4)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></div>
+  <h1>Internal Access</h1>
+  <input type="email" id="email" class="field" placeholder="Email" autocomplete="username">
+  <input type="password" id="password" class="field" placeholder="Password" autocomplete="current-password">
+  <button class="submit" id="btn" onclick="submitLogin()">Sign in</button>
+  <div class="msg" id="msg"></div>
+</div>
+
+<script>
+const API = 'https://waitjiai-backend.onrender.com';
+
+function showMsg(text, type){
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.className = 'msg show ' + (type || 'err');
+}
+
+async function submitLogin(){
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  const password = document.getElementById('password').value;
+  if(!email || !password){ showMsg('Enter email and password.'); return; }
+
+  const btn = document.getElementById('btn');
+  btn.disabled = true; btn.textContent = 'Please wait…';
+
+  try{
+    const res = await fetch(API + '/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    let body = null;
+    const raw = await res.text();
+    if(raw){ try{ body = JSON.parse(raw); } catch{ body = null; } }
+
+    if(!res.ok){
+      const errText = body && typeof body.error === 'string' && body.error ? body.error : 'Login failed. Please try again.';
+      showMsg(errText);
+    } else if(!body || !body.token || !body.user || body.user.role !== 'admin'){
+      showMsg('This page is for admin accounts only.');
+    } else {
+      localStorage.setItem('waitji_token', body.token);
+      localStorage.setItem('waitji_role', body.user.role);
+      window.location.href = 'admin.html';
+    }
+  } catch(e){
+    showMsg('Server is waking up (Render free tier). Please wait 20 seconds and try again.', 'warn');
+  }
+  btn.disabled = false; btn.textContent = 'Sign in';
+}
+
+document.getElementById('password').addEventListener('keydown', e => { if(e.key === 'Enter') submitLogin(); });
+
+// warm up the backend on load (Render cold-start mitigation)
+fetch(API + '/health').catch(() => {});
+</script>
+</body>
+</html>
