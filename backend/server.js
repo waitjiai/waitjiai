@@ -13,11 +13,42 @@ const path = require('path');
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'waitji-dev-secret-change-in-prod';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@waitjiai.in';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Waitji@admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'WaitJI@Admin2026';
 const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data.json');
 // Supabase (identity provider for customers + advertisers)
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://tqfjdhneycntoasahstt.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZmpkaG5leWNudG9hc2Foc3R0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mjg1ODcsImV4cCI6MjA5NzIwNDU4N30.u5oqo0c9tmZ7OxZW6R2hbMxUyVrM4nedYsGKC8PR4TA';
+const EXTENSION_ID = process.env.EXTENSION_ID || 'WaitJiai.waitji-ai';
+let extensionStatsCache = { installCount: null, fetchedAt: 0 };
+
+// Pulls REAL install count from the public VS Code Marketplace API. Cached for
+// 10 minutes so the admin dashboard's auto-refresh doesn't hammer Microsoft's API.
+async function getExtensionStats() {
+  const TEN_MIN = 10 * 60 * 1000;
+  if (extensionStatsCache.installCount !== null && Date.now() - extensionStatsCache.fetchedAt < TEN_MIN) {
+    return extensionStatsCache;
+  }
+  try {
+    const r = await fetch('https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json;api-version=3.0-preview.1' },
+      body: JSON.stringify({ filters: [{ criteria: [{ filterType: 7, value: EXTENSION_ID }] }], flags: 914 }),
+    });
+    if (!r.ok) throw new Error('marketplace http ' + r.status);
+    const data = await r.json();
+    const ext = data.results?.[0]?.extensions?.[0];
+    const stats = ext?.statistics || [];
+    const installCount = stats.find(s => s.statisticName === 'install')?.value ?? null;
+    const avgRating = stats.find(s => s.statisticName === 'averagerating')?.value ?? null;
+    const ratingCount = stats.find(s => s.statisticName === 'ratingcount')?.value ?? null;
+    extensionStatsCache = { installCount, avgRating, ratingCount, fetchedAt: Date.now(), error: null };
+  } catch (e) {
+    console.error('Marketplace stats fetch failed:', e.message);
+    // keep stale cache if we have one; otherwise mark as unavailable (never fabricate a number)
+    if (extensionStatsCache.installCount === null) extensionStatsCache = { installCount: null, fetchedAt: Date.now(), error: e.message };
+  }
+  return extensionStatsCache;
+}
 
 // ── Persistent JSON "database" ─────────────────────────────────────────────────
 let db = {
@@ -218,6 +249,12 @@ function auth(req) {
   if (!payload) return null;
   const user = db.users[payload.uid];
   if (!user || user.banned) return null;
+  // touch activity timestamp (debounced — only write if >5 min stale, avoids hammering disk on every request)
+  const now = Date.now();
+  if (!user.lastActiveAt || now - user.lastActiveAt > 5 * 60 * 1000) {
+    user.lastActiveAt = now;
+    saveDB();
+  }
   return user;
 }
 
@@ -511,9 +548,17 @@ const server = http.createServer(async (req, res) => {
         const totalSpent = Object.values(db.campaigns).reduce((s, c) => s + c.spentPaise, 0);
         const validClicks = db.clicks.filter(c => c.valid).length;
         const blockedClicks = db.clicks.filter(c => !c.valid).length;
+        const sevenDaysAgo = Date.now() - 7 * 864e5;
+        const activeUsers = users.filter(u => u.lastActiveAt && u.lastActiveAt > sevenDaysAgo && u.role !== 'admin').length;
+        const totalRegistered = advertisers.length + customers.length;
+        const extStats = await getExtensionStats();
         return send(res, 200, {
           advertisers: advertisers.length,
           customers: customers.length,
+          totalRegisteredUsers: totalRegistered,
+          activeUsers7d: activeUsers,
+          extensionInstalls: extStats.installCount, // null if marketplace fetch failed — never fabricated
+          extensionStatsError: extStats.error || null,
           campaigns: Object.keys(db.campaigns).length,
           activeCampaigns: Object.values(db.campaigns).filter(c => c.status === 'active').length,
           pendingCampaigns: Object.values(db.campaigns).filter(c => c.status === 'pending').length,
@@ -581,13 +626,17 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      // ban / unban user
+      // ban / unban user (with optional reason — e.g. "ad policy violation", "nudity")
       if (method === 'PATCH' && url.match(/^\/v1\/admin\/users\/[^/]+$/)) {
         const uidToBan = url.split('/').pop();
         const target = db.users[uidToBan];
         if (!target) return send(res, 404, { error: 'not found' });
         const b = await getBody(req);
-        if (typeof b.banned === 'boolean') target.banned = b.banned;
+        if (typeof b.banned === 'boolean') {
+          target.banned = b.banned;
+          target.banReason = b.banned ? (b.reason || 'Not specified') : null;
+          target.bannedAt = b.banned ? Date.now() : null;
+        }
         saveDB();
         return send(res, 200, { user: publicUser(target) });
       }
@@ -647,7 +696,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 function publicUser(u) {
-  return { id: u.id, email: u.email, phone: u.phone || '', role: u.role, name: u.name, company: u.company, upiId: u.upiId, provider: u.provider || 'email', emailVerified: !!u.emailVerified, phoneVerified: !!u.phoneVerified, banned: u.banned, createdAt: u.createdAt };
+  return { id: u.id, email: u.email, phone: u.phone || '', role: u.role, name: u.name, company: u.company, upiId: u.upiId, provider: u.provider || 'email', emailVerified: !!u.emailVerified, phoneVerified: !!u.phoneVerified, banned: u.banned, banReason: u.banReason || null, lastActiveAt: u.lastActiveAt || null, createdAt: u.createdAt };
 }
 
 seed();
