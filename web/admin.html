@@ -64,6 +64,7 @@ tr:last-child td{border-bottom:none;}
 .thresh-k{font-size:11px;color:var(--muted);}
 .thresh-v{font-family:var(--mono);font-weight:600;font-size:14px;color:var(--indigo);}
 .loading{text-align:center;padding:60px;color:var(--muted2);font-family:var(--mono);}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--ink2);}
 .hide{display:none;}
 .toast{position:fixed;bottom:28px;right:28px;background:var(--surface);border:1px solid var(--green);border-radius:12px;padding:14px 20px;box-shadow:var(--shadow);transform:translateY(90px);opacity:0;transition:all .3s;z-index:100;}
 .toast.show{transform:translateY(0);opacity:1;}
@@ -85,6 +86,7 @@ tr:last-child td{border-bottom:none;}
     <button class="tab" data-tab="campaigns" onclick="showTab('campaigns')">Campaigns</button>
     <button class="tab" data-tab="advertisers" onclick="showTab('advertisers')">Advertisers</button>
     <button class="tab" data-tab="customers" onclick="showTab('customers')">Earners</button>
+    <button class="tab" data-tab="waitlist" onclick="showTab('waitlist')">📧 Waitlist</button>
   </div>
   <div id="tabContent"><div class="loading">Loading…</div></div>
 </div>
@@ -115,6 +117,7 @@ async function render(){
     if(curTab==='campaigns') return renderCampaigns((await get('/v1/admin/campaigns')).campaigns);
     if(curTab==='advertisers') return renderAdvertisers((await get('/v1/admin/advertisers')).advertisers);
     if(curTab==='customers') return renderCustomers((await get('/v1/admin/customers')).customers);
+    if(curTab==='waitlist') return renderWaitlist(await get('/v1/admin/waitlist'));
   }catch(e){ c.innerHTML='<div class="loading">Error loading data. <a href="" onclick="location.reload();return false">retry</a></div>'; }
 }
 async function get(p){ const r=await fetch(API+p,{headers:H}); return r.json(); }
@@ -198,6 +201,54 @@ async function banUser(id,banned){
   await fetch(API+'/v1/admin/users/'+id,{method:'PATCH',headers:H,body:JSON.stringify({banned,reason})});
   toast(banned?'🚫 User banned':'✓ User unbanned', banned?reason:'');
   render();
+}
+
+const DEFAULT_LAUNCH_EMAIL = `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#FBFBFD;padding:32px 24px">
+  <img src="https://waitjiai.in/logo-192.png" width="48" height="48" alt="WaitJI AI" style="border-radius:11px;display:block;margin-bottom:18px">
+  <h1 style="font-size:22px;color:#0F1222;margin:0 0 14px">WaitJI AI is live 🎉</h1>
+  <p style="font-size:14px;color:#3A3F55;line-height:1.6">Hey there,</p>
+  <p style="font-size:14px;color:#3A3F55;line-height:1.6">Thanks for joining the WaitJI AI waitlist. We're officially live — install the free VS Code extension and start earning real UPI income from Claude Code's thinking pause.</p>
+  <p style="margin:26px 0"><a href="https://marketplace.visualstudio.com/items?itemName=WaitJiai.waitji-ai" style="background:#4F46E5;color:#fff;padding:13px 24px;border-radius:9px;text-decoration:none;font-weight:bold;font-size:14px;display:inline-block">Install the extension →</a></p>
+  <p style="font-size:13px;color:#6B7185;line-height:1.6">Questions? Just reply to this email — we read every one.</p>
+  <p style="font-size:12px;color:#9AA0B4;margin-top:30px">WaitJI AI · QivaLabs LLP · Udaipur, Rajasthan</p>
+</div>`;
+
+function renderWaitlist(w){
+  document.getElementById('tabContent').innerHTML=`
+    <div class="cards">
+      <div class="card"><div class="card-label">Total on waitlist</div><div class="card-val">${w.total??'—'}</div></div>
+      <div class="card safe"><div class="card-label">Already emailed</div><div class="card-val">${w.alreadySent??'—'}</div></div>
+      <div class="card"><div class="card-label">Pending (not yet emailed)</div><div class="card-val">${w.pending??'—'}</div></div>
+    </div>
+    ${w.error?`<div class="panel" style="background:var(--red-soft);border-color:#FCA5A5"><strong>${esc(w.error)}</strong><p style="font-size:12px;margin-top:6px">Check that SUPABASE_SERVICE_KEY is set in Render's environment variables.</p></div>`:''}
+    <div class="panel">
+      <div class="panel-h">Compose launch email</div>
+      <div class="field"><label>Subject</label><input id="wSubject" value="WaitJI AI is live 🎉" style="width:100%;padding:10px 13px;border:1px solid var(--border2);border-radius:9px;font-family:var(--body);margin-top:6px"></div>
+      <div class="field" style="margin-top:14px"><label>Email HTML</label><textarea id="wHtml" style="width:100%;height:220px;padding:10px 13px;border:1px solid var(--border2);border-radius:9px;font-family:var(--mono);font-size:12px;margin-top:6px">${esc(DEFAULT_LAUNCH_EMAIL)}</textarea></div>
+      <div class="modal-err" id="wErr" style="margin-top:14px"></div>
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)"><input type="checkbox" id="wForce">Resend to everyone (ignore already-emailed)</label>
+      </div>
+      <button class="mini-btn" style="margin-top:14px;padding:10px 18px" onclick="sendLaunchEmail()" id="wSendBtn">Send to waitlist →</button>
+    </div>`;
+}
+
+async function sendLaunchEmail(){
+  const subject=document.getElementById('wSubject').value.trim();
+  const html=document.getElementById('wHtml').value;
+  const force=document.getElementById('wForce').checked;
+  const err=document.getElementById('wErr');
+  err.classList.remove('show');
+  if(!subject||!html){ err.textContent='Subject and email HTML are required'; err.classList.add('show'); return; }
+  if(!confirm(force?'This will EMAIL EVERYONE on the waitlist again, including people already emailed. Continue?':'Send this email to everyone on the waitlist who hasn\'t been emailed yet. Continue?')) return;
+  const btn=document.getElementById('wSendBtn'); btn.disabled=true; btn.textContent='Sending…';
+  try{
+    const r=await fetch(API+'/v1/admin/send-launch-email',{method:'POST',headers:H,body:JSON.stringify({subject,html,force})});
+    const d=await r.json();
+    if(r.ok){ toast('✓ Sent '+d.sent+' / '+d.attempted, d.failed.length?d.failed.length+' failed':''); }
+    else{ err.textContent=d.error||'Send failed'; err.classList.add('show'); }
+  }catch(e){ err.textContent='Network error'; err.classList.add('show'); }
+  btn.disabled=false; btn.textContent='Send to waitlist →';
 }
 
 init();
