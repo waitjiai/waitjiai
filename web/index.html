@@ -318,8 +318,10 @@ footer{padding:40px 0;border-top:1px solid var(--bd);margin-top:40px;}
       <button class="auth-role-btn active" id="authRoleDev" onclick="setAuthRole('customer')">💻 Developer</button>
       <button class="auth-role-btn" id="authRoleAdv" onclick="setAuthRole('advertiser')">📣 Advertiser</button>
     </div>
+    <input type="text" id="authName" class="auth-input auth-signup-only" placeholder="Full name" autocomplete="name" style="display:none;">
     <input type="email" id="authEmail" class="auth-input" placeholder="Email address" autocomplete="email">
-    <input type="password" id="authPassword" class="auth-input" placeholder="Password" autocomplete="current-password">
+    <input type="password" id="authPassword" class="auth-input" placeholder="Password" autocomplete="new-password">
+    <input type="password" id="authPassword2" class="auth-input auth-signup-only" placeholder="Confirm password" autocomplete="new-password" style="display:none;">
     <button class="auth-submit" id="authSubmitBtn" onclick="submitAuth()">Log in →</button>
     <div class="auth-msg" id="authMsg"></div>
   </div>
@@ -355,6 +357,7 @@ function setAuthMode(m){
   document.getElementById('authTabLogin').classList.toggle('active', m==='login');
   document.getElementById('authTabSignup').classList.toggle('active', m==='signup');
   document.getElementById('authRoleRow').classList.toggle('show', m==='signup');
+  document.querySelectorAll('.auth-signup-only').forEach(el => el.style.display = m==='signup' ? 'block' : 'none');
   document.getElementById('authSubmitBtn').textContent = m==='login' ? 'Log in →' : 'Create account →';
   hideAuthMsg();
 }
@@ -367,16 +370,22 @@ function showAuthMsg(text,type){ const el=document.getElementById('authMsg'); el
 function hideAuthMsg(){ document.getElementById('authMsg').classList.remove('show'); }
 
 async function submitAuth(){
+  const name=document.getElementById('authName').value.trim();
   const email=document.getElementById('authEmail').value.trim().toLowerCase();
   const password=document.getElementById('authPassword').value;
+  const password2=document.getElementById('authPassword2').value;
   hideAuthMsg();
   if(!email||!email.includes('@')){ showAuthMsg('Please enter a valid email.'); return; }
   if(!password||password.length<6){ showAuthMsg('Password must be at least 6 characters.'); return; }
+  if(authMode==='signup'){
+    if(!name){ showAuthMsg('Please enter your full name.'); return; }
+    if(password!==password2){ showAuthMsg('Passwords do not match.'); return; }
+  }
 
   const btn=document.getElementById('authSubmitBtn');
   btn.disabled=true; btn.textContent='Please wait…';
   try{
-    if(authMode==='signup') await doSignup(email,password);
+    if(authMode==='signup') await doSignup(name,email,password);
     else await doLogin(email,password);
   } catch(e){
     showAuthMsg('Something went wrong. Please try again.');
@@ -386,14 +395,14 @@ async function submitAuth(){
   }
 }
 
-async function doSignup(email,password){
-  const { data, error } = await sb.auth.signUp({ email, password });
+async function doSignup(name,email,password){
+  const { data, error } = await sb.auth.signUp({ email, password, options: { data: { name } } });
   if(error){ showAuthMsg(error.message || 'Could not create account.'); return; }
   if(!data.session){
     showAuthMsg('Account created — check ' + email + ' for a verification link, then log in.', 'info');
     return;
   }
-  await exchangeAndRedirect(data.session.access_token, authRole);
+  await exchangeAndRedirect(data.session.access_token, authRole, name);
 }
 
 async function doLogin(email,password){
@@ -406,12 +415,13 @@ async function doLogin(email,password){
     }
     return;
   }
-  await exchangeAndRedirect(data.session.access_token, null);
+  await exchangeAndRedirect(data.session.access_token, null, null);
 }
 
-async function exchangeAndRedirect(accessToken, role){
+async function exchangeAndRedirect(accessToken, role, name){
   const body = { access_token: accessToken };
   if (role) body.role = role;
+  if (name) body.name = name;
   const res = await fetch(API_BASE + '/v1/auth/exchange', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   });
