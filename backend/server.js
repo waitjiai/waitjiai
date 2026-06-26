@@ -19,6 +19,12 @@ const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data.json');
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://tqfjdhneycntoasahstt.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZmpkaG5leWNudG9hc2Foc3R0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mjg1ODcsImV4cCI6MjA5NzIwNDU4N30.u5oqo0c9tmZ7OxZW6R2hbMxUyVrM4nedYsGKC8PR4TA';
 const EXTENSION_ID = process.env.EXTENSION_ID || 'WaitJiai.waitji-ai';
+// Service role key — required for server-side admin reads that bypass RLS (e.g. reading the waitlist table).
+// NEVER given a default value here: this key has full database access and must only live in Render's env vars.
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || null;
+// Resend API key — required to send bulk/marketing emails via Resend's HTTP API.
+const RESEND_API_KEY = process.env.RESEND_API_KEY || null;
+const LAUNCH_EMAIL_FROM = process.env.LAUNCH_EMAIL_FROM || 'WaitJI AI <admin@waitjiai.in>';
 let extensionStatsCache = { installCount: null, fetchedAt: 0 };
 
 // Pulls REAL install count from the public VS Code Marketplace API. Cached for
@@ -58,6 +64,7 @@ let db = {
   clicks: [],       // { id, userId, campaignId, ts, ip, valid, reason }
   fraudFlags: [],   // { id, userId, type, detail, ts, severity }
   payouts: [],      // { id, userId, amountPaise, status, ts }
+  sentLaunchEmails: {}, // { email: { sentAt, subject } } — duplicate-send protection for bulk waitlist emails
 };
 
 function loadDB() {
@@ -67,6 +74,7 @@ function loadDB() {
       // ensure arrays/objects exist
       db.users ||= {}; db.campaigns ||= {}; db.impressions ||= [];
       db.clicks ||= []; db.fraudFlags ||= []; db.payouts ||= [];
+      db.sentLaunchEmails ||= {};
     }
   } catch (e) { console.error('DB load error:', e.message); }
 }
@@ -606,6 +614,49 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { campaign: c });
       }
 
+      // ── WAITLIST: preview (count + already-sent count, no email content sent here) ──
+      if (method === 'GET' && url === '/v1/admin/waitlist') {
+        try {
+          const emails = await fetchWaitlistEmails();
+          const alreadySent = emails.filter(e => db.sentLaunchEmails[e]).length;
+          return send(res, 200, {
+            total: emails.length,
+            alreadySent,
+            pending: emails.length - alreadySent,
+            sample: emails.slice(0, 10),
+          });
+        } catch (e) {
+          return send(res, 502, { error: 'Could not read waitlist from Supabase: ' + e.message });
+        }
+      }
+
+      // ── WAITLIST: send bulk launch email (duplicate-send protected) ──
+      if (method === 'POST' && url === '/v1/admin/send-launch-email') {
+        if (!RESEND_API_KEY) return send(res, 500, { error: 'RESEND_API_KEY not configured on the server' });
+        const b = await getBody(req);
+        if (!b.subject || !b.html) return send(res, 400, { error: 'subject and html are required' });
+
+        let emails;
+        try { emails = await fetchWaitlistEmails(); }
+        catch (e) { return send(res, 502, { error: 'Could not read waitlist from Supabase: ' + e.message }); }
+
+        const targets = b.force ? emails : emails.filter(e => !db.sentLaunchEmails[e]);
+        const results = { totalWaitlist: emails.length, attempted: targets.length, sent: 0, failed: [] };
+
+        for (const email of targets) {
+          try {
+            await sendResendEmail({ to: email, subject: b.subject, html: b.html });
+            db.sentLaunchEmails[email] = { sentAt: Date.now(), subject: b.subject };
+            results.sent++;
+          } catch (e) {
+            results.failed.push({ email, error: e.message });
+          }
+          await new Promise(r => setTimeout(r, 250)); // gentle pacing, avoid Resend rate limits
+        }
+        saveDB();
+        return send(res, 200, results);
+      }
+
       // ── SECURITY PANEL: fraud flags ──
       if (method === 'GET' && url === '/v1/admin/security') {
         const flags = db.fraudFlags.slice(-100).reverse().map(f => ({
@@ -694,6 +745,33 @@ const server = http.createServer(async (req, res) => {
     return send(res, 500, { error: 'internal error' });
   }
 });
+
+// ── Waitlist + bulk email helpers ──────────────────────────────────────────────
+// Reads the waitlist table directly from Supabase using the service-role key,
+// bypassing RLS. Assumes a column named "email" — adjust here if your table differs.
+async function fetchWaitlistEmails() {
+  if (!SUPABASE_SERVICE_KEY) throw new Error('SUPABASE_SERVICE_KEY not configured on the server');
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?select=email`, {
+    headers: { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}` },
+  });
+  if (!r.ok) throw new Error(`Supabase REST returned ${r.status}`);
+  const rows = await r.json();
+  const emails = rows.map(row => (row.email || '').toLowerCase().trim()).filter(Boolean);
+  return [...new Set(emails)]; // dedupe
+}
+
+async function sendResendEmail({ to, subject, html }) {
+  const r = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: LAUNCH_EMAIL_FROM, to: [to], subject, html }),
+  });
+  if (!r.ok) {
+    const errBody = await r.text().catch(() => '');
+    throw new Error(`Resend ${r.status}: ${errBody.slice(0, 200)}`);
+  }
+  return r.json();
+}
 
 function publicUser(u) {
   return { id: u.id, email: u.email, phone: u.phone || '', role: u.role, name: u.name, company: u.company, upiId: u.upiId, provider: u.provider || 'email', emailVerified: !!u.emailVerified, phoneVerified: !!u.phoneVerified, banned: u.banned, banReason: u.banReason || null, lastActiveAt: u.lastActiveAt || null, createdAt: u.createdAt };
