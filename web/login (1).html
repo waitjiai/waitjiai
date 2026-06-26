@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Log in — WaitJI AI</title>
+<meta name="robots" content="noindex, follow">
+<link rel="canonical" href="https://waitjiai.in/login.html">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --i:#4F46E5;--id:#4338CA;--s:#0EA5E9;--g:#10B981;--gold:#D97706;
+  --ink:#0F1222;--m:#6B7185;--m2:#9AA0B4;--bg:#FBFBFD;--bg2:#F4F5FB;--sf:#fff;--bd:#E8EAF0;
+  --sans:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.5;min-height:100vh;}
+a{text-decoration:none;color:inherit;}
+
+nav{position:sticky;top:0;z-index:100;background:rgba(251,251,253,.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--bd);}
+.nav-inner{max-width:1180px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:16px 24px;}
+.logo{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:16px;font-weight:600;}
+.logo em{color:var(--i);font-style:normal;}
+.logo-mark{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--i),var(--s));display:flex;align-items:center;justify-content:center;}
+.nav-back{font-size:13.5px;color:var(--m);font-weight:600;}
+.nav-back:hover{color:var(--i);}
+
+.split{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:1fr 440px;gap:60px;align-items:center;padding:70px 24px;min-height:calc(100vh - 70px);}
+@media(max-width:900px){.split{grid-template-columns:1fr;gap:36px;padding:40px 20px;}}
+
+.pitch .pill{display:inline-flex;align-items:center;gap:7px;background:#D1FAE5;border:1px solid #A7F3D0;border-radius:100px;padding:6px 16px;font-family:var(--mono);font-size:11px;color:#047857;margin-bottom:22px;}
+.pitch h1{font-family:var(--sans);font-size:clamp(30px,4.2vw,46px);font-weight:700;line-height:1.15;letter-spacing:-1px;margin-bottom:16px;}
+.pitch p{color:var(--m);font-size:15px;max-width:440px;}
+
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:20px;padding:32px;box-shadow:0 16px 40px -10px rgba(15,18,34,.08);}
+.tabs{display:flex;background:var(--bg2);border-radius:10px;padding:4px;margin-bottom:20px;}
+.tab{flex:1;text-align:center;padding:10px;border-radius:7px;font-size:13.5px;font-weight:600;cursor:pointer;color:var(--m);}
+.tab.active{background:var(--sf);color:var(--ink);box-shadow:0 1px 4px rgba(15,18,34,.08);}
+
+.role-row{display:none;gap:8px;margin-bottom:16px;}
+.role-row.show{display:flex;}
+.role-btn{flex:1;padding:10px;border-radius:9px;border:1px solid var(--bd);background:var(--sf);font-size:12.5px;font-weight:600;cursor:pointer;color:var(--m);}
+.role-btn.active{border-color:var(--i);background:#EEF2FF;color:var(--i);}
+
+.field{width:100%;padding:12px 14px;border:1px solid var(--bd);border-radius:9px;font-size:14px;font-family:var(--body);margin-bottom:12px;}
+.field:focus{outline:none;border-color:var(--i);}
+
+.submit{width:100%;padding:13px;border-radius:10px;border:none;font-weight:700;font-size:14px;cursor:pointer;background:var(--i);color:#fff;margin-top:4px;}
+.submit:hover{background:var(--id);}
+.submit:disabled{opacity:.6;cursor:wait;}
+
+.msg{font-size:12.5px;border-radius:9px;padding:11px 13px;margin-top:14px;display:none;line-height:1.6;}
+.msg.show{display:block;}
+.msg.err{background:#FEE2E2;color:#B91C1C;border:1px solid #FCA5A5;}
+.msg.info{background:#EEF2FF;color:#3730A3;border:1px solid #C7D2FE;}
+.msg.warn{background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;}
+
+.links-row{display:flex;justify-content:space-between;align-items:center;margin-top:16px;font-size:12.5px;}
+.links-row a,.links-row button{color:var(--i);font-weight:600;background:none;border:none;cursor:pointer;font-size:12.5px;font-family:var(--body);padding:0;}
+.links-row a:hover,.links-row button:hover{color:var(--id);}
+
+.resend-row{margin-top:10px;text-align:center;}
+.resend-row button{background:none;border:none;color:var(--m);font-size:12px;cursor:pointer;text-decoration:underline;font-family:var(--body);}
+.resend-row button:hover{color:var(--i);}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="index.html" class="logo"><span class="logo-mark"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.4)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></span>Wait<em>JI</em> AI</a>
+    <a href="index.html" class="nav-back">← Back to home</a>
+  </div>
+</nav>
+
+<div class="split">
+  <div class="pitch">
+    <div class="pill"><span style="width:7px;height:7px;border-radius:50%;background:#10B981;display:inline-block;"></span>DEVELOPER & ADVERTISER PORTAL</div>
+    <h1>Sign in to see your <em style="color:var(--i);font-style:italic;">WaitJI AI</em> earnings.</h1>
+    <p>Your dashboard shows credited impressions, payout status, and recent activity — for developers earning UPI income, and advertisers running campaigns.</p>
+  </div>
+
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active" id="tabLogin" onclick="setMode('login')">Log in</div>
+      <div class="tab" id="tabSignup" onclick="setMode('signup')">Sign up</div>
+    </div>
+
+    <div class="role-row" id="roleRow">
+      <button class="role-btn active" id="roleDev" onclick="setRole('customer')">💻 Developer</button>
+      <button class="role-btn" id="roleAdv" onclick="setRole('advertiser')">📣 Advertiser</button>
+    </div>
+
+    <input type="email" id="email" class="field" placeholder="Email address" autocomplete="email">
+    <input type="password" id="password" class="field" placeholder="Password" autocomplete="current-password">
+
+    <button class="submit" id="submitBtn" onclick="submitAuth()">Log in →</button>
+
+    <div class="links-row">
+      <button onclick="showForgot()">Forgot password?</button>
+      <span id="modeHint" style="color:var(--m);"></span>
+    </div>
+
+    <div class="msg" id="msg"></div>
+
+    <div class="resend-row" id="resendRow" style="display:none;">
+      <button onclick="resendVerification()">Resend verification email</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://tqfjdhneycntoasahstt.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZmpkaG5leWNudG9hc2Foc3R0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mjg1ODcsImV4cCI6MjA5NzIwNDU4N30.u5oqo0c9tmZ7OxZW6R2hbMxUyVrM4nedYsGKC8PR4TA';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const API_BASE = 'https://waitjiai-backend.onrender.com';
+
+let mode = 'login';
+let role = 'customer';
+let lastEmailForResend = '';
+
+function setMode(m){
+  mode = m;
+  document.getElementById('tabLogin').classList.toggle('active', m === 'login');
+  document.getElementById('tabSignup').classList.toggle('active', m === 'signup');
+  document.getElementById('roleRow').classList.toggle('show', m === 'signup');
+  document.getElementById('submitBtn').textContent = m === 'login' ? 'Log in →' : 'Create account →';
+  document.getElementById('modeHint').textContent = m === 'login' ? '' : 'Min 6 characters';
+  hideMsg(); hideResend();
+}
+function setRole(r){
+  role = r;
+  document.getElementById('roleDev').classList.toggle('active', r === 'customer');
+  document.getElementById('roleAdv').classList.toggle('active', r === 'advertiser');
+}
+function showMsg(text, type){
+  const el = document.getElementById('msg');
+  el.textContent = text;               // ALWAYS a plain string — never an object, never JSON.stringify of anything
+  el.className = 'msg show ' + (type || 'err');
+}
+function hideMsg(){ document.getElementById('msg').classList.remove('show'); }
+function showResend(){ document.getElementById('resendRow').style.display = 'block'; }
+function hideResend(){ document.getElementById('resendRow').style.display = 'none'; }
+function showForgot(){
+  const email = document.getElementById('email').value.trim();
+  if(!email || !email.includes('@')){ showMsg('Type your email above first, then click "Forgot password?" again.', 'warn'); return; }
+  sb.auth.resetPasswordForEmail(email).then(({ error }) => {
+    if(error) showMsg(humanizeSupabaseError(error));
+    else showMsg('Password reset link sent to ' + email + '. Check your inbox.', 'info');
+  }).catch(() => showMsg('Could not send reset email right now. Please try again in a moment.'));
+}
+function resendVerification(){
+  if(!lastEmailForResend){ showMsg('Enter your email and try signing up again first.', 'warn'); return; }
+  sb.auth.resend({ type: 'signup', email: lastEmailForResend }).then(({ error }) => {
+    if(error) showMsg(humanizeSupabaseError(error));
+    else showMsg('Verification email re-sent to ' + lastEmailForResend + '.', 'info');
+  }).catch(() => showMsg('Could not resend right now. Please try again shortly.'));
+}
+
+// Never let a raw error object reach the screen — always reduce to a plain, human string.
+function humanizeSupabaseError(error){
+  if(!error) return 'Something went wrong. Please try again.';
+  const m = (error.message || '').toLowerCase();
+  if(m.includes('already registered') || m.includes('already exists')) return 'An account with this email already exists. Try logging in instead.';
+  if(m.includes('invalid login')) return 'Incorrect email or password.';
+  if(m.includes('confirm')) return 'Please verify your email first — check your inbox, then log in.';
+  if(m.includes('rate limit')) return 'Too many attempts. Please wait a minute and try again.';
+  return typeof error.message === 'string' && error.message ? error.message : 'Something went wrong. Please try again.';
+}
+
+// Fetch wrapper that NEVER lets a raw {}/JSON object reach showMsg.
+// Handles: network failure, non-JSON / empty body (Render cold-start), and slow cold-start with one retry.
+async function backendExchange(accessToken, roleToSend, attempt){
+  attempt = attempt || 1;
+  let res;
+  try{
+    res = await fetch(API_BASE + '/v1/auth/exchange', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(roleToSend ? { access_token: accessToken, role: roleToSend } : { access_token: accessToken }),
+    });
+  } catch(networkErr){
+    // backend likely cold-starting (Render free tier sleeps after 15 min idle)
+    if(attempt < 2){
+      showMsg('Waking up the server, this can take ~20s on first request. Retrying…', 'warn');
+      await new Promise(r => setTimeout(r, 4000));
+      return backendExchange(accessToken, roleToSend, attempt + 1);
+    }
+    return { ok: false, message: 'Server is waking up. Please wait 20 seconds and try again.' };
+  }
+
+  let body = null;
+  const raw = await res.text();
+  if(raw){ try{ body = JSON.parse(raw); } catch{ body = null; } }
+
+  if(!res.ok){
+    if(res.status === 403) return { ok: false, message: 'Please verify your email before continuing.', needsVerify: true };
+    const errText = body && typeof body.error === 'string' && body.error ? body.error : 'Login failed. Please try again in a moment.';
+    return { ok: false, message: errText };
+  }
+  if(!body || !body.token || !body.user){
+    // empty/incomplete success response — happens on Render cold start truncation
+    if(attempt < 2){
+      showMsg('Server just woke up, finishing sign-in…', 'warn');
+      await new Promise(r => setTimeout(r, 2500));
+      return backendExchange(accessToken, roleToSend, attempt + 1);
+    }
+    return { ok: false, message: 'Server is still waking up. Please click the button again.' };
+  }
+  return { ok: true, body };
+}
+
+async function submitAuth(){
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  const password = document.getElementById('password').value;
+  hideMsg(); hideResend();
+  if(!email || !email.includes('@')){ showMsg('Please enter a valid email.'); return; }
+  if(!password || password.length < 6){ showMsg('Password must be at least 6 characters.'); return; }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true; btn.textContent = 'Please wait…';
+  lastEmailForResend = email;
+
+  try{
+    if(mode === 'signup') await doSignup(email, password);
+    else await doLogin(email, password);
+  } catch(e){
+    showMsg('Something went wrong. Please try again in a moment.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = mode === 'login' ? 'Log in →' : 'Create account →';
+  }
+}
+
+async function doSignup(email, password){
+  const { data, error } = await sb.auth.signUp({ email, password });
+  if(error){ showMsg(humanizeSupabaseError(error)); return; }
+  if(!data.session){
+    showMsg('Account created — check ' + email + ' for a verification link, then come back and log in.', 'info');
+    showResend();
+    return;
+  }
+  await finishLogin(data.session.access_token, role);
+}
+
+async function doLogin(email, password){
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if(error){
+    showMsg(humanizeSupabaseError(error));
+    if((error.message || '').toLowerCase().includes('confirm')) showResend();
+    return;
+  }
+  await finishLogin(data.session.access_token, null);
+}
+
+async function finishLogin(accessToken, roleToSend){
+  const result = await backendExchange(accessToken, roleToSend);
+  if(!result.ok){
+    showMsg(result.message);
+    if(result.needsVerify) showResend();
+    return;
+  }
+  localStorage.setItem('waitji_token', result.body.token);
+  localStorage.setItem('waitji_role', result.body.user.role);
+  window.location.href = result.body.user.role === 'advertiser' ? 'advertiser.html' : 'customer.html';
+}
+
+// Warm up the backend the moment this page loads, so by the time the user
+// finishes typing, Render's free-tier instance is already awake.
+fetch(API_BASE + '/health').catch(() => {});
+
+// Pre-fill role/mode from query string, e.g. login.html?mode=signup&role=advertiser
+(function(){
+  const p = new URLSearchParams(window.location.search);
+  if(p.get('mode') === 'signup') setMode('signup');
+  if(p.get('role') === 'advertiser') setRole('advertiser');
+})();
+</script>
+</body>
+</html>
