@@ -1,20 +1,26 @@
 /**
  * WaitJI AI — Production Backend
- * Pure Node.js (no external deps for max deploy reliability on Render).
- * Features: JWT-style auth, password hashing, persistent JSON DB,
- *           advertiser + customer + admin roles, click-fraud detection.
+ * Persistent storage: Postgres (Neon) — required. Render's filesystem is
+ * EPHEMERAL: anything written to local disk is wiped on every deploy/restart.
+ * The entire app-state JSON is stored as a single row in a `kv_store` table —
+ * this keeps every other line of business logic in this file unchanged
+ * (db.users, db.campaigns etc. all still work exactly as in-memory objects;
+ * only loadDB/saveDB talk to Postgres instead of the local disk now).
  */
 const http = require('http');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { Pool } = require('pg');
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'waitji-dev-secret-change-in-prod';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@waitjiai.in';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'WaitJI@Admin2026';
-const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data.json');
+const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data.json'); // local fallback only — see below
+const DATABASE_URL = process.env.DATABASE_URL || null; // Neon Postgres connection string — REQUIRED for production
+const pgPool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } }) : null;
 // Supabase (identity provider for customers + advertisers)
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://tqfjdhneycntoasahstt.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZmpkaG5leWNudG9hc2Foc3R0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mjg1ODcsImV4cCI6MjA5NzIwNDU4N30.u5oqo0c9tmZ7OxZW6R2hbMxUyVrM4nedYsGKC8PR4TA';
@@ -67,27 +73,64 @@ let db = {
   sentLaunchEmails: {}, // { email: { sentAt, subject } } — duplicate-send protection for bulk waitlist emails
 };
 
-function loadDB() {
+let pgAvailable = false;
+async function loadDB() {
+  if (pgPool) {
+    try {
+      await pgPool.query(`CREATE TABLE IF NOT EXISTS kv_store (key TEXT PRIMARY KEY, value JSONB NOT NULL, updated_at TIMESTAMPTZ DEFAULT now())`);
+      const r = await pgPool.query(`SELECT value FROM kv_store WHERE key = 'db'`);
+      pgAvailable = true;
+      if (r.rows.length) {
+        db = r.rows[0].value;
+        db.users ||= {}; db.campaigns ||= {}; db.impressions ||= [];
+        db.clicks ||= []; db.fraudFlags ||= []; db.payouts ||= [];
+        db.sentLaunchEmails ||= {};
+        console.log(`Loaded DB from Postgres: ${Object.keys(db.users).length} users, ${Object.keys(db.campaigns).length} campaigns`);
+      } else {
+        console.log('No existing DB row in Postgres — starting fresh (first boot).');
+      }
+      return;
+    } catch (e) {
+      console.error('FATAL: could not load from Postgres:', e.message);
+      console.error('Falling back to local disk — THIS DATA WILL BE LOST ON NEXT DEPLOY. Fix DATABASE_URL immediately.');
+    }
+  } else {
+    console.error('WARNING: DATABASE_URL is not set. Using local disk storage, which Render WIPES on every deploy. Set DATABASE_URL in Render env vars now.');
+  }
+  // local-file fallback (only reached if Postgres is unavailable or unconfigured)
   try {
     if (fs.existsSync(DB_FILE)) {
       db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-      // ensure arrays/objects exist
       db.users ||= {}; db.campaigns ||= {}; db.impressions ||= [];
       db.clicks ||= []; db.fraudFlags ||= []; db.payouts ||= [];
       db.sentLaunchEmails ||= {};
     }
-  } catch (e) { console.error('DB load error:', e.message); }
+  } catch (e) { console.error('Local DB load error:', e.message); }
 }
+
 let saveTimer = null;
+let savePending = false;
 function saveDB() {
-  // debounce writes
+  // debounce writes — coalesce rapid successive saves into one write
   if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
+  saveTimer = setTimeout(async () => {
+    if (pgPool) {
+      try {
+        await pgPool.query(
+          `INSERT INTO kv_store (key, value, updated_at) VALUES ('db', $1, now())
+           ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = now()`,
+          [JSON.stringify(db)]
+        );
+        return;
+      } catch (e) {
+        console.error('Postgres save error (data NOT persisted this write):', e.message);
+        // fall through to local-disk write below as a last-resort safety net
+      }
+    }
     try { fs.writeFileSync(DB_FILE, JSON.stringify(db)); }
-    catch (e) { console.error('DB save error:', e.message); }
+    catch (e) { console.error('Local DB save error:', e.message); }
   }, 300);
 }
-loadDB();
 
 // ── Seed demo campaigns + admin (first run only) ───────────────────────────────
 function seed() {
@@ -782,5 +825,8 @@ function publicUser(u) {
   return { id: u.id, email: u.email, phone: u.phone || '', role: u.role, name: u.name, company: u.company, upiId: u.upiId, provider: u.provider || 'email', emailVerified: !!u.emailVerified, phoneVerified: !!u.phoneVerified, banned: u.banned, banReason: u.banReason || null, lastActiveAt: u.lastActiveAt || null, createdAt: u.createdAt };
 }
 
-seed();
-server.listen(PORT, () => console.log(`WaitJI AI API v2 running on port ${PORT}`));
+(async () => {
+  await loadDB();
+  seed();
+  server.listen(PORT, () => console.log(`WaitJI AI API v3 running on port ${PORT} (storage: ${pgAvailable ? 'Postgres' : 'LOCAL DISK — NOT PERSISTENT'})`));
+})();
