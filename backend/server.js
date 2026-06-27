@@ -666,11 +666,15 @@ const server = http.createServer(async (req, res) => {
         try {
           const emails = await fetchWaitlistEmails();
           const alreadySent = emails.filter(e => db.sentLaunchEmails[e]).length;
+          const sentList = Object.entries(db.sentLaunchEmails)
+            .map(([email, info]) => ({ email, sentAt: info.sentAt, subject: info.subject }))
+            .sort((a, b) => b.sentAt - a.sentAt);
           return send(res, 200, {
             total: emails.length,
             alreadySent,
             pending: emails.length - alreadySent,
             sample: emails.slice(0, 10),
+            sentList,
           });
         } catch (e) {
           return send(res, 502, { error: 'Could not read waitlist from Supabase: ' + e.message });
