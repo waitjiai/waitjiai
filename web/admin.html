@@ -65,6 +65,10 @@ tr:last-child td{border-bottom:none;}
 .thresh-v{font-family:var(--mono);font-weight:600;font-size:14px;color:var(--indigo);}
 .loading{text-align:center;padding:60px;color:var(--muted2);font-family:var(--mono);}
 .field label{display:block;font-size:12px;font-weight:600;color:var(--ink2);}
+.modal-err{display:none;background:#FEE2E2;color:#B91C1C;border:1px solid #FCA5A5;border-radius:9px;padding:11px 14px;font-size:13px;line-height:1.5;}
+.modal-err.show{display:block;}
+.modal-ok{display:none;background:#D1FAE5;color:#047857;border:1px solid #A7F3D0;border-radius:9px;padding:11px 14px;font-size:13px;line-height:1.5;}
+.modal-ok.show{display:block;}
 .hide{display:none;}
 .toast{position:fixed;bottom:28px;right:28px;background:var(--surface);border:1px solid var(--green);border-radius:12px;padding:14px 20px;box-shadow:var(--shadow);transform:translateY(90px);opacity:0;transition:all .3s;z-index:100;}
 .toast.show{transform:translateY(0);opacity:1;}
@@ -232,6 +236,7 @@ function renderWaitlist(w){
       <div class="field"><label>Subject</label><input id="wSubject" value="WaitJI AI is live 🎉" style="width:100%;padding:10px 13px;border:1px solid var(--border2);border-radius:9px;font-family:var(--body);margin-top:6px"></div>
       <div class="field" style="margin-top:14px"><label>Email HTML</label><textarea id="wHtml" style="width:100%;height:220px;padding:10px 13px;border:1px solid var(--border2);border-radius:9px;font-family:var(--mono);font-size:12px;margin-top:6px">${esc(DEFAULT_LAUNCH_EMAIL)}</textarea></div>
       <div class="modal-err" id="wErr" style="margin-top:14px"></div>
+      <div class="modal-ok" id="wOk" style="margin-top:10px"></div>
       <div style="display:flex;gap:10px;margin-top:16px">
         <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)"><input type="checkbox" id="wForce">Resend to everyone (ignore already-emailed)</label>
       </div>
@@ -244,16 +249,30 @@ async function sendLaunchEmail(){
   const html=document.getElementById('wHtml').value;
   const force=document.getElementById('wForce').checked;
   const err=document.getElementById('wErr');
-  err.classList.remove('show');
+  err.classList.remove('show'); err.textContent='';
+  const ok=document.getElementById('wOk');
+  if(ok){ ok.classList.remove('show'); ok.textContent=''; }
   if(!subject||!html){ err.textContent='Subject and email HTML are required'; err.classList.add('show'); return; }
   if(!confirm(force?'This will EMAIL EVERYONE on the waitlist again, including people already emailed. Continue?':'Send this email to everyone on the waitlist who hasn\'t been emailed yet. Continue?')) return;
   const btn=document.getElementById('wSendBtn'); btn.disabled=true; btn.textContent='Sending…';
   try{
     const r=await fetch(API+'/v1/admin/send-launch-email',{method:'POST',headers:H,body:JSON.stringify({subject,html,force})});
-    const d=await r.json();
-    if(r.ok){ toast('✓ Sent '+d.sent+' / '+d.attempted, d.failed.length?d.failed.length+' failed':''); }
-    else{ err.textContent=d.error||'Send failed'; err.classList.add('show'); }
-  }catch(e){ err.textContent='Network error'; err.classList.add('show'); }
+    let d=null; const raw=await r.text(); try{ d=JSON.parse(raw); }catch{ d=null; }
+    if(r.ok && d){
+      let msg='✓ Sent '+d.sent+' of '+d.attempted+' (total waitlist: '+d.totalWaitlist+')';
+      if(d.failed && d.failed.length){
+        msg += '. '+d.failed.length+' failed: '+d.failed.slice(0,3).map(f=>f.email+' — '+f.error).join('; ');
+      }
+      if(d.attempted===0) msg += '. Nothing to send — everyone already emailed (tick "Resend to everyone" to force).';
+      document.getElementById('wOk').textContent=msg;
+      document.getElementById('wOk').classList.add('show');
+      toast('✓ Sent '+d.sent+' / '+d.attempted);
+      render();
+    } else {
+      err.textContent = (d && d.error) ? d.error : ('Server returned ' + r.status + (raw ? ': ' + raw.slice(0,200) : ''));
+      err.classList.add('show');
+    }
+  }catch(e){ err.textContent='Network error: '+e.message; err.classList.add('show'); }
   btn.disabled=false; btn.textContent='Send to waitlist →';
 }
 
