@@ -31,6 +31,23 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || null;
 // Resend API key — required to send bulk/marketing emails via Resend's HTTP API.
 const RESEND_API_KEY = process.env.RESEND_API_KEY || null;
 const LAUNCH_EMAIL_FROM = process.env.LAUNCH_EMAIL_FROM || 'WaitJI AI <admin@waitjiai.in>';
+// Razorpay — required for real advertiser payment collection. Never given a default
+// (these are secret credentials and must only live in Render's env vars).
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || null;
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || null;
+
+async function razorpayApi(method, path, body) {
+  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) throw new Error('Razorpay is not configured on the server (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET missing)');
+  const auth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
+  const r = await fetch(`https://api.razorpay.com/v1${path}`, {
+    method,
+    headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data?.error?.description || `Razorpay ${method} ${path} returned ${r.status}`);
+  return data;
+}
 let extensionStatsCache = { installCount: null, fetchedAt: 0 };
 
 // Pulls REAL install count from the public VS Code Marketplace API. Cached for
@@ -505,7 +522,7 @@ const server = http.createServer(async (req, res) => {
       const user = auth(req);
       if (!user || user.role !== 'advertiser') return send(res, 403, { error: 'advertiser access required' });
 
-      // create campaign
+      // create campaign — starts unpaid. Must complete Razorpay payment before it can go live.
       if (method === 'POST' && url === '/v1/advertiser/campaigns') {
         const b = await getBody(req);
         if (!b.adText || !b.url || !b.bidPaise) return send(res, 400, { error: 'adText, url, bidPaise required' });
@@ -515,10 +532,61 @@ const server = http.createServer(async (req, res) => {
           id, advertiserId: user.id, advertiser: user.company || user.name || user.email,
           adText: b.adText, url: b.url, bidPaise: b.bidPaise,
           budgetPaise: b.budgetPaise || 100000, spentPaise: 0,
-          status: 'pending', createdAt: Date.now(), targetingCategory: b.targetingCategory || 'all',
+          status: 'pending_payment', createdAt: Date.now(), targetingCategory: b.targetingCategory || 'all',
+          paymentId: null, orderId: null, paidAt: null, refunded: false,
         };
         saveDB();
         return send(res, 201, { campaign: db.campaigns[id] });
+      }
+
+      // create a Razorpay order for this campaign's budget (only if unpaid and owned by this advertiser)
+      if (method === 'POST' && url.match(/^\/v1\/advertiser\/campaigns\/[^/]+\/create-order$/)) {
+        const cid = url.split('/')[4];
+        const c = db.campaigns[cid];
+        if (!c || c.advertiserId !== user.id) return send(res, 404, { error: 'campaign not found' });
+        if (c.status !== 'pending_payment') return send(res, 400, { error: 'This campaign is not awaiting payment.' });
+        try {
+          const order = await razorpayApi('POST', '/orders', { amount: c.budgetPaise, currency: 'INR', receipt: c.id, notes: { campaignId: c.id, advertiserId: user.id } });
+          c.orderId = order.id;
+          saveDB();
+          return send(res, 200, { orderId: order.id, amountPaise: c.budgetPaise, keyId: RAZORPAY_KEY_ID });
+        } catch (e) {
+          return send(res, 502, { error: e.message });
+        }
+      }
+
+      // verify Razorpay payment signature, then move campaign to pending_review (awaiting content moderation)
+      if (method === 'POST' && url.match(/^\/v1\/advertiser\/campaigns\/[^/]+\/verify-payment$/)) {
+        const cid = url.split('/')[4];
+        const c = db.campaigns[cid];
+        if (!c || c.advertiserId !== user.id) return send(res, 404, { error: 'campaign not found' });
+        if (c.status !== 'pending_payment') return send(res, 400, { error: 'This campaign is not awaiting payment.' });
+        const b = await getBody(req);
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = b;
+        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) return send(res, 400, { error: 'Missing payment verification fields' });
+        if (razorpay_order_id !== c.orderId) return send(res, 400, { error: 'Order mismatch' });
+        if (!RAZORPAY_KEY_SECRET) return send(res, 500, { error: 'Razorpay not configured on the server' });
+        const expectedSig = crypto.createHmac('sha256', RAZORPAY_KEY_SECRET).update(`${razorpay_order_id}|${razorpay_payment_id}`).digest('hex');
+        if (expectedSig !== razorpay_signature) return send(res, 400, { error: 'Payment signature verification failed' });
+
+        c.status = 'pending_review';
+        c.paymentId = razorpay_payment_id;
+        c.paidAt = Date.now();
+        saveDB();
+        return send(res, 200, { campaign: c });
+      }
+
+      // advertiser pauses/resumes their OWN already-live campaign (cannot touch payment/review state this way)
+      if (method === 'PATCH' && url.match(/^\/v1\/advertiser\/campaigns\/[^/]+$/)) {
+        const cid = url.split('/').pop();
+        const c = db.campaigns[cid];
+        if (!c || c.advertiserId !== user.id) return send(res, 404, { error: 'campaign not found' });
+        const b = await getBody(req);
+        if (b.status === 'paused' && c.status === 'active') c.status = 'paused';
+        else if (b.status === 'active' && c.status === 'paused') c.status = 'active';
+        else return send(res, 400, { error: 'Cannot change to that status from here' });
+        saveDB();
+        return send(res, 200, { campaign: c });
       }
 
       // list my campaigns (includes live rank among all active campaigns, by bid)
@@ -661,7 +729,8 @@ const server = http.createServer(async (req, res) => {
           extensionStatsError: extStats.error || null,
           campaigns: Object.keys(db.campaigns).length,
           activeCampaigns: Object.values(db.campaigns).filter(c => c.status === 'active').length,
-          pendingCampaigns: Object.values(db.campaigns).filter(c => c.status === 'pending').length,
+          pendingPaymentCampaigns: Object.values(db.campaigns).filter(c => c.status === 'pending_payment').length,
+          pendingCampaigns: Object.values(db.campaigns).filter(c => c.status === 'pending_review').length,
           impressions: db.impressions.length,
           validClicks, blockedClicks,
           fraudFlags: db.fraudFlags.length,
@@ -695,13 +764,31 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { campaigns: Object.values(db.campaigns) });
       }
 
-      // approve / reject campaign
+      // approve / reject campaign — approval only allowed once payment is verified (pending_review).
+      // Rejecting a paid campaign automatically refunds the advertiser via Razorpay.
       if (method === 'PATCH' && url.match(/^\/v1\/admin\/campaigns\/[^/]+$/)) {
         const cid = url.split('/').pop();
         const c = db.campaigns[cid];
         if (!c) return send(res, 404, { error: 'not found' });
         const b = await getBody(req);
-        if (b.status && ['active', 'paused', 'rejected'].includes(b.status)) c.status = b.status;
+        if (b.status === 'active') {
+          if (c.status !== 'pending_review') return send(res, 400, { error: `Cannot activate — campaign status is "${c.status}", payment not yet verified.` });
+          c.status = 'active';
+        } else if (b.status === 'rejected') {
+          if (c.paymentId && !c.refunded) {
+            try {
+              await razorpayApi('POST', `/payments/${c.paymentId}/refund`, { notes: { reason: b.reason || 'Campaign rejected — policy review' } });
+              c.refunded = true;
+            } catch (e) {
+              saveDB();
+              return send(res, 502, { error: 'Refund failed: ' + e.message + '. Campaign NOT marked rejected — retry once Razorpay issue is resolved.' });
+            }
+          }
+          c.status = 'rejected';
+          c.rejectReason = b.reason || null;
+        } else if (b.status === 'paused' && c.status === 'active') {
+          c.status = 'paused';
+        }
         saveDB();
         return send(res, 200, { campaign: c });
       }
