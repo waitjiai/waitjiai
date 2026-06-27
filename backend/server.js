@@ -71,7 +71,9 @@ let db = {
   fraudFlags: [],   // { id, userId, type, detail, ts, severity }
   payouts: [],      // { id, userId, amountPaise, status, ts }
   sentLaunchEmails: {}, // { email: { sentAt, subject } } — duplicate-send protection for bulk waitlist emails
+  houseAds: [],     // { id, text, url, active } — shown when no real advertiser campaign is active
 };
+const HOUSE_AD_RATE_PAISE = 5000; // ₹50 per 1000 impressions, founder-funded (not billed to any advertiser)
 
 let pgAvailable = false;
 async function loadDB() {
@@ -85,6 +87,7 @@ async function loadDB() {
         db.users ||= {}; db.campaigns ||= {}; db.impressions ||= [];
         db.clicks ||= []; db.fraudFlags ||= []; db.payouts ||= [];
         db.sentLaunchEmails ||= {};
+        db.houseAds ||= [];
         console.log(`Loaded DB from Postgres: ${Object.keys(db.users).length} users, ${Object.keys(db.campaigns).length} campaigns`);
       } else {
         console.log('No existing DB row in Postgres — starting fresh (first boot).');
@@ -104,6 +107,7 @@ async function loadDB() {
       db.users ||= {}; db.campaigns ||= {}; db.impressions ||= [];
       db.clicks ||= []; db.fraudFlags ||= []; db.payouts ||= [];
       db.sentLaunchEmails ||= {};
+      db.houseAds ||= [];
     }
   } catch (e) { console.error('Local DB load error:', e.message); }
 }
@@ -142,6 +146,13 @@ function seed() {
       role: 'admin', name: 'Platform Admin', createdAt: Date.now(), banned: false,
     };
     console.log('Seeded admin:', ADMIN_EMAIL);
+  }
+  if (!db.houseAds || db.houseAds.length === 0) {
+    db.houseAds = [
+      { id: uid('house_'), text: 'WaitJI AI · Refer a dev, earn 10% lifetime →', url: 'https://waitjiai.in/login.html?mode=signup', active: true, createdAt: Date.now() },
+      { id: uid('house_'), text: 'WaitJI AI · Loving this? Rate us on the Marketplace ⭐', url: 'https://marketplace.visualstudio.com/items?itemName=WaitJiai.waitji-ai&ssr=false#review-details', active: true, createdAt: Date.now() },
+    ];
+    console.log('Seeded default house ads');
   }
   saveDB();
 }
@@ -402,16 +413,40 @@ const server = http.createServer(async (req, res) => {
         .filter(c => c.status === 'active' && c.spentPaise < c.budgetPaise)
         .sort((a, b) => b.bidPaise - a.bidPaise)
         .slice(0, 3)
-        .map(c => ({ id: c.id, text: c.adText, url: c.url, advertiser: c.advertiser, cpmPaise: c.bidPaise }));
-      return send(res, 200, { ads, servedAt: Date.now() });
+        .map(c => ({ id: c.id, text: c.adText, url: c.url, advertiser: c.advertiser, cpmPaise: c.bidPaise, isHouseAd: false }));
+
+      if (ads.length > 0) return send(res, 200, { ads, servedAt: Date.now() });
+
+      // No real advertiser campaign is live — fall back to a rotating house ad so
+      // developers still see (and earn from) something during the thinking pause.
+      // Tagged "WaitJI AI", never "Sponsored" — there is no real sponsor here.
+      const liveHouseAds = (db.houseAds || []).filter(h => h.active);
+      if (liveHouseAds.length === 0) return send(res, 200, { ads: [], servedAt: Date.now() });
+      const pick = liveHouseAds[Math.floor(Math.random() * liveHouseAds.length)];
+      return send(res, 200, {
+        ads: [{ id: pick.id, text: pick.text, url: pick.url, advertiser: 'WaitJI AI', cpmPaise: HOUSE_AD_RATE_PAISE, isHouseAd: true }],
+        servedAt: Date.now(),
+      });
     }
 
     // ── Record impression (with fraud check) ──
     if (method === 'POST' && url === '/v1/impression') {
       const b = await getBody(req);
+      const userId = b.userId || 'anon';
+
+      // House-ad impression — founder-funded, no real advertiser budget involved
+      const houseAd = (db.houseAds || []).find(h => h.id === b.campaignId);
+      if (houseAd) {
+        const check = validateImpression(userId, ip);
+        if (!check.valid) return send(res, 200, { success: false, reason: check.reason, billed: false });
+        const earnPaise = Math.floor(HOUSE_AD_RATE_PAISE / 1000); // full house rate goes to the developer
+        db.impressions.push({ id: uid('i_'), userId, campaignId: houseAd.id, earnedPaise: earnPaise, costPaise: 0, isHouseAd: true, ts: Date.now(), ip, clicked: false });
+        saveDB();
+        return send(res, 200, { success: true, earnedPaise: earnPaise, billed: true, isHouseAd: true });
+      }
+
       const c = db.campaigns[b.campaignId];
       if (!c) return send(res, 404, { error: 'campaign not found' });
-      const userId = b.userId || 'anon';
 
       const check = validateImpression(userId, ip);
       if (!check.valid) return send(res, 200, { success: false, reason: check.reason, billed: false });
@@ -424,7 +459,7 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { success: false, reason: 'budget_exhausted', billed: false });
       }
       c.spentPaise += advCostPaise;
-      db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, costPaise: advCostPaise, ts: Date.now(), ip, clicked: false });
+      db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, costPaise: advCostPaise, isHouseAd: false, ts: Date.now(), ip, clicked: false });
       saveDB();
       return send(res, 200, { success: true, earnedPaise: earnPaise, billed: true });
     }
@@ -432,9 +467,19 @@ const server = http.createServer(async (req, res) => {
     // ── Record click (with fraud validation — protects advertiser money) ──
     if (method === 'POST' && url === '/v1/click') {
       const b = await getBody(req);
+      const userId = b.userId || 'anon';
+
+      // House-ad click — no advertiser to bill, just log it (no extra developer earning beyond the impression)
+      const houseAdC = (db.houseAds || []).find(h => h.id === b.campaignId);
+      if (houseAdC) {
+        const check = validateClick(userId, houseAdC.id, ip);
+        db.clicks.push({ id: uid('cl_'), userId, campaignId: houseAdC.id, ts: Date.now(), ip, valid: check.valid, reason: check.reason, costPaise: 0, isHouseAd: true });
+        saveDB();
+        return send(res, 200, { success: check.valid, reason: check.valid ? undefined : check.reason, billed: false, isHouseAd: true });
+      }
+
       const c = db.campaigns[b.campaignId];
       if (!c) return send(res, 404, { error: 'campaign not found' });
-      const userId = b.userId || 'anon';
 
       const check = validateClick(userId, c.id, ip);
       const clickCostPaiseForRecord = Math.floor(c.bidPaise / 1000) * 50;
@@ -659,6 +704,36 @@ const server = http.createServer(async (req, res) => {
         if (b.status && ['active', 'paused', 'rejected'].includes(b.status)) c.status = b.status;
         saveDB();
         return send(res, 200, { campaign: c });
+      }
+
+      // ── HOUSE ADS: manage the zero-advertiser fallback ──
+      if (method === 'GET' && url === '/v1/admin/house-ads') {
+        return send(res, 200, { houseAds: db.houseAds || [] });
+      }
+      if (method === 'POST' && url === '/v1/admin/house-ads') {
+        const b = await getBody(req);
+        if (!b.text || !b.url) return send(res, 400, { error: 'text and url required' });
+        const ad = { id: uid('house_'), text: b.text, url: b.url, active: b.active !== false, createdAt: Date.now() };
+        db.houseAds.push(ad);
+        saveDB();
+        return send(res, 201, { houseAd: ad });
+      }
+      if (method === 'PATCH' && url.match(/^\/v1\/admin\/house-ads\/[^/]+$/)) {
+        const id = url.split('/').pop();
+        const ad = (db.houseAds || []).find(h => h.id === id);
+        if (!ad) return send(res, 404, { error: 'not found' });
+        const b = await getBody(req);
+        if (typeof b.text === 'string') ad.text = b.text;
+        if (typeof b.url === 'string') ad.url = b.url;
+        if (typeof b.active === 'boolean') ad.active = b.active;
+        saveDB();
+        return send(res, 200, { houseAd: ad });
+      }
+      if (method === 'DELETE' && url.match(/^\/v1\/admin\/house-ads\/[^/]+$/)) {
+        const id = url.split('/').pop();
+        db.houseAds = (db.houseAds || []).filter(h => h.id !== id);
+        saveDB();
+        return send(res, 200, { deleted: true });
       }
 
       // ── WAITLIST: preview (count + already-sent count, no email content sent here) ──
