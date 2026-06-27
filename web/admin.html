@@ -219,10 +219,19 @@ function renderCampaigns(camps){
   document.getElementById('tabContent').innerHTML=`<div class="panel"><div class="panel-h">All campaigns (${camps.length})</div>
     ${camps.length?`<table><thead><tr><th>Advertiser</th><th>Ad text</th><th>Bid</th><th>Spent</th><th>Status</th><th>Actions</th></tr></thead><tbody>
     ${camps.map(c=>`<tr><td class="camp-name" style="font-weight:600">${esc(c.advertiser)}</td><td style="font-size:12px;color:var(--muted)">${esc(c.adText)}</td><td class="mono">₹${(c.bidPaise/100).toFixed(0)}/1K</td><td class="mono">₹${(c.spentPaise/100).toFixed(0)}</td><td><span class="status ${c.status}">${c.status}</span></td>
-    <td>${c.status==='pending'?`<button class="mini-btn green" onclick="setCamp('${c.id}','active')">Approve</button><button class="mini-btn red" onclick="setCamp('${c.id}','rejected')">Reject</button>`:c.status==='active'?`<button class="mini-btn" onclick="setCamp('${c.id}','paused')">Pause</button>`:c.status==='paused'?`<button class="mini-btn green" onclick="setCamp('${c.id}','active')">Activate</button>`:'—'}</td></tr>`).join('')}
+    <td>${c.status==='pending_review'?`<button class="mini-btn green" onclick="setCamp('${c.id}','active')">Approve</button><button class="mini-btn red" onclick="rejectCamp('${c.id}')">Reject</button>`:c.status==='pending_payment'?'<span style="color:var(--muted2);font-size:12px">awaiting advertiser payment</span>':c.status==='active'?`<button class="mini-btn" onclick="setCamp('${c.id}','paused')">Pause</button>`:c.status==='paused'?`<button class="mini-btn green" onclick="setCamp('${c.id}','active')">Activate</button>`:'—'}</td></tr>`).join('')}
     </tbody></table>`:`<div class="empty"><div class="empty-ic">📣</div>No campaigns yet.</div>`}</div>`;
 }
 async function setCamp(id,status){ await fetch(API+'/v1/admin/campaigns/'+id,{method:'PATCH',headers:H,body:JSON.stringify({status})}); toast('✓ Campaign '+status); render(); }
+async function rejectCamp(id){
+  const reason=prompt('Reason for rejection (shown to advertiser; if they already paid, this refunds them automatically):','');
+  if(reason===null) return;
+  const r=await fetch(API+'/v1/admin/campaigns/'+id,{method:'PATCH',headers:H,body:JSON.stringify({status:'rejected',reason:reason.trim()||'Not specified'})});
+  const d=await r.json();
+  if(r.ok) toast('✓ Campaign rejected'+(d.campaign?.refunded?' — refund issued':''));
+  else toast('⚠️ '+(d.error||'Could not reject'));
+  render();
+}
 
 function renderAdvertisers(advs){
   document.getElementById('tabContent').innerHTML=`<div class="panel"><div class="panel-h">Advertisers (${advs.length})</div>
