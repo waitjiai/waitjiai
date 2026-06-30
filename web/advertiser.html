@@ -150,6 +150,7 @@ function render(a,camps){
     <div class="cards">
       <div class="card"><div class="card-label">${bestRank?'Best live position':'Live position'}</div><div class="card-val">${bestRank?('#'+bestRank.rank+' of '+bestRank.totalActive):'—'}</div><div class="card-sub">${bestRank?'by bid, across all active campaigns':'no active campaign yet'}</div></div>
       <div class="card"><div class="card-label">Impressions</div><div class="card-val">${(+a.impressions).toLocaleString('en-IN')}</div><div class="card-sub">across ${a.campaigns} campaigns</div></div>
+      <div class="card"><div class="card-label">Unique developers reached</div><div class="card-val">${(+a.uniqueUsersReached||0).toLocaleString('en-IN')}</div><div class="card-sub">distinct people, not just views</div></div>
       <div class="card"><div class="card-label">Valid clicks</div><div class="card-val">${a.validClicks}</div><div class="card-sub">CTR ${a.ctr}%</div></div>
       <div class="card"><div class="card-label">Total spent</div><div class="card-val">₹${a.spentRupees}</div><div class="card-sub">${a.activeCampaigns} active</div></div>
       <div class="card fraud"><div class="card-label">🛡️ Fraud blocked</div><div class="card-val">₹${a.savedFromFraudRupees}</div><div class="card-sub">${a.blockedClicks} invalid clicks stopped</div></div>
@@ -163,11 +164,39 @@ function render(a,camps){
         <td>${c.status==='active'&&c.rank?`<span class="rank-pill ${c.rank===1?'rank-1':''}">#${c.rank} of ${c.totalActive}</span>`:'<span style="color:var(--muted2)">—</span>'}</td>
         <td><div style="font-size:12px;font-family:var(--mono)">₹${(c.spentPaise/100).toFixed(0)} / ₹${(c.budgetPaise/100).toFixed(0)}</div><div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div></td>
         <td><span class="status ${c.status}">${({pending_payment:'payment required',pending_review:'awaiting review',active:'active',paused:'paused',rejected:'rejected',completed:'completed'})[c.status]||c.status}</span>${c.status==='rejected'&&c.rejectReason?`<div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(c.rejectReason)}${c.refunded?' · refunded':''}</div>`:''}</td>
-        <td>${c.status==='pending_payment'?`<button class="mini-btn" style="border-color:#FCA5A5;color:#B91C1C" onclick="payForCampaign('${c.id}',${c.budgetPaise})">Complete payment</button>`:c.status==='active'?`<button class="mini-btn" onclick="toggleCamp('${c.id}','paused')">Pause</button>`:c.status==='paused'?`<button class="mini-btn" onclick="toggleCamp('${c.id}','active')">Resume</button>`:''}</td></tr>`;}).join('')}
+        <td><button class="mini-btn" onclick="viewCampStats('${c.id}')">Stats</button> ${c.status==='pending_payment'?`<button class="mini-btn" style="border-color:#FCA5A5;color:#B91C1C" onclick="payForCampaign('${c.id}',${c.budgetPaise})">Complete payment</button>`:c.status==='active'?`<button class="mini-btn" onclick="toggleCamp('${c.id}','paused')">Pause</button>`:c.status==='paused'?`<button class="mini-btn" onclick="toggleCamp('${c.id}','active')">Resume</button>`:''}</td></tr>`;}).join('')}
       </tbody></table>`:`<div class="empty"><div class="empty-ic">📣</div><strong>No campaigns yet.</strong><br><span style="font-size:13px;color:var(--muted)">Create your first campaign to reach Indian developers.</span></div>`}
     </div>`;
 }
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+async function viewCampStats(id){
+  const r=await fetch(API+'/v1/advertiser/campaigns/'+id+'/stats',{headers:H});
+  const d=await r.json();
+  if(!r.ok){ toast('⚠️ '+(d.error||'Could not load stats')); return; }
+  const maxImp=Math.max(1,...d.daily.map(x=>x.impressions));
+  const m=document.createElement('div');
+  m.className='modal-bg show';
+  m.id='campStatsModal';
+  m.innerHTML=`<div class="modal" style="max-width:560px">
+    <h2>${esc(d.campaign.advertiser)}</h2>
+    <p class="modal-sub">${esc(d.campaign.adText)}</p>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0">
+      <div class="card" style="padding:12px"><div class="card-label" style="font-size:11px">Impressions</div><div class="card-val" style="font-size:20px">${d.totalImpressions}</div></div>
+      <div class="card" style="padding:12px"><div class="card-label" style="font-size:11px">Unique developers reached</div><div class="card-val" style="font-size:20px">${d.uniqueUsersReached}</div></div>
+      <div class="card" style="padding:12px"><div class="card-label" style="font-size:11px">Valid clicks</div><div class="card-val" style="font-size:20px">${d.validClicks}</div></div>
+      <div class="card" style="padding:12px"><div class="card-label" style="font-size:11px">CTR</div><div class="card-val" style="font-size:20px">${d.ctr}%</div></div>
+    </div>
+    <div class="panel-h" style="font-size:13px;margin:14px 0 8px">Last 14 days</div>
+    <div style="display:flex;align-items:flex-end;gap:3px;height:90px;border-bottom:1px solid var(--border2)">
+      ${d.daily.map(x=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%" title="${x.date}: ${x.impressions} impressions, ₹${x.spentRupees} spent"><div style="width:100%;background:var(--indigo);border-radius:2px 2px 0 0;min-height:1px;height:${Math.max(2,Math.round(x.impressions/maxImp*80))}px"></div></div>`).join('')}
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted2);margin-top:4px"><span>${d.daily[0].date.slice(5)}</span><span>${d.daily[d.daily.length-1].date.slice(5)}</span></div>
+    <div class="modal-actions" style="margin-top:18px"><button class="btn-out" style="flex:1" onclick="document.getElementById('campStatsModal').remove()">Close</button></div>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{if(e.target.id==='campStatsModal')m.remove();});
+}
 
 function openProfile(){
   document.getElementById('pCompany').value=me.company||'';
