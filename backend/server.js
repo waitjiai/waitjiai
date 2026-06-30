@@ -612,14 +612,16 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { user: publicUser(user) });
       }
 
-      // my analytics
+      // my analytics — now includes unique developers reached + daily trend
       if (method === 'GET' && url === '/v1/advertiser/analytics') {
         const mine = Object.values(db.campaigns).filter(c => c.advertiserId === user.id);
-        const ids = new Set(mine.map(c => c.id));
-        const imps = db.impressions.filter(i => ids.has(i.campaignId));
-        const clk = db.clicks.filter(c => ids.has(c.campaignId) && c.valid);
-        const invalidClk = db.clicks.filter(c => ids.has(c.campaignId) && !c.valid);
+        const ids = mine.map(c => c.id);
+        const idSet = new Set(ids);
+        const imps = db.impressions.filter(i => idSet.has(i.campaignId));
+        const clk = db.clicks.filter(c => idSet.has(c.campaignId) && c.valid);
+        const invalidClk = db.clicks.filter(c => idSet.has(c.campaignId) && !c.valid);
         const totalSpent = mine.reduce((s, c) => s + c.spentPaise, 0);
+        const uniqueUsersReached = new Set(imps.map(i => i.userId)).size;
         return send(res, 200, {
           campaigns: mine.length,
           activeCampaigns: mine.filter(c => c.status === 'active').length,
@@ -629,6 +631,27 @@ const server = http.createServer(async (req, res) => {
           ctr: imps.length ? (clk.length / imps.length * 100).toFixed(2) : '0.00',
           spentRupees: (totalSpent / 100).toFixed(2),
           savedFromFraudRupees: (invalidClk.length * (mine[0]?.bidPaise || 20000) / 1000 * 50 / 100).toFixed(2),
+          uniqueUsersReached,
+          daily: dailyBreakdown(ids),
+        });
+      }
+
+      // single-campaign stats for the advertiser who owns it
+      if (method === 'GET' && url.match(/^\/v1\/advertiser\/campaigns\/[^/]+\/stats$/)) {
+        const cid = url.split('/')[4];
+        const c = db.campaigns[cid];
+        if (!c || c.advertiserId !== user.id) return send(res, 404, { error: 'not found' });
+        const imps = db.impressions.filter(i => i.campaignId === cid);
+        const clk = db.clicks.filter(c2 => c2.campaignId === cid);
+        const uniqueUsers = new Set(imps.map(i => i.userId)).size;
+        return send(res, 200, {
+          campaign: c,
+          daily: dailyBreakdown([cid]),
+          uniqueUsersReached: uniqueUsers,
+          totalImpressions: imps.length,
+          validClicks: clk.filter(x => x.valid).length,
+          invalidClicks: clk.filter(x => !x.valid).length,
+          ctr: imps.length ? (clk.filter(x => x.valid).length / imps.length * 100).toFixed(2) : '0.00',
         });
       }
 
@@ -749,19 +772,75 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { advertisers: advs });
       }
 
-      // all customers
+      // all customers — now with derived session/activity summary
       if (method === 'GET' && url === '/v1/admin/customers') {
+        const sevenDaysAgo = Date.now() - 7 * 864e5;
+        const dayAgo = Date.now() - 864e5;
         const custs = Object.values(db.users).filter(u => u.role === 'customer').map(u => {
           const imps = db.impressions.filter(i => i.userId === u.id);
           const flags = db.fraudFlags.filter(f => f.userId === u.id);
-          return { ...publicUser(u), impressions: imps.length, earnedRupees: (imps.reduce((s, i) => s + i.earnedPaise, 0) / 100).toFixed(2), fraudFlags: flags.length };
+          const sessions7d = deriveSessions(imps.filter(i => i.ts > sevenDaysAgo));
+          const totalSessionMin7d = sessions7d.reduce((s, x) => s + x.durationMin, 0);
+          const adsShownToday = imps.some(i => i.ts > dayAgo);
+          const lastImpression = imps.length ? Math.max(...imps.map(i => i.ts)) : null;
+          return {
+            ...publicUser(u),
+            impressions: imps.length,
+            earnedRupees: (imps.reduce((s, i) => s + i.earnedPaise, 0) / 100).toFixed(2),
+            fraudFlags: flags.length,
+            sessions7d: sessions7d.length,
+            totalSessionMin7d,
+            adsShownToday,
+            lastImpressionAt: lastImpression,
+          };
         });
         return send(res, 200, { customers: custs });
+      }
+
+      // single-customer detail — session timeline + recent raw impressions, for the admin "View" drill-down
+      if (method === 'GET' && url.match(/^\/v1\/admin\/customers\/[^/]+$/)) {
+        const uidParam = url.split('/').pop();
+        const target = db.users[uidParam];
+        if (!target || target.role !== 'customer') return send(res, 404, { error: 'not found' });
+        const imps = db.impressions.filter(i => i.userId === uidParam).sort((a, b) => b.ts - a.ts);
+        const clk = db.clicks.filter(c => c.userId === uidParam).sort((a, b) => b.ts - a.ts);
+        const sessions = deriveSessions(imps).slice(0, 30);
+        const recentImpressions = imps.slice(0, 50).map(i => ({
+          ts: i.ts, earnedPaise: i.earnedPaise, isHouseAd: !!i.isHouseAd,
+          advertiser: db.campaigns[i.campaignId]?.advertiser || (i.isHouseAd ? 'WaitJI AI (house ad)' : 'Unknown'),
+        }));
+        return send(res, 200, {
+          user: publicUser(target),
+          totalImpressions: imps.length,
+          totalClicks: clk.length,
+          totalEarnedRupees: (imps.reduce((s, i) => s + i.earnedPaise, 0) / 100).toFixed(2),
+          sessions,
+          recentImpressions,
+        });
       }
 
       // all campaigns
       if (method === 'GET' && url === '/v1/admin/campaigns') {
         return send(res, 200, { campaigns: Object.values(db.campaigns) });
+      }
+
+      // single-campaign detailed stats — daily breakdown + unique users reached
+      if (method === 'GET' && url.match(/^\/v1\/admin\/campaigns\/[^/]+\/stats$/)) {
+        const cid = url.split('/')[4];
+        const c = db.campaigns[cid];
+        if (!c) return send(res, 404, { error: 'not found' });
+        const imps = db.impressions.filter(i => i.campaignId === cid);
+        const clk = db.clicks.filter(c2 => c2.campaignId === cid);
+        const uniqueUsers = new Set(imps.map(i => i.userId)).size;
+        return send(res, 200, {
+          campaign: c,
+          daily: dailyBreakdown([cid]),
+          uniqueUsersReached: uniqueUsers,
+          totalImpressions: imps.length,
+          validClicks: clk.filter(x => x.valid).length,
+          invalidClicks: clk.filter(x => !x.valid).length,
+          ctr: imps.length ? (clk.filter(x => x.valid).length / imps.length * 100).toFixed(2) : '0.00',
+        });
       }
 
       // approve / reject campaign — approval only allowed once payment is verified (pending_review).
@@ -985,6 +1064,65 @@ async function sendResendEmail({ to, subject, html }) {
     throw new Error(`Resend ${r.status}: ${errBody.slice(0, 200)}`);
   }
   return r.json();
+}
+
+// Derives "sessions" from a user's raw impression timestamps. We have no
+// explicit login/logout event from the extension — but the background
+// poller pings every ~90s while VS Code is open, so consecutive impressions
+// less than SESSION_GAP_MS apart are treated as one continuous coding
+// session, and any larger gap starts a new session. This is an honest
+// approximation, not a tracked session ID — documented as such in the UI.
+const SESSION_GAP_MS = 6 * 60 * 1000; // 6 min — tolerates a couple of missed poller ticks
+function deriveSessions(impressions) {
+  if (!impressions.length) return [];
+  const sorted = [...impressions].sort((a, b) => a.ts - b.ts);
+  const sessions = [];
+  let cur = { startTs: sorted[0].ts, endTs: sorted[0].ts, impressions: 1, earnedPaise: sorted[0].earnedPaise || 0, adsShown: 1 };
+  for (let i = 1; i < sorted.length; i++) {
+    const gap = sorted[i].ts - cur.endTs;
+    if (gap > SESSION_GAP_MS) {
+      sessions.push(cur);
+      cur = { startTs: sorted[i].ts, endTs: sorted[i].ts, impressions: 1, earnedPaise: sorted[i].earnedPaise || 0, adsShown: 1 };
+    } else {
+      cur.endTs = sorted[i].ts;
+      cur.impressions += 1;
+      cur.earnedPaise += sorted[i].earnedPaise || 0;
+      cur.adsShown += 1;
+    }
+  }
+  sessions.push(cur);
+  return sessions.reverse().map(s => ({
+    ...s,
+    durationMin: Math.max(1, Math.round((s.endTs - s.startTs) / 60000)),
+  }));
+}
+
+// Builds a daily (last N days) breakdown of impressions/clicks/spend for a
+// given set of campaign IDs — shared by admin campaign-detail and the
+// advertiser's own stats view.
+function dailyBreakdown(campaignIds, days = 14) {
+  const dayMs = 864e5;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const buckets = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const start = today.getTime() - i * dayMs;
+    buckets.push({ date: new Date(start).toISOString().slice(0, 10), start, end: start + dayMs, impressions: 0, validClicks: 0, invalidClicks: 0, spentPaise: 0 });
+  }
+  const idSet = new Set(campaignIds);
+  const findBucket = ts => buckets.find(b => ts >= b.start && ts < b.end);
+  db.impressions.forEach(i => {
+    if (!idSet.has(i.campaignId)) return;
+    const b = findBucket(i.ts);
+    if (b) { b.impressions++; b.spentPaise += i.costPaise || 0; }
+  });
+  db.clicks.forEach(c => {
+    if (!idSet.has(c.campaignId)) return;
+    const b = findBucket(c.ts);
+    if (!b) return;
+    if (c.valid) { b.validClicks++; b.spentPaise += c.costPaise || 0; }
+    else b.invalidClicks++;
+  });
+  return buckets.map(b => ({ date: b.date, impressions: b.impressions, validClicks: b.validClicks, invalidClicks: b.invalidClicks, spentRupees: (b.spentPaise / 100).toFixed(2) }));
 }
 
 function publicUser(u) {
