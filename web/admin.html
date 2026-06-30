@@ -18,6 +18,12 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1
 .user-email{font-size:13px;color:#9AA0B4;}
 .btn-out{background:transparent;border:1px solid #2A2F4D;color:#fff;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);}
 .btn-out:hover{border-color:#818CF8;}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:18px;padding:28px;max-width:480px;width:100%;max-height:88vh;overflow-y:auto;}
+.modal h2{font-family:var(--sans);font-size:19px;font-weight:700;margin-bottom:4px;}
+.modal-sub{font-size:12.5px;color:var(--muted);margin-bottom:8px;}
+.modal-actions{display:flex;gap:10px;}
+.modal table th,.modal table td{padding:7px 8px;border-bottom:1px solid var(--border2);}
 .wrap{max-width:1180px;margin:0 auto;padding:32px;}
 .page-h{font-family:var(--sans);font-size:26px;font-weight:700;letter-spacing:-.5px;margin-bottom:4px;}
 .page-sub{color:var(--muted);font-size:14px;margin-bottom:24px;}
@@ -219,8 +225,33 @@ function renderCampaigns(camps){
   document.getElementById('tabContent').innerHTML=`<div class="panel"><div class="panel-h">All campaigns (${camps.length})</div>
     ${camps.length?`<table><thead><tr><th>Advertiser</th><th>Ad text</th><th>Bid</th><th>Spent</th><th>Status</th><th>Actions</th></tr></thead><tbody>
     ${camps.map(c=>`<tr><td class="camp-name" style="font-weight:600">${esc(c.advertiser)}</td><td style="font-size:12px;color:var(--muted)">${esc(c.adText)}</td><td class="mono">₹${(c.bidPaise/100).toFixed(0)}/1K</td><td class="mono">₹${(c.spentPaise/100).toFixed(0)}</td><td><span class="status ${c.status}">${c.status}</span></td>
-    <td>${c.status==='pending_review'?`<button class="mini-btn green" onclick="setCamp('${c.id}','active')">Approve</button><button class="mini-btn red" onclick="rejectCamp('${c.id}')">Reject</button>`:c.status==='pending_payment'?'<span style="color:var(--muted2);font-size:12px">awaiting advertiser payment</span>':c.status==='active'?`<button class="mini-btn" onclick="setCamp('${c.id}','paused')">Pause</button>`:c.status==='paused'?`<button class="mini-btn green" onclick="setCamp('${c.id}','active')">Activate</button>`:'—'}</td></tr>`).join('')}
+    <td><button class="mini-btn" onclick="viewCampaignStats('${c.id}')">Stats</button> ${c.status==='pending_review'?`<button class="mini-btn green" onclick="setCamp('${c.id}','active')">Approve</button><button class="mini-btn red" onclick="rejectCamp('${c.id}')">Reject</button>`:c.status==='pending_payment'?'<span style="color:var(--muted2);font-size:12px">awaiting advertiser payment</span>':c.status==='active'?`<button class="mini-btn" onclick="setCamp('${c.id}','paused')">Pause</button>`:c.status==='paused'?`<button class="mini-btn green" onclick="setCamp('${c.id}','active')">Activate</button>`:'—'}</td></tr>`).join('')}
     </tbody></table>`:`<div class="empty"><div class="empty-ic">📣</div>No campaigns yet.</div>`}</div>`;
+}
+async function viewCampaignStats(id){
+  const d=await get('/v1/admin/campaigns/'+id+'/stats');
+  const maxImp=Math.max(1,...d.daily.map(x=>x.impressions));
+  const m=document.createElement('div');
+  m.className='modal-bg show';
+  m.id='campStatsModal';
+  m.innerHTML=`<div class="modal" style="max-width:560px">
+    <h2>${esc(d.campaign.advertiser)}</h2>
+    <p class="modal-sub">${esc(d.campaign.adText)}</p>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0">
+      <div class="card" style="padding:12px"><div class="card-label" style="font-size:11px">Impressions</div><div class="card-val" style="font-size:20px">${d.totalImpressions}</div></div>
+      <div class="card" style="padding:12px"><div class="card-label" style="font-size:11px">Unique developers reached</div><div class="card-val" style="font-size:20px">${d.uniqueUsersReached}</div></div>
+      <div class="card" style="padding:12px"><div class="card-label" style="font-size:11px">Valid clicks</div><div class="card-val" style="font-size:20px">${d.validClicks}</div></div>
+      <div class="card" style="padding:12px"><div class="card-label" style="font-size:11px">CTR</div><div class="card-val" style="font-size:20px">${d.ctr}%</div></div>
+    </div>
+    <div class="sub" style="font-weight:700;font-size:13px;margin:14px 0 8px">Last 14 days</div>
+    <div style="display:flex;align-items:flex-end;gap:3px;height:90px;border-bottom:1px solid var(--border2)">
+      ${d.daily.map(x=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%" title="${x.date}: ${x.impressions} impressions, ₹${x.spentRupees}"><div style="width:100%;background:var(--indigo);border-radius:2px 2px 0 0;min-height:1px;height:${Math.max(2,Math.round(x.impressions/maxImp*80))}px"></div></div>`).join('')}
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted2);margin-top:4px"><span>${d.daily[0].date.slice(5)}</span><span>${d.daily[d.daily.length-1].date.slice(5)}</span></div>
+    <div class="modal-actions" style="margin-top:18px"><button class="btn-out" style="flex:1" onclick="document.getElementById('campStatsModal').remove()">Close</button></div>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{if(e.target.id==='campStatsModal')m.remove();});
 }
 async function setCamp(id,status){ await fetch(API+'/v1/admin/campaigns/'+id,{method:'PATCH',headers:H,body:JSON.stringify({status})}); toast('✓ Campaign '+status); render(); }
 async function rejectCamp(id){
@@ -241,9 +272,40 @@ function renderAdvertisers(advs){
 }
 function renderCustomers(custs){
   document.getElementById('tabContent').innerHTML=`<div class="panel"><div class="panel-h">Earners (${custs.length})</div>
-    ${custs.length?`<table><thead><tr><th>Name</th><th>Email</th><th>Impressions</th><th>Earned</th><th>Fraud flags</th><th>Status</th><th></th></tr></thead><tbody>
-    ${custs.map(c=>`<tr><td style="font-weight:600">${esc(c.name||'—')}</td><td class="mono">${esc(c.email)}</td><td>${c.impressions.toLocaleString('en-IN')}</td><td class="mono">₹${c.earnedRupees}</td><td>${c.fraudFlags>0?`<span class="sev high">${c.fraudFlags}</span>`:'<span style="color:var(--green)">0</span>'}</td><td>${c.banned?`<span class="sev high">banned</span><div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(c.banReason||'')}</div>`:'<span class="status active">active</span>'}</td><td><button class="mini-btn" onclick="switchRole('${c.id}','advertiser')" title="Account was registered as the wrong role? Fix it here.">Make advertiser</button> <button class="mini-btn ${c.banned?'green':'red'}" onclick="banUser('${c.id}',${!c.banned})">${c.banned?'Unban':'Ban'}</button></td></tr>`).join('')}
-    </tbody></table>`:`<div class="empty"><div class="empty-ic">💻</div>No earners yet.</div>`}</div>`;
+    ${custs.length?`<table><thead><tr><th>Name</th><th>Email</th><th>Last active</th><th>Ads shown today</th><th>Sessions (7d)</th><th>Session time (7d)</th><th>Earned</th><th>Fraud flags</th><th>Status</th><th></th></tr></thead><tbody>
+    ${custs.map(c=>`<tr><td style="font-weight:600">${esc(c.name||'—')}</td><td class="mono">${esc(c.email)}</td><td style="font-size:12px">${c.lastActiveAt?timeAgo(c.lastActiveAt):'never'}</td><td>${c.adsShownToday?'<span style="color:var(--green)">✓ yes</span>':'<span style="color:var(--muted)">—</span>'}</td><td>${c.sessions7d}</td><td>${c.totalSessionMin7d} min</td><td class="mono">₹${c.earnedRupees}</td><td>${c.fraudFlags>0?`<span class="sev high">${c.fraudFlags}</span>`:'<span style="color:var(--green)">0</span>'}</td><td>${c.banned?`<span class="sev high">banned</span><div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(c.banReason||'')}</div>`:'<span class="status active">active</span>'}</td><td><button class="mini-btn" onclick="viewCustomerDetail('${c.id}')">View</button> <button class="mini-btn" onclick="switchRole('${c.id}','advertiser')" title="Account was registered as the wrong role? Fix it here.">Make advertiser</button> <button class="mini-btn ${c.banned?'green':'red'}" onclick="banUser('${c.id}',${!c.banned})">${c.banned?'Unban':'Ban'}</button></td></tr>`).join('')}
+    </tbody></table>`:`<div class="empty"><div class="empty-ic">💻</div>No earners yet.</div>`}</div>
+    <div class="note" style="font-size:11.5px;color:var(--muted);padding:0 4px">Sessions are derived from ad-impression timestamps (the extension's background poller pings roughly every 90s while VS Code is open) — gaps over 6 minutes start a new session. This is an honest approximation, not a tracked login/logout event.</div>`;
+}
+function timeAgo(ts){
+  const diff=Date.now()-ts;
+  const min=Math.floor(diff/60000);
+  if(min<1) return 'just now';
+  if(min<60) return min+'m ago';
+  const hr=Math.floor(min/60);
+  if(hr<24) return hr+'h ago';
+  return Math.floor(hr/24)+'d ago';
+}
+async function viewCustomerDetail(id){
+  const d=await get('/v1/admin/customers/'+id);
+  const m=document.createElement('div');
+  m.className='modal-bg show';
+  m.id='custDetailModal';
+  m.innerHTML=`<div class="modal" style="max-width:560px">
+    <h2>${esc(d.user.name||d.user.email)}</h2>
+    <p class="modal-sub">${esc(d.user.email)} · ${d.totalImpressions} total impressions · ₹${d.totalEarnedRupees} earned · ${d.totalClicks} clicks</p>
+    <div class="sub" style="font-weight:700;font-size:13px;margin:14px 0 8px">Recent sessions (derived)</div>
+    ${d.sessions.length?`<table style="width:100%;font-size:12.5px"><thead><tr><th style="text-align:left">When</th><th style="text-align:left">Duration</th><th style="text-align:left">Ads shown</th><th style="text-align:left">Earned</th></tr></thead><tbody>
+      ${d.sessions.map(s=>`<tr><td>${new Date(s.startTs).toLocaleString('en-IN')}</td><td>${s.durationMin} min</td><td>${s.adsShown}</td><td>₹${(s.earnedPaise/100).toFixed(2)}</td></tr>`).join('')}
+    </tbody></table>`:'<p style="font-size:12.5px;color:var(--muted)">No sessions yet.</p>'}
+    <div class="sub" style="font-weight:700;font-size:13px;margin:18px 0 8px">Recent ad impressions</div>
+    ${d.recentImpressions.length?`<table style="width:100%;font-size:12.5px"><thead><tr><th style="text-align:left">When</th><th style="text-align:left">Advertiser</th><th style="text-align:left">Earned</th></tr></thead><tbody>
+      ${d.recentImpressions.slice(0,15).map(i=>`<tr><td>${new Date(i.ts).toLocaleString('en-IN')}</td><td>${esc(i.advertiser)}${i.isHouseAd?' <span style="color:var(--muted)">(house)</span>':''}</td><td>₹${(i.earnedPaise/100).toFixed(2)}</td></tr>`).join('')}
+    </tbody></table>`:'<p style="font-size:12.5px;color:var(--muted)">No impressions yet.</p>'}
+    <div class="modal-actions" style="margin-top:18px"><button class="btn-out" style="flex:1" onclick="document.getElementById('custDetailModal').remove()">Close</button></div>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{if(e.target.id==='custDetailModal')m.remove();});
 }
 async function switchRole(id,newRole){
   if(!confirm('Switch this account to "'+newRole+'"? They will need to log out and back in to see the new dashboard.')) return;
