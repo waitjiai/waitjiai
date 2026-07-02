@@ -113,13 +113,20 @@ async function load(){
     if(!meR.ok){ logout(); return; }
     me=(await meR.json()).user;
     document.getElementById('userEmail').textContent=me.email;
-    const e=await (await fetch(API+'/v1/customer/earnings',{headers:H})).json();
-    const a=await (await fetch(API+'/v1/customer/activity',{headers:H})).json();
-    render(e,a.activity||[]);
+    const [eRes, aRes, wRes] = await Promise.all([
+      fetch(API+'/v1/customer/earnings',{headers:H}),
+      fetch(API+'/v1/customer/activity',{headers:H}),
+      fetch(API+'/v1/customer/withdrawals',{headers:H}),
+    ]);
+    const e=await eRes.json();
+    const a=await aRes.json();
+    const w=await wRes.json();
+    render(e, a.activity||[], w.withdrawals||[]);
   }catch(err){ document.getElementById('content').innerHTML='<div class="loading">Backend waking up… <a href="" onclick="location.reload();return false">retry</a></div>'; }
 }
 
-function render(e,activity){
+function render(e,activity,withdrawals){
+  const hasPendingWithdrawal = withdrawals.some(w=>w.status==='pending');
   const refLink=`https://waitjiai.in/r/${me.id}`;
   document.getElementById('content').innerHTML=`
     <h1 class="page-h">Welcome back${me.name?', '+me.name:''} 👋</h1>
@@ -157,10 +164,44 @@ function render(e,activity){
           <div class="panel-h">Payout</div>
           <div class="upi-box">
             <div class="upi-label">Your UPI ID</div>
-            ${me.upiId?`<div class="upi-val">${me.upiId}</div>`:`<div class="upi-input"><input id="upiInput" placeholder="yourname@upi"><button class="btn-solid" onclick="saveUpi()">Save</button></div>`}
+            ${me.upiId
+              ? `<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                   <div class="upi-val" id="upiDisplay">${esc(me.upiId)}</div>
+                   <button class="mini-btn" onclick="showChangeUpi()">Change UPI</button>
+                 </div>
+                 <div id="changeUpiBox" style="display:none;margin-top:10px">
+                   <div class="upi-input"><input id="upiChangeInput" placeholder="new@upihandle" value="${esc(me.upiId)}"><button class="btn-solid" onclick="verifyAndSaveUpi()">Verify &amp; Save</button></div>
+                   <div id="upiVerifyResult" style="font-size:12px;margin-top:6px"></div>
+                 </div>`
+              : `<div class="upi-input"><input id="upiInput" placeholder="yourname@upi"><button class="btn-solid" onclick="verifyAndSaveUpi()">Verify &amp; Save</button></div>
+                 <div id="upiVerifyResult" style="font-size:12px;margin-top:6px"></div>
+                 <p style="font-size:11px;color:var(--muted2);margin-top:4px">Format: yourname@upi or 9876543210@okaxis</p>`
+            }
           </div>
-          <button class="btn-solid btn-payout" onclick="payout()" ${parseFloat(e.pendingRupees)<100?'disabled':''}>Withdraw ₹${e.pendingRupees} to UPI</button>
-          <p style="font-size:11px;color:var(--muted2);text-align:center;margin-top:8px">${parseFloat(e.pendingRupees)<100?'Earn ₹100 to unlock withdrawal':'Arrives in 2-3 business days'}</p>
+          ${withdrawals.length ? `
+            <div style="margin-bottom:14px">
+              <div class="upi-label" style="margin-bottom:8px">Withdrawal history</div>
+              ${withdrawals.slice(0,3).map(w=>`
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+                  <div>
+                    <div style="font-weight:600">₹${(w.amountPaise/100).toFixed(2)}</div>
+                    <div style="font-size:11px;color:var(--muted2)">${new Date(w.requestedAt).toLocaleDateString('en-IN')} · ${w.upiId}</div>
+                    ${w.reviewNote?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(w.reviewNote)}</div>`:''}
+                  </div>
+                  <span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;background:${w.status==='approved'||w.status==='paid'?'var(--green-soft)':w.status==='rejected'?'var(--red-soft)':'var(--amber-soft)'};color:${w.status==='approved'||w.status==='paid'?'#047857':w.status==='rejected'?'#B91C1C':'#92400E'}">${w.status}</span>
+                </div>`).join('')}
+            </div>` : ''}
+          ${hasPendingWithdrawal
+            ? `<div style="background:var(--amber-soft);border:1px solid #FDE68A;border-radius:10px;padding:12px 14px;font-size:13px;color:#92400E">
+                ⏳ <b>Withdrawal pending</b> — admin will review within 1–2 business days. You'll get an email once it's processed.
+               </div>`
+            : `<button class="btn-solid btn-payout" onclick="requestWithdrawal()" ${(!me.upiId||parseFloat(e.pendingRupees)<100)?'disabled':''}>
+                Request withdrawal — ₹${e.pendingRupees}
+               </button>
+               <p style="font-size:11px;color:var(--muted2);text-align:center;margin-top:8px">
+                 ${!me.upiId?'Add a UPI ID first':parseFloat(e.pendingRupees)<100?`Earn ₹${(100-parseFloat(e.pendingRupees)).toFixed(2)} more to unlock withdrawal (min ₹100)`:'Arrives in 2–3 business days after admin approval'}
+               </p>`
+          }
         </div>
         <div class="ref-box">
           <h4>🤝 Your referral link</h4>
@@ -179,16 +220,36 @@ async function saveName(){
   toast('✓ Name saved'); load();
 }
 
-async function saveUpi(){
-  const upi=document.getElementById('upiInput').value.trim();
-  if(!upi){ toast('⚠️ Enter a UPI ID'); return; }
-  await fetch(API+'/v1/customer/profile',{method:'PATCH',headers:H,body:JSON.stringify({upiId:upi})});
-  toast('✓ UPI saved'); load();
+function showChangeUpi(){
+  const box=document.getElementById('changeUpiBox');
+  box.style.display=box.style.display==='none'?'block':'none';
 }
-async function payout(){
-  const r=await fetch(API+'/v1/customer/payout',{method:'POST',headers:H});
+
+async function verifyAndSaveUpi(){
+  const inputEl=document.getElementById('upiChangeInput')||document.getElementById('upiInput');
+  const upi=(inputEl?.value||'').trim();
+  const resultEl=document.getElementById('upiVerifyResult');
+  if(!upi){ toast('⚠️ Enter a UPI ID'); return; }
+  resultEl.textContent='Verifying…'; resultEl.style.color='var(--muted)';
+  const r=await fetch(API+'/v1/customer/verify-upi',{method:'POST',headers:H,body:JSON.stringify({upiId:upi})});
   const d=await r.json();
-  if(r.ok){ toast('🎉 Payout requested!','Money arrives in 2-3 days'); load(); }
+  if(!r.ok||!d.valid){
+    resultEl.textContent='✗ '+(d.error||'Invalid UPI ID');
+    resultEl.style.color='var(--red)';
+    return;
+  }
+  resultEl.textContent=d.message; resultEl.style.color=d.knownHandle?'var(--green)':'var(--amber)';
+  // Auto-save after successful verify
+  const sr=await fetch(API+'/v1/customer/profile',{method:'PATCH',headers:H,body:JSON.stringify({upiId:upi})});
+  if(sr.ok){ toast('✓ UPI ID saved — '+upi); setTimeout(()=>load(),600); }
+  else toast('⚠️ Could not save UPI ID');
+}
+
+async function requestWithdrawal(){
+  if(!confirm('Request withdrawal of your full available balance? Admin will review and credit to your UPI ID.')) return;
+  const r=await fetch(API+'/v1/customer/request-withdrawal',{method:'POST',headers:H});
+  const d=await r.json();
+  if(r.ok){ toast('✅ Withdrawal requested!','Admin will review in 1–2 business days'); load(); }
   else toast('⚠️ '+(d.error||'Could not process'));
 }
 function copyRef(){ const i=document.getElementById('refInput'); i.select(); navigator.clipboard.writeText(i.value); toast('✓ Referral link copied'); }

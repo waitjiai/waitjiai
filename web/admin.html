@@ -108,6 +108,7 @@ tr:last-child td{border-bottom:none;}
     <button class="tab" data-tab="campaigns" onclick="showTab('campaigns')">Campaigns</button>
     <button class="tab" data-tab="advertisers" onclick="showTab('advertisers')">Advertisers</button>
     <button class="tab" data-tab="customers" onclick="showTab('customers')">Earners</button>
+    <button class="tab" data-tab="withdrawals" onclick="showTab('withdrawals')">💸 Withdrawals <span id="pendingBadge" style="display:none;background:#EF4444;color:#fff;font-size:10px;padding:1px 6px;border-radius:100px;margin-left:4px">0</span></button>
     <button class="tab" data-tab="waitlist" onclick="showTab('waitlist')">📧 Waitlist</button>
     <button class="tab" data-tab="houseads" onclick="showTab('houseads')">🏠 House Ads</button>
   </div>
@@ -134,6 +135,12 @@ function showTab(t){ curTab=t; document.querySelectorAll('.tab').forEach(b=>b.cl
 
 async function render(){
   const c=document.getElementById('tabContent'); c.innerHTML='<div class="loading">Loading…</div>';
+  // Always refresh withdrawal badge regardless of active tab
+  get('/v1/admin/withdrawals').then(d=>{
+    const badge=document.getElementById('pendingBadge');
+    if(d?.summary?.pending>0){badge.style.display='inline';badge.textContent=d.summary.pending;}
+    else badge.style.display='none';
+  }).catch(()=>{});
   try{
     if(curTab==='overview') return renderOverview(await get('/v1/admin/overview'));
     if(curTab==='security') return renderSecurity(await get('/v1/admin/security'));
@@ -141,6 +148,7 @@ async function render(){
     if(curTab==='advertisers') return renderAdvertisers((await get('/v1/admin/advertisers')).advertisers);
     if(curTab==='customers') return renderCustomers((await get('/v1/admin/customers')).customers);
     if(curTab==='waitlist') return renderWaitlist(await get('/v1/admin/waitlist'));
+    if(curTab==='withdrawals') return renderWithdrawals(await get('/v1/admin/withdrawals'));
     if(curTab==='houseads') return renderHouseAds((await get('/v1/admin/house-ads')).houseAds);
   }catch(e){ c.innerHTML='<div class="loading">Error loading data. <a href="" onclick="location.reload();return false">retry</a></div>'; }
 }
@@ -346,6 +354,75 @@ const DEFAULT_LAUNCH_EMAIL = `<div style="font-family:Arial,sans-serif;max-width
   <p style="font-size:13px;color:#6B7185;line-height:1.6">Questions? Just reply to this email — we read every one.</p>
   <p style="font-size:12px;color:#9AA0B4;margin-top:30px">WaitJI AI · QivaLabs LLP · Udaipur, Rajasthan</p>
 </div>`;
+
+function renderWithdrawals(data){
+  const {withdrawals, summary} = data;
+  const pending = withdrawals.filter(w=>w.status==='pending');
+  const others = withdrawals.filter(w=>w.status!=='pending');
+
+  // update badge
+  const badge = document.getElementById('pendingBadge');
+  if(summary.pending > 0){ badge.style.display='inline'; badge.textContent=summary.pending; }
+  else badge.style.display='none';
+
+  document.getElementById('tabContent').innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+      <div class="card"><div class="card-label">Pending</div><div class="card-val" style="color:var(--amber)">${summary.pending}</div><div class="card-sub">₹${(summary.totalPendingPaise/100).toFixed(2)} to pay out</div></div>
+      <div class="card"><div class="card-label">Approved / Paid</div><div class="card-val" style="color:var(--green)">${summary.approved+summary.paid}</div></div>
+      <div class="card"><div class="card-label">Rejected</div><div class="card-val">${summary.rejected}</div></div>
+      <div class="card"><div class="card-label">Total</div><div class="card-val">${withdrawals.length}</div></div>
+    </div>
+
+    ${pending.length?`
+    <div class="panel" style="border-color:#FDE68A;background:#FFFBEB">
+      <div class="panel-h" style="color:#92400E">⏳ Pending requests (${pending.length}) — action required</div>
+      <table><thead><tr><th>Developer</th><th>Amount</th><th>UPI ID</th><th>Requested</th><th>Actions</th></tr></thead><tbody>
+      ${pending.map(w=>`<tr>
+        <td><div style="font-weight:600">${esc(w.userName||'—')}</div><div style="font-size:11px;color:var(--muted)">${esc(w.userEmail)}</div></td>
+        <td class="mono" style="font-weight:700;color:var(--green)">₹${(w.amountPaise/100).toFixed(2)}</td>
+        <td class="mono" style="font-size:12px">${esc(w.upiId)}</td>
+        <td style="font-size:12px">${new Date(w.requestedAt).toLocaleString('en-IN')}</td>
+        <td style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="mini-btn green" onclick="approveWithdrawal('${w.id}')">✓ Approve</button>
+          <button class="mini-btn red" onclick="rejectWithdrawal('${w.id}')">✗ Reject</button>
+        </td>
+      </tr>`).join('')}
+      </tbody></table>
+    </div>`:`<div class="panel"><div class="empty"><div class="empty-ic">✅</div>No pending withdrawal requests right now.</div></div>`}
+
+    ${others.length?`
+    <div class="panel" style="margin-top:16px">
+      <div class="panel-h">History</div>
+      <table><thead><tr><th>Developer</th><th>Amount</th><th>UPI ID</th><th>Status</th><th>Reviewed</th><th>Note</th></tr></thead><tbody>
+      ${others.map(w=>`<tr>
+        <td><div style="font-weight:600">${esc(w.userName||'—')}</div><div style="font-size:11px;color:var(--muted)">${esc(w.userEmail)}</div></td>
+        <td class="mono">₹${(w.amountPaise/100).toFixed(2)}</td>
+        <td class="mono" style="font-size:12px">${esc(w.upiId)}</td>
+        <td><span class="status ${w.status==='approved'||w.status==='paid'?'active':w.status}">${w.status}</span></td>
+        <td style="font-size:12px">${w.reviewedAt?new Date(w.reviewedAt).toLocaleString('en-IN'):'—'}</td>
+        <td style="font-size:12px;color:var(--muted)">${w.reviewNote?esc(w.reviewNote):'—'}</td>
+      </tr>`).join('')}
+      </tbody></table>
+    </div>`:``}`;
+}
+
+async function approveWithdrawal(id){
+  const note = prompt('Optional note to developer (e.g. "Payment sent to your UPI"):', '');
+  if(note === null) return; // cancelled
+  const r = await fetch(API+'/v1/admin/withdrawals/'+id+'/approve', {method:'POST',headers:H,body:JSON.stringify({note: note.trim()||null})});
+  const d = await r.json();
+  if(r.ok){ toast('✅ Withdrawal approved — developer notified by email'); showTab('withdrawals'); }
+  else toast('⚠️ '+(d.error||'Could not approve'));
+}
+
+async function rejectWithdrawal(id){
+  const reason = prompt('Reason for rejection (will be sent to developer by email):');
+  if(!reason || !reason.trim()){ if(reason!==null) toast('⚠️ Reason is required for rejection'); return; }
+  const r = await fetch(API+'/v1/admin/withdrawals/'+id+'/reject', {method:'POST',headers:H,body:JSON.stringify({reason: reason.trim()})});
+  const d = await r.json();
+  if(r.ok){ toast('Withdrawal rejected — developer notified by email'); showTab('withdrawals'); }
+  else toast('⚠️ '+(d.error||'Could not reject'));
+}
 
 function renderWaitlist(w){
   document.getElementById('tabContent').innerHTML=`
