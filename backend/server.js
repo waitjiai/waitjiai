@@ -89,6 +89,7 @@ let db = {
   payouts: [],      // { id, userId, amountPaise, status, ts }
   sentLaunchEmails: {}, // { email: { sentAt, subject } } — duplicate-send protection for bulk waitlist emails
   houseAds: [],     // { id, text, url, active } — shown when no real advertiser campaign is active
+  withdrawalRequests: [], // { id, userId, amountPaise, upiId, status, requestedAt, reviewedAt, reviewNote }
 };
 const HOUSE_AD_RATE_PAISE = 5000; // ₹50 per 1000 impressions, founder-funded (not billed to any advertiser)
 
@@ -105,6 +106,7 @@ async function loadDB() {
         db.clicks ||= []; db.fraudFlags ||= []; db.payouts ||= [];
         db.sentLaunchEmails ||= {};
         db.houseAds ||= [];
+        db.withdrawalRequests ||= [];
         console.log(`Loaded DB from Postgres: ${Object.keys(db.users).length} users, ${Object.keys(db.campaigns).length} campaigns`);
       } else {
         console.log('No existing DB row in Postgres — starting fresh (first boot).');
@@ -703,28 +705,114 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { activity: imps });
       }
 
-      // request payout
-      if (method === 'POST' && url === '/v1/customer/payout') {
-        const imps = db.impressions.filter(i => i.userId === user.id);
-        const total = imps.reduce((s, i) => s + i.earnedPaise, 0);
-        const paidOut = db.payouts.filter(p => p.userId === user.id).reduce((s, p) => s + p.amountPaise, 0);
-        const available = total - paidOut;
-        if (available < 10000) return send(res, 400, { error: 'minimum payout ₹100' });
-        if (!user.upiId) return send(res, 400, { error: 'add UPI ID first' });
-        const payout = { id: uid('p_'), userId: user.id, amountPaise: available, status: 'pending', ts: Date.now() };
-        db.payouts.push(payout); saveDB();
-        return send(res, 200, { payout });
+      // verify UPI ID format (basic check — real verification requires bank API which is paid)
+      // Returns a structured result: valid format + safe to proceed, or specific error
+      if (method === 'POST' && url === '/v1/customer/verify-upi') {
+        const b = await getBody(req);
+        const upiId = (b.upiId || '').trim();
+        if (!upiId) return send(res, 400, { error: 'UPI ID is required' });
+        // UPI format: alphanumeric@bankhandle — digits, letters, dots, hyphens before @
+        const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
+        if (!upiRegex.test(upiId)) {
+          return send(res, 400, {
+            valid: false,
+            error: 'Invalid UPI ID format. Example: yourname@upi or 9876543210@okaxis',
+          });
+        }
+        // Known valid bank handles list (not exhaustive, but catches the most common typos)
+        const knownHandles = ['upi','okaxis','okicici','oksbi','okhdfcbank','ybl','apl','ibl','axl','paytm','pthdfc','ptsbi','ptaxis','ptyes','hdfcbank','icici','sbi','axisbank','kotak','indus','boi','cub','federal','rbl','bob','idfcfirst','jupiter','fi','slice','niyobank','phonepe'];
+        const handle = upiId.split('@')[1].toLowerCase();
+        const knownHandle = knownHandles.includes(handle);
+        return send(res, 200, {
+          valid: true,
+          upiId,
+          knownHandle,
+          message: knownHandle
+            ? `✓ UPI format valid (${handle} is a recognized bank handle)`
+            : `UPI format looks valid, but "${handle}" is not a commonly recognized handle — double-check before saving`,
+        });
       }
 
-      // update UPI
+      // update UPI ID (with optional name update) — user explicitly confirmed after verify
       if (method === 'PATCH' && url === '/v1/customer/profile') {
         const b = await getBody(req);
-        if (b.upiId) user.upiId = b.upiId;
-        if (b.name) user.name = b.name;
+        if (b.upiId !== undefined) user.upiId = b.upiId.trim();
+        if (b.name) user.name = b.name.trim();
         saveDB();
         return send(res, 200, { user: publicUser(user) });
       }
-    }
+
+      // request withdrawal — replaces the old /v1/customer/payout
+      if (method === 'POST' && url === '/v1/customer/request-withdrawal') {
+        if (!user.upiId) return send(res, 400, { error: 'Please add and verify your UPI ID before requesting a withdrawal.' });
+
+        const imps = db.impressions.filter(i => i.userId === user.id);
+        const total = imps.reduce((s, i) => s + i.earnedPaise, 0);
+        const alreadyPaidOrPending = db.withdrawalRequests
+          .filter(r => r.userId === user.id && ['pending','approved','paid'].includes(r.status))
+          .reduce((s, r) => s + r.amountPaise, 0);
+        const available = total - alreadyPaidOrPending;
+
+        if (available < 10000) return send(res, 400, { error: `Minimum withdrawal is ₹100. Your available balance is ₹${(available/100).toFixed(2)}.` });
+
+        // Block if a pending request already exists
+        const hasPending = db.withdrawalRequests.some(r => r.userId === user.id && r.status === 'pending');
+        if (hasPending) return send(res, 400, { error: 'You already have a pending withdrawal request. Please wait for admin to review it before submitting a new one.' });
+
+        const req2 = {
+          id: uid('wr_'),
+          userId: user.id,
+          userName: user.name || user.email,
+          userEmail: user.email,
+          upiId: user.upiId,
+          amountPaise: available,
+          status: 'pending',
+          requestedAt: Date.now(),
+          reviewedAt: null,
+          reviewNote: null,
+        };
+        db.withdrawalRequests.push(req2);
+        saveDB();
+
+        // Email admin about the new withdrawal request
+        if (RESEND_API_KEY) {
+          fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: LAUNCH_EMAIL_FROM,
+              to: ['admin@waitjiai.in'],
+              subject: `💸 Withdrawal request — ₹${(available/100).toFixed(2)} from ${user.name||user.email}`,
+              html: `<p><b>New withdrawal request on WaitJI AI</b></p>
+                <table style="border-collapse:collapse;font-size:14px">
+                  <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Developer</td><td><b>${user.name||'—'}</b> (${user.email})</td></tr>
+                  <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Amount</td><td><b>₹${(available/100).toFixed(2)}</b></td></tr>
+                  <tr><td style="padding:6px 12px 6px 0;color:#6B7185">UPI ID</td><td><b>${user.upiId}</b></td></tr>
+                  <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Request ID</td><td><code>${req2.id}</code></td></tr>
+                  <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Requested at</td><td>${new Date().toLocaleString('en-IN')}</td></tr>
+                </table>
+                <p style="margin-top:16px"><a href="https://waitjiai.in/admin-login.html" style="background:#4F46E5;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600">Review in Admin Panel →</a></p>`,
+            }),
+          }).catch(() => { /* email failure never blocks the request */ });
+        }
+
+        return send(res, 201, { request: req2, message: 'Withdrawal request submitted. Admin will review within 1–2 business days.' });
+      }
+
+      // get my withdrawal requests (history)
+      if (method === 'GET' && url === '/v1/customer/withdrawals') {
+        const mine = db.withdrawalRequests
+          .filter(r => r.userId === user.id)
+          .sort((a, b) => b.requestedAt - a.requestedAt);
+        return send(res, 200, { withdrawals: mine });
+      }
+
+      // update UPI — already handled above but keeping for backward compat (legacy path)
+      if (method === 'POST' && url === '/v1/customer/payout') {
+        return send(res, 410, { error: 'This endpoint is deprecated. Use POST /v1/customer/request-withdrawal instead.' });
+      }
+
+    } // end customer block
 
     // ═══════════ ADMIN ═══════════
     if (url.startsWith('/v1/admin')) {
@@ -764,6 +852,99 @@ const server = http.createServer(async (req, res) => {
       }
 
       // all advertisers
+      // list all withdrawal requests (newest first), with optional ?status= filter
+      if (method === 'GET' && url.startsWith('/v1/admin/withdrawals')) {
+        const params = new URL('http://x'+url).searchParams;
+        const statusFilter = params.get('status');
+        let reqs = [...db.withdrawalRequests].sort((a, b) => b.requestedAt - a.requestedAt);
+        if (statusFilter) reqs = reqs.filter(r => r.status === statusFilter);
+        const enriched = reqs.map(r => ({
+          ...r,
+          userName: db.users[r.userId]?.name || '—',
+          userEmail: db.users[r.userId]?.email || r.userEmail,
+        }));
+        const summary = {
+          pending: db.withdrawalRequests.filter(r => r.status === 'pending').length,
+          approved: db.withdrawalRequests.filter(r => r.status === 'approved').length,
+          paid: db.withdrawalRequests.filter(r => r.status === 'paid').length,
+          rejected: db.withdrawalRequests.filter(r => r.status === 'rejected').length,
+          totalPendingPaise: db.withdrawalRequests.filter(r => r.status === 'pending').reduce((s, r) => s + r.amountPaise, 0),
+        };
+        return send(res, 200, { withdrawals: enriched, summary });
+      }
+
+      // approve a withdrawal request — marks it approved, optionally sends email to earner
+      if (method === 'POST' && url.match(/^\/v1\/admin\/withdrawals\/[^/]+\/approve$/)) {
+        const wid = url.split('/')[4];
+        const wr = db.withdrawalRequests.find(r => r.id === wid);
+        if (!wr) return send(res, 404, { error: 'Withdrawal request not found' });
+        if (wr.status !== 'pending') return send(res, 400, { error: `Cannot approve — status is "${wr.status}"` });
+        const b = await getBody(req);
+        wr.status = 'approved';
+        wr.reviewedAt = Date.now();
+        wr.reviewNote = b.note || null;
+        // Also push to payouts for earnings accounting
+        db.payouts.push({ id: uid('p_'), userId: wr.userId, amountPaise: wr.amountPaise, status: 'paid', ts: Date.now(), withdrawalRequestId: wr.id });
+        saveDB();
+
+        // Notify earner by email
+        if (RESEND_API_KEY && db.users[wr.userId]?.email) {
+          fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: LAUNCH_EMAIL_FROM,
+              to: [db.users[wr.userId].email],
+              subject: `✅ Your withdrawal of ₹${(wr.amountPaise/100).toFixed(2)} has been approved`,
+              html: `<p>Hi ${db.users[wr.userId].name||'there'},</p>
+                <p>Your withdrawal request has been <b>approved</b>.</p>
+                <table style="border-collapse:collapse;font-size:14px;margin:16px 0">
+                  <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Amount</td><td><b>₹${(wr.amountPaise/100).toFixed(2)}</b></td></tr>
+                  <tr><td style="padding:6px 12px 6px 0;color:#6B7185">UPI ID</td><td>${wr.upiId}</td></tr>
+                  ${wr.reviewNote?`<tr><td style="padding:6px 12px 6px 0;color:#6B7185">Note from team</td><td>${wr.reviewNote}</td></tr>`:''}
+                </table>
+                <p>The amount will arrive in your UPI account within 2–3 business days. If you don't receive it, email us at admin@waitjiai.in with request ID <code>${wr.id}</code>.</p>
+                <p>Keep coding and earning! 🚀<br>— WaitJI AI Team</p>`,
+            }),
+          }).catch(() => {});
+        }
+        return send(res, 200, { withdrawal: wr, message: 'Approved and earner notified.' });
+      }
+
+      // reject a withdrawal request — requires a reason, sends email to earner explaining why
+      if (method === 'POST' && url.match(/^\/v1\/admin\/withdrawals\/[^/]+\/reject$/)) {
+        const wid = url.split('/')[4];
+        const wr = db.withdrawalRequests.find(r => r.id === wid);
+        if (!wr) return send(res, 404, { error: 'Withdrawal request not found' });
+        if (wr.status !== 'pending') return send(res, 400, { error: `Cannot reject — status is "${wr.status}"` });
+        const b = await getBody(req);
+        if (!b.reason) return send(res, 400, { error: 'Please provide a reason for rejection.' });
+        wr.status = 'rejected';
+        wr.reviewedAt = Date.now();
+        wr.reviewNote = b.reason;
+        saveDB();
+
+        // Notify earner by email
+        if (RESEND_API_KEY && db.users[wr.userId]?.email) {
+          fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: LAUNCH_EMAIL_FROM,
+              to: [db.users[wr.userId].email],
+              subject: `❌ Withdrawal request of ₹${(wr.amountPaise/100).toFixed(2)} — action required`,
+              html: `<p>Hi ${db.users[wr.userId].name||'there'},</p>
+                <p>Your withdrawal request has been <b>rejected</b> for the following reason:</p>
+                <blockquote style="border-left:3px solid #EF4444;padding:10px 16px;margin:16px 0;background:#FEE2E2;border-radius:0 8px 8px 0">${b.reason}</blockquote>
+                <p>Your earnings balance has <b>not</b> been affected — you can resubmit once the issue is resolved.</p>
+                <p>If you have questions, reply to this email or contact admin@waitjiai.in with request ID <code>${wr.id}</code>.</p>
+                <p>— WaitJI AI Team</p>`,
+            }),
+          }).catch(() => {});
+        }
+        return send(res, 200, { withdrawal: wr, message: 'Rejected and earner notified with reason.' });
+      }
+
       if (method === 'GET' && url === '/v1/admin/advertisers') {
         const advs = Object.values(db.users).filter(u => u.role === 'advertiser').map(u => {
           const camps = Object.values(db.campaigns).filter(c => c.advertiserId === u.id);
