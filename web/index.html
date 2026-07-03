@@ -47,6 +47,17 @@ nav{position:sticky;top:0;z-index:100;background:rgba(251,251,253,.9);backdrop-f
 .nav-cta:hover{background:var(--id);}
 @media(max-width:760px){.nav-links{display:none;}}
 
+/* ── ONE-COMMAND INSTALL BOX ── */
+.install-cmd-box{position:relative;z-index:1;background:#0F1222;border:1px solid #2A3060;border-radius:14px;padding:18px 20px;max-width:760px;margin:0 auto 30px;text-align:left;}
+.install-cmd-label{font-family:var(--mono);font-size:11px;color:#6EE7B7;letter-spacing:.5px;margin-bottom:10px;}
+.install-cmd-row{display:flex;align-items:center;gap:10px;background:#1A2040;border-radius:9px;padding:12px 14px;}
+.install-cmd-row code{flex:1;font-family:var(--mono);font-size:12.5px;color:#E8EAF0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.install-copy-btn{background:var(--i);color:#fff;border:none;padding:7px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:var(--body);}
+.install-copy-btn:hover{background:var(--id);}
+.install-copy-btn.copied{background:var(--g);}
+.install-cmd-sub{font-size:12px;color:var(--m2);margin-top:10px;}
+@media(max-width:600px){.install-cmd-row code{font-size:11px;}.install-cmd-row{flex-direction:column;align-items:flex-start;}.install-copy-btn{width:100%;}}
+
 /* ── HERO ── */
 .hero{padding:70px 0 50px;text-align:center;position:relative;overflow:hidden;}
 .hero-glow{position:absolute;top:-100px;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(ellipse,rgba(79,70,229,.08),transparent 70%);z-index:0;}
@@ -199,12 +210,23 @@ footer{padding:40px 0;border-top:1px solid var(--bd);margin-top:40px;}
 <header class="hero">
   <div class="hero-glow"></div>
   <div class="wrap">
-    <div class="live-pill"><span class="live-dot"></span>LIVE NOW · PHASE 1</div>
-    <h1>Earn passive income for developers<br>while Claude Code <em>thinks.</em></h1>
-    <p>WaitJI AI is India's first AI ad marketplace built for developers. Install the free VS Code extension, code as usual, and earn real UPI income from Claude Code's AI wait-time — no extra work, no workflow change.</p>
+    <div class="live-pill"><span class="live-dot"></span>LIVE NOW · INDIA'S FIRST AI AD MARKETPLACE</div>
+    <h1>Get paid for waiting.<br><em>While Claude Code thinks.</em></h1>
+    <p>WaitJI AI shows one sponsored line in Claude Code's "Thinking…" spinner. You earn 50% of ad revenue, paid directly to your UPI. Zero workflow change — just install and code.</p>
+
+    <!-- ONE-COMMAND INSTALL — the killer feature that was missing -->
+    <div class="install-cmd-box">
+      <div class="install-cmd-label">🚀 Super easy — paste this in your terminal</div>
+      <div class="install-cmd-row">
+        <code id="installCmd">curl -L https://waitjiai.in/vsix -o waitji.vsix && code --install-extension waitji.vsix</code>
+        <button class="install-copy-btn" onclick="copyInstall()" id="copyBtn">Copy</button>
+      </div>
+      <div class="install-cmd-sub">Or <a href="https://marketplace.visualstudio.com/items?itemName=WaitJiai.waitji-ai" style="color:var(--i)">install from VS Code Marketplace</a> · Works with Claude Code in VS Code</div>
+    </div>
+
     <div class="hero-ctas">
-      <a href="https://marketplace.visualstudio.com/items?itemName=WaitJiai.waitji-ai" class="btn btn-primary">⚡ Install free extension</a>
-      <a href="advertiser.html" class="btn btn-ghost">For advertisers →</a>
+      <a href="login.html" class="btn btn-primary">View my earnings →</a>
+      <a href="advertiser.html" class="btn btn-ghost">Advertise to developers</a>
     </div>
 
     <div class="ticker-card">
@@ -364,6 +386,15 @@ setInterval(() => {
 }, 90);
 
 // earnings calculator
+function copyInstall(){
+  const cmd=document.getElementById('installCmd').textContent;
+  navigator.clipboard.writeText(cmd).then(()=>{
+    const btn=document.getElementById('copyBtn');
+    btn.textContent='Copied!'; btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='Copy'; btn.classList.remove('copied');},2000);
+  });
+}
+
 function calcEarn(){
   const cpm = parseInt(document.getElementById('r1').value, 10);
   const refs = parseInt(document.getElementById('r2').value, 10);
