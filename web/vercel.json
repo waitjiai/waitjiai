@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/vsix",
+      "destination": "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/WaitJiai/vsextensions/waitji-ai/latest/vspackage"
+    }
+  ]
+}
