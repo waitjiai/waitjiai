@@ -1204,6 +1204,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ── public stats (for website ticker) ──
+    // /vsix — redirects to the latest extension VSIX so users can do:
+    // curl -L https://waitjiai-backend.onrender.com/vsix -o waitji.vsix && code --install-extension waitji.vsix
+    // Or even better, point waitjiai.in/vsix → this via a Vercel rewrite (add to vercel.json)
+    if (method === 'GET' && url === '/vsix') {
+      res.writeHead(302, { Location: 'https://marketplace.visualstudio.com/_apis/public/gallery/publishers/WaitJiai/vsextensions/waitji-ai/latest/vspackage' });
+      res.end();
+      return;
+    }
+
     if (method === 'GET' && url === '/v1/stats') {
       const totalEarned = db.impressions.reduce((s, i) => s + i.earnedPaise, 0);
       return send(res, 200, {
