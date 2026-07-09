@@ -427,23 +427,24 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ═══════════ ADS SERVING (public, used by extension) ═══════════
-    if (method === 'GET' && url === '/v1/ads/active') {
+    if (method === 'GET' && url.startsWith('/v1/ads/active')) {
+      const params = new URL('http://x'+url).searchParams;
+      const adType = params.get('type') || 'spotlight'; // default: spotlight (VS Code spinner)
+
       const ads = Object.values(db.campaigns)
-        .filter(c => c.status === 'active' && c.spentPaise < c.budgetPaise)
+        .filter(c => c.status === 'active' && c.spentPaise < c.budgetPaise && (c.adType === adType || !c.adType))
         .sort((a, b) => b.bidPaise - a.bidPaise)
         .slice(0, 3)
-        .map(c => ({ id: c.id, text: c.adText, url: c.url, advertiser: c.advertiser, cpmPaise: c.bidPaise, isHouseAd: false }));
+        .map(c => ({ id: c.id, text: c.adText, url: c.url, advertiser: c.advertiser, cpmPaise: c.bidPaise, adType: c.adType || 'spotlight', isHouseAd: false }));
 
       if (ads.length > 0) return send(res, 200, { ads, servedAt: Date.now() });
 
-      // No real advertiser campaign is live — fall back to a rotating house ad so
-      // developers still see (and earn from) something during the thinking pause.
-      // Tagged "WaitJI AI", never "Sponsored" — there is no real sponsor here.
+      // No real advertiser campaign is live — fall back to a rotating house ad
       const liveHouseAds = (db.houseAds || []).filter(h => h.active);
       if (liveHouseAds.length === 0) return send(res, 200, { ads: [], servedAt: Date.now() });
       const pick = liveHouseAds[Math.floor(Math.random() * liveHouseAds.length)];
       return send(res, 200, {
-        ads: [{ id: pick.id, text: pick.text, url: pick.url, advertiser: 'WaitJI AI', cpmPaise: HOUSE_AD_RATE_PAISE, isHouseAd: true }],
+        ads: [{ id: pick.id, text: pick.text, url: pick.url, advertiser: 'WaitJI AI', cpmPaise: HOUSE_AD_RATE_PAISE, adType, isHouseAd: true }],
         servedAt: Date.now(),
       });
     }
@@ -527,14 +528,29 @@ const server = http.createServer(async (req, res) => {
       // create campaign — starts unpaid. Must complete Razorpay payment before it can go live.
       if (method === 'POST' && url === '/v1/advertiser/campaigns') {
         const b = await getBody(req);
-        if (!b.adText || !b.url || !b.bidPaise) return send(res, 400, { error: 'adText, url, bidPaise required' });
-        if (b.bidPaise < 20000) return send(res, 400, { error: 'minimum bid ₹200 per 1K (20000 paise)' });
+        if (!b.adText || !b.url) return send(res, 400, { error: 'adText and url are required' });
+
+        // adType: 'spotlight' (VS Code spinner, premium) or 'stream' (terminal status line, standard)
+        const adType = b.adType === 'stream' ? 'stream' : 'spotlight';
+        const minBidPaise = adType === 'spotlight' ? 80000 : 30000; // ₹800 / ₹300 per 1K
+        const bidPaise = b.bidPaise || minBidPaise;
+
+        if (bidPaise < minBidPaise) {
+          return send(res, 400, {
+            error: adType === 'spotlight'
+              ? 'Spotlight minimum bid is ₹800 per 1,000 impressions'
+              : 'Stream minimum bid is ₹300 per 1,000 impressions'
+          });
+        }
+
         const id = uid('c_');
         db.campaigns[id] = {
           id, advertiserId: user.id, advertiser: user.company || user.name || user.email,
-          adText: b.adText, url: b.url, bidPaise: b.bidPaise,
-          budgetPaise: b.budgetPaise || 100000, spentPaise: 0,
-          status: 'pending_payment', createdAt: Date.now(), targetingCategory: b.targetingCategory || 'all',
+          adText: b.adText, url: b.url, bidPaise,
+          adType,  // 'spotlight' | 'stream'
+          budgetPaise: b.budgetPaise || 500000, spentPaise: 0,
+          status: 'pending_payment', createdAt: Date.now(),
+          targetingCategory: b.targetingCategory || 'all',
           paymentId: null, orderId: null, paidAt: null, refunded: false,
         };
         saveDB();
@@ -1165,12 +1181,18 @@ const server = http.createServer(async (req, res) => {
 
     // ── public bidding stats (for homepage live bidding section) ──
     if (method === 'GET' && url === '/v1/public/bidding-stats') {
-      const activeCampaigns = Object.values(db.campaigns)
-        .filter(c => c.status === 'active')
-        .sort((a, b) => b.bidPaise - a.bidPaise)
-        .map(c => ({ advertiser: c.advertiser, adText: c.adText, bidPaise: c.bidPaise, targetingCategory: c.targetingCategory }));
+      const allActive = Object.values(db.campaigns).filter(c => c.status === 'active');
 
-      // last 14 days of real spend, grouped by calendar day (no fabricated history)
+      const spotlight = allActive
+        .filter(c => !c.adType || c.adType === 'spotlight')
+        .sort((a, b) => b.bidPaise - a.bidPaise)
+        .map(c => ({ advertiser: c.advertiser, adText: c.adText, bidPaise: c.bidPaise, targetingCategory: c.targetingCategory, adType: 'spotlight' }));
+
+      const stream = allActive
+        .filter(c => c.adType === 'stream')
+        .sort((a, b) => b.bidPaise - a.bidPaise)
+        .map(c => ({ advertiser: c.advertiser, adText: c.adText, bidPaise: c.bidPaise, targetingCategory: c.targetingCategory, adType: 'stream' }));
+
       const days = 14;
       const dayMs = 864e5;
       const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -1189,9 +1211,15 @@ const server = http.createServer(async (req, res) => {
       const dailyBidding = buckets.map(b => ({ date: b.date, spentRupees: (b.spentPaise / 100).toFixed(2), impressions: b.impressions }));
       const todayBucket = buckets[buckets.length - 1];
 
+      // top bid floor for each type
+      const spotlightTopBid = spotlight[0]?.bidPaise || 0;
+      const streamTopBid = stream[0]?.bidPaise || 0;
+
       return send(res, 200, {
-        activeCampaignsCount: activeCampaigns.length,
-        activeCampaigns,
+        activeCampaignsCount: allActive.length,
+        spotlight, stream,
+        spotlightTopBidRupees: (spotlightTopBid / 100).toFixed(0),
+        streamTopBidRupees: (streamTopBid / 100).toFixed(0),
         todaySpentRupees: (todayBucket.spentPaise / 100).toFixed(2),
         todayImpressions: todayBucket.impressions,
         dailyBidding,
