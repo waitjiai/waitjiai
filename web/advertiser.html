@@ -105,12 +105,28 @@ tr:last-child td{border-bottom:none;}
     <h2>New campaign</h2>
     <p class="modal-sub">Goes live after admin review (usually within 24h)</p>
     <div class="modal-err" id="campErr"></div>
-    <div class="price-note">💡 Minimum bid ₹200 per 1,000 impressions. Higher bids win the top slot in rotation.</div>
+    <div class="price-note">
+      Choose your placement first — each has its own independent bid queue.
+    </div>
+    <div class="field">
+      <label>Ad placement</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <label id="spotlightLabel" style="cursor:pointer;border:2px solid var(--indigo);border-radius:9px;padding:12px;transition:.15s" onclick="selectAdType('spotlight')">
+          <div style="font-weight:700;font-size:14px">★ Spotlight</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">Inside thinking spinner · ₹800/1K</div>
+        </label>
+        <label id="streamLabel" style="cursor:pointer;border:2px solid var(--border2);border-radius:9px;padding:12px;transition:.15s" onclick="selectAdType('stream')">
+          <div style="font-weight:700;font-size:14px">◎ Stream</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">Terminal status line · ₹300/1K</div>
+        </label>
+      </div>
+      <input type="hidden" id="cAdType" value="spotlight">
+    </div>
     <div class="field"><label>Ad text (max 60 chars)</label><input id="cAd" maxlength="60" placeholder="Your brand · short value prop"><div class="hint"><span id="cCount">0</span>/60</div></div>
     <div class="field"><label>Landing page URL</label><input id="cUrl" placeholder="https://yoursite.com/developers"></div>
     <div class="row2">
-      <div class="field"><label>Bid ₹ / 1K impressions</label><input id="cBid" type="number" min="200" placeholder="200"></div>
-      <div class="field"><label>Total budget ₹</label><input id="cBudget" type="number" min="1000" placeholder="10000"></div>
+      <div class="field"><label>Bid ₹ / 1K impressions</label><input id="cBid" type="number" min="300" placeholder="800 (Spotlight) / 300 (Stream)"></div>
+      <div class="field"><label>Total budget ₹</label><input id="cBudget" type="number" min="2000" placeholder="5000 (Spotlight) / 2000 (Stream)"></div>
     </div>
     <div class="field"><label>Target developers</label><select id="cTarget">
       <option value="all">All Indian developers</option><option value="web">Frontend / Web</option><option value="backend">Backend / API</option><option value="ml">ML / AI / Data</option><option value="startup">Founders / CTOs</option><option value="mobile">Mobile</option>
@@ -236,19 +252,28 @@ function openCamp(){ document.getElementById('campModal').classList.add('show');
 function closeCamp(){ document.getElementById('campModal').classList.remove('show'); document.getElementById('campErr').classList.remove('show'); }
 document.getElementById('cAd').addEventListener('input',function(){document.getElementById('cCount').textContent=this.value.length;});
 
+function selectAdType(type){
+  document.getElementById('cAdType').value=type;
+  document.getElementById('spotlightLabel').style.borderColor=type==='spotlight'?'var(--indigo)':'var(--border2)';
+  document.getElementById('streamLabel').style.borderColor=type==='stream'?'var(--indigo)':'var(--border2)';
+}
+
 async function createCamp(){
   const adText=document.getElementById('cAd').value.trim();
   const url=document.getElementById('cUrl').value.trim();
   const bid=+document.getElementById('cBid').value;
   const budget=+document.getElementById('cBudget').value;
   const target=document.getElementById('cTarget').value;
+  const adType=document.getElementById('cAdType')?.value||'spotlight';
   const err=document.getElementById('campErr');
   if(!adText||!url){ err.textContent='Ad text and URL required'; err.classList.add('show'); return; }
-  if(!bid||bid<200){ err.textContent='Minimum bid is ₹200'; err.classList.add('show'); return; }
-  if(!budget||budget<1000){ err.textContent='Minimum budget is ₹1,000'; err.classList.add('show'); return; }
+  const minBid=adType==='spotlight'?800:300;
+  const minBudget=adType==='spotlight'?5000:2000;
+  if(!bid||bid<minBid){ err.textContent=`Minimum bid for ${adType==='spotlight'?'Spotlight':'Stream'} is ₹${minBid}`; err.classList.add('show'); return; }
+  if(!budget||budget<minBudget){ err.textContent=`Minimum budget is ₹${minBudget}`; err.classList.add('show'); return; }
   const btn=document.getElementById('campSubmit'); btn.disabled=true; btn.textContent='Creating…';
   try{
-    const r=await fetch(API+'/v1/advertiser/campaigns',{method:'POST',headers:H,body:JSON.stringify({adText,url,bidPaise:bid*100,budgetPaise:budget*100,targetingCategory:target})});
+    const r=await fetch(API+'/v1/advertiser/campaigns',{method:'POST',headers:H,body:JSON.stringify({adText,url,bidPaise:bid*100,budgetPaise:budget*100,targetingCategory:target,adType})});
     const d=await r.json();
     if(r.ok){
       closeCamp(); ['cAd','cUrl','cBid','cBudget'].forEach(i=>document.getElementById(i).value=''); document.getElementById('cCount').textContent='0';
