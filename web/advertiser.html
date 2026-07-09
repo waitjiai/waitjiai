@@ -290,8 +290,10 @@ async function payForCampaign(campaignId, amountPaise){
   }catch(e){ toast('⚠️ Could not open payment window'); }
 }
 async function toggleCamp(id,status){
-  await fetch(API+'/v1/advertiser/campaigns/'+id,{method:'PATCH',headers:H,body:JSON.stringify({status})});
-  toast('✓ Campaign '+(status==='paused'?'paused':'resumed')); load();
+  const r=await fetch(API+'/v1/advertiser/campaigns/'+id,{method:'PATCH',headers:H,body:JSON.stringify({status})});
+  const d=await r.json();
+  if(r.ok){ toast('✓ Campaign '+(status==='paused'?'paused':'resumed')); load(); }
+  else toast('⚠️ '+(d.error||'Could not update campaign'));
 }
 document.getElementById('campModal').addEventListener('click',e=>{if(e.target.id==='campModal')closeCamp();});
 load();
