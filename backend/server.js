@@ -578,19 +578,6 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { campaign: c });
       }
 
-      // advertiser pauses/resumes their OWN already-live campaign (cannot touch payment/review state this way)
-      if (method === 'PATCH' && url.match(/^\/v1\/advertiser\/campaigns\/[^/]+$/)) {
-        const cid = url.split('/').pop();
-        const c = db.campaigns[cid];
-        if (!c || c.advertiserId !== user.id) return send(res, 404, { error: 'campaign not found' });
-        const b = await getBody(req);
-        if (b.status === 'paused' && c.status === 'active') c.status = 'paused';
-        else if (b.status === 'active' && c.status === 'paused') c.status = 'active';
-        else return send(res, 400, { error: 'Cannot change to that status from here' });
-        saveDB();
-        return send(res, 200, { campaign: c });
-      }
-
       // list my campaigns (includes live rank among all active campaigns, by bid)
       if (method === 'GET' && url === '/v1/advertiser/campaigns') {
         const mine = Object.values(db.campaigns).filter(c => c.advertiserId === user.id);
@@ -657,15 +644,24 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      // pause/activate campaign
+      // pause / resume own campaign — only active→paused or paused→active allowed
       if (method === 'PATCH' && url.match(/^\/v1\/advertiser\/campaigns\/[^/]+$/)) {
         const cid = url.split('/').pop();
         const c = db.campaigns[cid];
-        if (!c || c.advertiserId !== user.id) return send(res, 404, { error: 'not found' });
+        if (!c || c.advertiserId !== user.id) return send(res, 404, { error: 'Campaign not found' });
         const b = await getBody(req);
-        if (b.status && ['active', 'paused'].includes(b.status)) c.status = b.status;
-        saveDB();
-        return send(res, 200, { campaign: c });
+        const newStatus = b.status;
+        if (newStatus === 'paused' && c.status === 'active') {
+          c.status = 'paused'; saveDB();
+          return send(res, 200, { campaign: c });
+        }
+        if (newStatus === 'active' && c.status === 'paused') {
+          c.status = 'active'; saveDB();
+          return send(res, 200, { campaign: c });
+        }
+        return send(res, 400, {
+          error: `Cannot set status to "${newStatus}" from "${c.status}". Only active↔paused toggle is allowed here.`
+        });
       }
     }
 
