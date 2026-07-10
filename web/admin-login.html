@@ -10,9 +10,9 @@
 <style>
 :root{
   --ink:#0B0F0A;--sage:#2A7A4F;--sage-d:#1E5A3A;--sage-l:#3D9E68;
-  --gold:#F0B429;--muted:rgba(255,255,255,.45);--border:rgba(255,255,255,.1);
-  --surface:#131917;--bg:#0B0F0A;
-  --red:#DC2626;--display:'Sora',sans-serif;--mono:'IBM Plex Mono',monospace;--body:'Inter',sans-serif;
+  --gold:#F0B429;--muted:rgba(255,255,255,.45);
+  --surface:#131917;--bg:#0B0F0A;--red:#DC2626;
+  --display:'Sora',sans-serif;--mono:'IBM Plex Mono',monospace;--body:'Inter',sans-serif;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:#fff;font-family:var(--body);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background-image:radial-gradient(ellipse 60% 50% at 50% 0%,rgba(42,122,79,.18),transparent);}
@@ -20,6 +20,7 @@ body{background:var(--bg);color:#fff;font-family:var(--body);min-height:100vh;di
 .logo{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:15px;font-weight:600;margin-bottom:32px;}
 .logo-mark{width:30px;height:30px;border-radius:7px;background:var(--sage);display:flex;align-items:center;justify-content:center;}
 .logo-mark svg{width:17px;height:17px;}
+.badge{display:inline-flex;align-items:center;gap:5px;background:rgba(240,180,41,.1);border:1px solid rgba(240,180,41,.2);color:var(--gold);font-family:var(--mono);font-size:10px;letter-spacing:1px;padding:4px 10px;border-radius:100px;margin-bottom:18px;}
 h1{font-family:var(--display);font-size:20px;font-weight:700;margin-bottom:6px;}
 .sub{font-size:13px;color:var(--muted);margin-bottom:28px;}
 .field{margin-bottom:16px;}
@@ -29,10 +30,9 @@ h1{font-family:var(--display);font-size:20px;font-weight:700;margin-bottom:6px;}
 .field input::placeholder{color:rgba(255,255,255,.25);}
 .btn{width:100%;background:var(--sage);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;font-family:var(--display);cursor:pointer;margin-top:8px;transition:.15s;}
 .btn:hover{background:var(--sage-l);}
-.btn:disabled{opacity:.5;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
 .err{background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);border-radius:8px;padding:10px 14px;font-size:13px;color:#FCA5A5;margin-bottom:16px;display:none;}
 .err.show{display:block;}
-.badge{display:inline-flex;align-items:center;gap:5px;background:rgba(240,180,41,.1);border:1px solid rgba(240,180,41,.2);color:var(--gold);font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:100px;margin-bottom:20px;}
 </style>
 </head>
 <body>
@@ -43,35 +43,50 @@ h1{font-family:var(--display);font-size:20px;font-weight:700;margin-bottom:6px;}
   </div>
   <div class="badge">🔐 ADMIN ACCESS</div>
   <h1>Admin Panel</h1>
-  <p class="sub">Restricted access. Do not share this URL.</p>
+  <p class="sub">Restricted access — direct backend login, no Supabase.</p>
   <div class="err" id="err"></div>
   <div class="field"><label>Email</label><input type="email" id="email" placeholder="admin@waitjiai.in" autocomplete="email"></div>
-  <div class="field"><label>Password</label><input type="password" id="password" placeholder="••••••••"></div>
+  <div class="field"><label>Password</label><input type="password" id="password" placeholder="••••••••" autocomplete="current-password"></div>
   <button class="btn" id="btn" onclick="login()">Sign in as Admin</button>
 </div>
+
 <script>
 const API='https://waitjiai-backend.onrender.com';
+
 async function login(){
   const email=document.getElementById('email').value.trim();
   const password=document.getElementById('password').value;
   const err=document.getElementById('err');
   const btn=document.getElementById('btn');
-  if(!email||!password){err.textContent='Both fields required';err.classList.add('show');return;}
+  if(!email||!password){err.textContent='Both fields are required';err.classList.add('show');return;}
   btn.disabled=true;btn.textContent='Signing in…';err.classList.remove('show');
   try{
-    const r=await fetch(API+'/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+    // Admin uses direct backend login — returns JWT directly (not Supabase token)
+    const r=await fetch(API+'/v1/auth/login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email,password})
+    });
     const d=await r.json();
     if(!r.ok){err.textContent=d.error||'Invalid credentials';err.classList.add('show');return;}
-    const ex=await fetch(API+'/v1/auth/exchange',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:d.access_token})});
-    const exd=await ex.json();
-    if(exd.role!=='admin'){err.textContent='Not an admin account';err.classList.add('show');return;}
-    localStorage.setItem('waitji_token',exd.token);
+    if(d.user?.role!=='admin'){err.textContent='This account does not have admin access';err.classList.add('show');return;}
+    // Admin login returns token directly — no exchange step needed
+    localStorage.setItem('waitji_token',d.token);
     localStorage.setItem('waitji_role','admin');
     window.location.href='admin.html';
-  }catch(e){err.textContent='Network error — try again';err.classList.add('show');}
-  finally{btn.disabled=false;btn.textContent='Sign in as Admin';}
+  }catch(e){
+    err.textContent='Network error — backend may be starting up, try again';err.classList.add('show');
+  }finally{
+    btn.disabled=false;btn.textContent='Sign in as Admin';
+  }
 }
+
 document.addEventListener('keydown',e=>{if(e.key==='Enter')login();});
+
+// Redirect if already logged in as admin
+if(localStorage.getItem('waitji_role')==='admin'&&localStorage.getItem('waitji_token')){
+  window.location.href='admin.html';
+}
 </script>
 </body>
 </html>
