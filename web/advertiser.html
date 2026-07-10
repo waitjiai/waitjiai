@@ -4,17 +4,37 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WaitJI AI — Advertiser Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
-:root{--indigo:#4F46E5;--indigo-dark:#4338CA;--indigo-soft:#EEF2FF;--sky:#0EA5E9;--green:#10B981;--green-soft:#D1FAE5;--amber:#F59E0B;--amber-soft:#FEF3C7;--red:#EF4444;--red-soft:#FEE2E2;--bg:#FBFBFD;--surface:#FFFFFF;--surface2:#F6F7FB;--border:#E8EAF0;--border2:#DDE0EA;--ink:#0F1222;--ink2:#3A3F55;--muted:#6B7185;--muted2:#9AA0B4;--sans:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;--shadow-sm:0 1px 3px rgba(15,18,34,.06);--shadow:0 4px 24px rgba(15,18,34,.08);}
+:root{
+  --ink:#0B0F0A;--ink2:#1C2119;
+  --sage:#2A7A4F;--sage-d:#1E5A3A;--sage-l:#3D9E68;--sage-soft:#EBF5EE;
+  --gold:#F0B429;--gold-d:#C9901A;--gold-l:#F7D070;--gold-soft:#FEF9EC;
+  --cream:#F8F5EE;--cream2:#EEE9DD;
+  --muted:#6B7568;--muted2:#9AA896;
+  --border:#D4D9CF;--border2:#BFC5B9;
+  --surface:#FFFFFF;--surface2:#F8F5EE;--bg:#F3F0E8;
+  --red:#DC2626;--red-soft:#FEE2E2;
+  --green:#15803D;--green-soft:#DCFCE7;
+  --amber:#D97706;--amber-soft:#FEF3C7;
+  /* backward compat aliases */
+  --indigo:var(--sage);--indigo-dark:var(--sage-d);--indigo-soft:var(--sage-soft);
+  --sky:var(--sage-l);
+  --display:'Sora',sans-serif;
+  --body:'Inter',sans-serif;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'Sora',sans-serif;
+  --shadow-sm:0 1px 3px rgba(11,15,10,.06);
+  --shadow:0 4px 24px rgba(11,15,10,.10);
+}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.6;}
 .topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:var(--surface);border-bottom:1px solid var(--border);}
 .logo{font-family:var(--mono);font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);}
-.logo-mark{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,var(--indigo),var(--sky));display:flex;align-items:center;justify-content:center;}
+.logo-mark{width:28px;height:28px;border-radius:7px;background:var(--sage),var(--sage-l));display:flex;align-items:center;justify-content:center;}
 .logo-mark svg{width:17px;height:17px;}.logo em{color:var(--indigo);font-style:normal;}
 .topbar-r{display:flex;align-items:center;gap:14px;}
-.role-pill{font-size:11px;font-weight:600;padding:5px 12px;border-radius:100px;background:var(--indigo-soft);color:var(--indigo);font-family:var(--mono);}
+
 .user-email{font-size:13px;color:var(--muted);}
 .btn-out{background:transparent;border:1px solid var(--border2);color:var(--ink);padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);}
 .btn-out:hover{border-color:var(--indigo);color:var(--indigo);}
@@ -22,8 +42,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1
 .page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;}
 .page-h{font-family:var(--sans);font-size:26px;font-weight:700;letter-spacing:-.5px;}
 .page-sub{color:var(--muted);font-size:14px;}
-.btn-solid{background:var(--indigo);color:#fff;border:none;padding:11px 20px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--body);display:inline-flex;align-items:center;gap:7px;}
-.btn-solid:hover{background:var(--indigo-dark);}
+.btn-solid{background:var(--sage);color:#fff;border:none;padding:11px 20px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--body);display:inline-flex;align-items:center;gap:7px;}
+.btn-solid:hover{background:var(--sage-d);}
 .btn-solid:disabled{opacity:.5;cursor:not-allowed;}
 .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px;box-shadow:var(--shadow-sm);}
@@ -78,6 +98,22 @@ tr:last-child td{border-bottom:none;}
 .toast.show{transform:translateY(0);opacity:1;}
 .toast-t{font-weight:600;font-size:14px;}.toast-s{font-size:12px;color:var(--muted);}
 @media(max-width:860px){.wrap{padding:20px;}.cards{grid-template-columns:repeat(2,1fr);}.topbar{padding:12px 18px;}.user-email{display:none;}.page-head{flex-direction:column;gap:14px;align-items:flex-start;}table{font-size:12px;}th,td{padding:9px 8px;}}
+
+/* ── MATCHING TOPBAR ── */
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:60px;background:rgba(243,240,232,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);}
+.logo{font-family:var(--mono);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);}
+.logo-mark{width:26px;height:26px;border-radius:6px;background:var(--sage);display:flex;align-items:center;justify-content:center;}
+.logo-mark svg{width:15px;height:15px;}
+.logo em{color:var(--sage);font-style:normal;}
+.topbar-r{display:flex;align-items:center;gap:14px;}
+.role-pill{font-size:11px;font-weight:600;padding:4px 12px;border-radius:100px;font-family:var(--mono);}
+.role-pill.earner{background:var(--green-soft);color:var(--green);}
+.role-pill.advertiser{background:var(--sage-soft);color:var(--sage-d);}
+.role-pill.admin{background:var(--gold-soft);color:var(--gold-d);}
+.user-email{font-size:13px;color:var(--muted);}
+.btn-out{background:transparent;border:1.5px solid var(--border2);color:var(--ink);padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);transition:.15s;}
+.btn-out:hover{border-color:var(--sage);color:var(--sage);}
+
 </style>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <link rel="icon" type="image/png" sizes="192x192" href="logo-192.png">
@@ -92,6 +128,9 @@ tr:last-child td{border-bottom:none;}
     gtag('js', new Date());
     gtag('config', 'G-LGNX0BPWPJ');
   </script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-LGNX0BPWPJ"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-LGNX0BPWPJ');</script>
 </head>
 <body>
 <div class="topbar">
