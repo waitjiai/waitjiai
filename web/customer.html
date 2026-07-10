@@ -4,14 +4,35 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WaitJI AI — Earnings Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--indigo:#4F46E5;--indigo-dark:#4338CA;--indigo-soft:#EEF2FF;--sky:#0EA5E9;--green:#10B981;--green-soft:#D1FAE5;--amber:#F59E0B;--red:#EF4444;--bg:#FBFBFD;--surface:#FFFFFF;--surface2:#F6F7FB;--border:#E8EAF0;--border2:#DDE0EA;--ink:#0F1222;--ink2:#3A3F55;--muted:#6B7185;--muted2:#9AA0B4;--sans:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;--shadow-sm:0 1px 3px rgba(15,18,34,.06);--shadow:0 4px 24px rgba(15,18,34,.08);}
+:root{
+:root{
+  --sage:#2A7A4F; --sage-d:#1E5A3A; --sage-l:#3D9E68; --sage-soft:#EBF5EE;
+  --gold:#F0B429; --gold-d:#C9901A; --gold-l:#F7D070; --gold-soft:#FEF9EC;
+  --ink:#0B0F0A; --ink2:#1C2119;
+  --muted:#6B7568; --muted2:#9AA896;
+  --bg:#F3F0E8; --bg2:#EEE9DD;
+  --surface:#FFFFFF; --surface2:#F8F5EE;
+  --border:#D4D9CF; --border2:#BFC5B9;
+  --red:#DC2626; --red-soft:#FEE2E2;
+  --green:#15803D; --green-soft:#DCFCE7;
+  --amber:#D97706; --amber-soft:#FEF3C7;
+  --sans:'Sora',sans-serif;
+  --body:'Inter',sans-serif;
+  --mono:'IBM Plex Mono',monospace;
+  --shadow-sm:0 1px 3px rgba(11,15,10,.06);
+  --shadow:0 4px 24px rgba(11,15,10,.10);
+  /* Backward-compat aliases so old CSS using --indigo still works */
+  --indigo:var(--sage); --indigo-dark:var(--sage-d); --indigo-soft:var(--sage-soft);
+  --indigo-link:var(--sage);
+}
+}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.6;}
 .topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:var(--surface);border-bottom:1px solid var(--border);}
 .logo{font-family:var(--mono);font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);}
-.logo-mark{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,var(--indigo),var(--sky));display:flex;align-items:center;justify-content:center;}
+.logo-mark{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,var(--sage),var(--sage-l));display:flex;align-items:center;justify-content:center;}
 .logo-mark svg{width:17px;height:17px;}
 .logo em{color:var(--indigo);font-style:normal;}
 .topbar-r{display:flex;align-items:center;gap:14px;}
