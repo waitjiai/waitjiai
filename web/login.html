@@ -8,46 +8,43 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-LGNX0BPWPJ"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-LGNX0BPWPJ');</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --ink:#0B0F0A;--ink2:#1C2119;
   --sage:#2A7A4F;--sage-d:#1E5A3A;--sage-l:#3D9E68;--sage-soft:#EBF5EE;
-  --gold:#F0B429;--gold-d:#C9901A;
-  --cream:#F8F5EE;--cream2:#EEE9DD;
+  --gold:#F0B429;--cream:#F8F5EE;--cream2:#EEE9DD;
   --muted:#6B7568;--muted2:#9AA896;
   --border:#D4D9CF;--border2:#BFC5B9;
   --surface:#FFFFFF;--bg:#F3F0E8;
   --red:#DC2626;--red-soft:#FEE2E2;
+  --green:#15803D;--green-soft:#DCFCE7;
   --display:'Sora',sans-serif;--mono:'IBM Plex Mono',monospace;--body:'Inter',sans-serif;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);min-height:100vh;display:flex;flex-direction:column;}
 a{color:inherit;text-decoration:none;}
-
-.nav{position:sticky;top:0;z-index:100;background:rgba(243,240,232,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 40px;display:flex;align-items:center;justify-content:space-between;height:60px;}
-.nav-logo{font-family:var(--mono);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;}
+.nav{background:rgba(243,240,232,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 40px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:var(--mono);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;color:var(--ink);}
 .nav-logo-mark{width:26px;height:26px;border-radius:6px;background:var(--sage);display:flex;align-items:center;justify-content:center;}
 .nav-logo-mark svg{width:15px;height:15px;}
 .nav-back{font-size:13px;color:var(--muted);}
 .nav-back:hover{color:var(--ink);}
-
 .login-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:48px 24px;}
 .login-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:40px;width:100%;max-width:420px;box-shadow:0 4px 32px rgba(11,15,10,.08);}
 .login-logo{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:16px;font-weight:600;margin-bottom:28px;}
 .login-logo-mark{width:32px;height:32px;border-radius:8px;background:var(--sage);display:flex;align-items:center;justify-content:center;}
 .login-logo-mark svg{width:18px;height:18px;}
 .login-h{font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:6px;}
-.login-sub{font-size:13.5px;color:var(--muted);margin-bottom:28px;}
-
-.role-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:24px;}
+.login-sub{font-size:13.5px;color:var(--muted);margin-bottom:24px;}
+.role-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:22px;}
 .role-tab{border:2px solid var(--border);background:transparent;border-radius:10px;padding:12px 10px;cursor:pointer;text-align:center;transition:.15s;font-family:var(--body);}
 .role-tab.active{border-color:var(--sage);background:var(--sage-soft);}
 .role-tab-icon{font-size:18px;margin-bottom:4px;}
 .role-tab-label{font-size:13px;font-weight:600;color:var(--ink);}
 .role-tab-sub{font-size:11px;color:var(--muted);margin-top:2px;}
-
 .field{margin-bottom:16px;}
-.field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;}
 .field input{width:100%;background:var(--cream);border:1.5px solid var(--border);border-radius:9px;padding:11px 13px;font-family:var(--body);font-size:14px;color:var(--ink);outline:none;transition:.15s;}
 .field input:focus{border-color:var(--sage);background:var(--surface);}
 .btn-primary{width:100%;background:var(--sage);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;font-family:var(--display);cursor:pointer;margin-top:8px;transition:.15s;}
@@ -55,17 +52,18 @@ a{color:inherit;text-decoration:none;}
 .btn-primary:disabled{opacity:.5;cursor:not-allowed;}
 .divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--muted2);font-size:12px;}
 .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border);}
-.toggle-link{text-align:center;font-size:13px;color:var(--muted);margin-top:20px;}
+.toggle-link{text-align:center;font-size:13px;color:var(--muted);margin-top:18px;}
 .toggle-link a{color:var(--sage);font-weight:600;cursor:pointer;}
 .err-box{background:var(--red-soft);border:1px solid #FECACA;border-radius:8px;padding:10px 14px;font-size:13px;color:var(--red);margin-bottom:16px;display:none;}
 .err-box.show{display:block;}
-.success-box{background:var(--sage-soft);border:1px solid #86EFAC;border-radius:8px;padding:10px 14px;font-size:13px;color:var(--sage-d);margin-bottom:16px;display:none;}
-.success-box.show{display:block;}
-
+.ok-box{background:var(--green-soft);border:1px solid #86EFAC;border-radius:8px;padding:10px 14px;font-size:13px;color:var(--green);margin-bottom:16px;display:none;}
+.ok-box.show{display:block;}
 footer{background:var(--ink);color:rgba(255,255,255,.4);padding:24px 40px;display:flex;align-items:center;justify-content:space-between;font-size:12px;flex-wrap:wrap;gap:12px;}
 .footer-logo{font-family:var(--mono);color:rgba(255,255,255,.7);}
 .footer-links{display:flex;gap:20px;}
+.footer-links a{color:rgba(255,255,255,.4);}
 .footer-links a:hover{color:#fff;}
+@media(max-width:480px){.nav{padding:0 20px;}.login-card{padding:28px 20px;}}
 </style>
 </head>
 <body>
@@ -83,6 +81,7 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:24px 40px;displa
       <div class="login-logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.4)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></div>
       WaitJI AI
     </div>
+
     <h1 class="login-h" id="formTitle">Create account</h1>
     <p class="login-sub" id="formSub">Choose your role to get started</p>
 
@@ -100,15 +99,18 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:24px 40px;displa
     </div>
 
     <div class="err-box" id="errBox"></div>
-    <div class="success-box" id="successBox"></div>
+    <div class="ok-box" id="okBox"></div>
 
     <div class="field"><label>Email</label><input type="email" id="email" placeholder="you@example.com" autocomplete="email"></div>
-    <div class="field" id="pwField"><label>Password</label><input type="password" id="password" placeholder="••••••••" autocomplete="new-password"></div>
+    <div class="field"><label>Password</label><input type="password" id="password" placeholder="Min 6 characters" autocomplete="current-password"></div>
 
     <button class="btn-primary" id="submitBtn" onclick="handleSubmit()">Create account</button>
 
-    <div class="divider" id="divider">OR</div>
-    <div class="toggle-link"><span id="toggleText">Already have an account?</span> <a onclick="toggleMode()"><span id="toggleLink">Sign in</span></a></div>
+    <div class="divider">or</div>
+    <div class="toggle-link">
+      <span id="toggleText">Already have an account?</span>
+      <a onclick="toggleMode()" id="toggleLink"> Sign in</a>
+    </div>
   </div>
 </div>
 
@@ -118,7 +120,11 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:24px 40px;displa
 </footer>
 
 <script>
+const SUPABASE_URL='https://tqfjdhneycntoasahstt.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZmpkaG5leWNudG9hc2Foc3R0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mjg1ODcsImV4cCI6MjA5NzIwNDU4N30.u5oqo0c9tmZ7OxZW6R2hbMxUyVrM4nedYsGKC8PR4TA';
 const API='https://waitjiai-backend.onrender.com';
+
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 let isSignIn=false, role='customer';
 
 function setRole(r){
@@ -133,37 +139,85 @@ function toggleMode(){
   document.getElementById('roleTabs').style.display=isSignIn?'none':'grid';
   document.getElementById('submitBtn').textContent=isSignIn?'Sign in':'Create account';
   document.getElementById('toggleText').textContent=isSignIn?'New here?':'Already have an account?';
-  document.getElementById('toggleLink').textContent=isSignIn?'Create account':'Sign in';
+  document.getElementById('toggleLink').textContent=isSignIn?' Create account':' Sign in';
   clearMsg();
 }
-function showErr(m){const e=document.getElementById('errBox');e.textContent=m;e.classList.add('show');document.getElementById('successBox').classList.remove('show');}
-function showOk(m){const e=document.getElementById('successBox');e.textContent=m;e.classList.add('show');document.getElementById('errBox').classList.remove('show');}
-function clearMsg(){document.getElementById('errBox').classList.remove('show');document.getElementById('successBox').classList.remove('show');}
+function showErr(m){const e=document.getElementById('errBox');e.textContent=m;e.classList.add('show');document.getElementById('okBox').classList.remove('show');}
+function showOk(m){const e=document.getElementById('okBox');e.textContent=m;e.classList.add('show');document.getElementById('errBox').classList.remove('show');}
+function clearMsg(){document.getElementById('errBox').classList.remove('show');document.getElementById('okBox').classList.remove('show');}
+
+async function exchangeAndRedirect(access_token, userRole){
+  // Exchange Supabase token for backend JWT
+  const r=await fetch(API+'/v1/auth/exchange',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({access_token, role: userRole})
+  });
+  const d=await r.json();
+  if(!r.ok){showErr(d.error||'Auth exchange failed. Please try signing in again.');return;}
+  localStorage.setItem('waitji_token',d.token);
+  localStorage.setItem('waitji_role',d.role||d.user?.role);
+  const finalRole=d.role||d.user?.role;
+  if(finalRole==='admin') window.location.href='admin.html';
+  else if(finalRole==='advertiser') window.location.href='advertiser.html';
+  else window.location.href='customer.html';
+}
 
 async function handleSubmit(){
   const email=document.getElementById('email').value.trim();
   const password=document.getElementById('password').value;
-  if(!email||!password){showErr('Email and password are required');return;}
-  const btn=document.getElementById('submitBtn');btn.disabled=true;btn.textContent='Please wait…';
+  if(!email){showErr('Please enter your email');return;}
+  if(!password||password.length<6){showErr('Password must be at least 6 characters');return;}
+
+  const btn=document.getElementById('submitBtn');
+  btn.disabled=true;btn.textContent='Please wait…';clearMsg();
+
   try{
-    const endpoint=isSignIn?'/v1/auth/login':'/v1/auth/signup';
-    const body=isSignIn?{email,password}:{email,password,role};
-    const r=await fetch(API+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const d=await r.json();
-    if(!r.ok){showErr(d.error||'Something went wrong. Please try again.');return;}
-    if(!isSignIn&&d.message&&d.message.includes('confirm')){showOk('Check your email to confirm your account, then sign in.');return;}
-    // Exchange Supabase token for backend JWT
-    const ex=await fetch(API+'/v1/auth/exchange',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:d.access_token})});
-    const exd=await ex.json();
-    if(!ex.ok){showErr('Auth error — please try again.');return;}
-    localStorage.setItem('waitji_token',exd.token);
-    localStorage.setItem('waitji_role',exd.role);
-    if(exd.role==='admin')window.location.href='admin.html';
-    else if(exd.role==='advertiser')window.location.href='advertiser.html';
-    else window.location.href='customer.html';
-  }catch(e){showErr('Network error — backend may be starting up. Try again in a few seconds.');}
-  finally{btn.disabled=false;btn.textContent=isSignIn?'Sign in':'Create account';}
+    if(isSignIn){
+      // SIGN IN via Supabase
+      const {data,error}=await sb.auth.signInWithPassword({email,password});
+      if(error){showErr(error.message||'Invalid email or password');return;}
+      await exchangeAndRedirect(data.session.access_token, null);
+    } else {
+      // SIGN UP via Supabase — store role in user_metadata
+      const {data,error}=await sb.auth.signUp({
+        email,password,
+        options:{data:{role}}
+      });
+      if(error){showErr(error.message||'Could not create account');return;}
+      if(data.user&&!data.session){
+        // Email confirmation required
+        showOk('Check your email to verify your account, then come back and sign in.');
+        return;
+      }
+      if(data.session){
+        await exchangeAndRedirect(data.session.access_token, role);
+      }
+    }
+  }catch(e){
+    showErr('Network error — backend may be starting up. Try again in a few seconds.');
+  }finally{
+    btn.disabled=false;btn.textContent=isSignIn?'Sign in':'Create account';
+  }
 }
+
+// Check if already logged in
+const existingToken=localStorage.getItem('waitji_token');
+const existingRole=localStorage.getItem('waitji_role');
+if(existingToken&&existingRole){
+  if(existingRole==='admin') window.location.href='admin.html';
+  else if(existingRole==='advertiser') window.location.href='advertiser.html';
+  else window.location.href='customer.html';
+}
+
+// Also handle Supabase email confirmation redirect (hash contains access_token)
+(async()=>{
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){
+    await exchangeAndRedirect(session.access_token, null);
+  }
+})();
+
 document.getElementById('email').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('password').focus();});
 document.getElementById('password').addEventListener('keydown',e=>{if(e.key==='Enter')handleSubmit();});
 </script>
