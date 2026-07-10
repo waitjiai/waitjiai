@@ -3,118 +3,75 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>WaitJI AI</title>
-<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Admin Login — WaitJI AI</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" type="image/png" href="logo-192.png">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-:root{
-  --sage:#2A7A4F; --sage-d:#1E5A3A; --sage-l:#3D9E68; --sage-soft:#EBF5EE;
-  --gold:#F0B429; --gold-d:#C9901A; --gold-l:#F7D070; --gold-soft:#FEF9EC;
-  --ink:#0B0F0A; --ink2:#1C2119;
-  --muted:#6B7568; --muted2:#9AA896;
-  --bg:#F3F0E8; --bg2:#EEE9DD;
-  --surface:#FFFFFF; --surface2:#F8F5EE;
-  --border:#D4D9CF; --border2:#BFC5B9;
-  --red:#DC2626; --red-soft:#FEE2E2;
-  --green:#15803D; --green-soft:#DCFCE7;
-  --amber:#D97706; --amber-soft:#FEF3C7;
-  --sans:'Sora',sans-serif;
-  --body:'Inter',sans-serif;
-  --mono:'IBM Plex Mono',monospace;
-  --shadow-sm:0 1px 3px rgba(11,15,10,.06);
-  --shadow:0 4px 24px rgba(11,15,10,.10);
-  /* Backward-compat aliases so old CSS using --indigo still works */
-  --indigo:var(--sage); --indigo-dark:var(--sage-d); --indigo-soft:var(--sage-soft);
-  --indigo-link:var(--sage);
-}
+  --ink:#0B0F0A;--sage:#2A7A4F;--sage-d:#1E5A3A;--sage-l:#3D9E68;
+  --gold:#F0B429;--muted:rgba(255,255,255,.45);--border:rgba(255,255,255,.1);
+  --surface:#131917;--bg:#0B0F0A;
+  --red:#DC2626;--display:'Sora',sans-serif;--mono:'IBM Plex Mono',monospace;--body:'Inter',sans-serif;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:var(--bg);color:#fff;font-family:var(--body);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
-.card{background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:36px;max-width:360px;width:100%;}
-.mark{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,var(--i),#0EA5E9);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;}
-h1{font-family:var(--mono);font-size:13px;font-weight:600;text-align:center;color:var(--m);letter-spacing:1px;margin-bottom:24px;text-transform:uppercase;}
-.field{width:100%;padding:12px 14px;border:1px solid var(--bd);border-radius:9px;font-size:14px;background:#0F1222;color:#fff;margin-bottom:12px;font-family:var(--body);}
-.field:focus{outline:none;border-color:var(--i);}
-.submit{width:100%;padding:13px;border-radius:10px;border:none;font-weight:700;font-size:14px;cursor:pointer;background:var(--i);color:#fff;margin-top:4px;}
-.submit:hover{background:var(--id);}
-.submit:disabled{opacity:.6;cursor:wait;}
-.msg{font-size:12.5px;border-radius:9px;padding:11px 13px;margin-top:14px;display:none;line-height:1.6;}
-.msg.show{display:block;}
-.msg.err{background:#3a1414;color:#fca5a5;border:1px solid #5c1f1f;}
-.msg.warn{background:#3a2e14;color:#fde68a;border:1px solid #5c4a1f;}
+body{background:var(--bg);color:#fff;font-family:var(--body);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background-image:radial-gradient(ellipse 60% 50% at 50% 0%,rgba(42,122,79,.18),transparent);}
+.card{background:var(--surface);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:40px;width:100%;max-width:380px;}
+.logo{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:15px;font-weight:600;margin-bottom:32px;}
+.logo-mark{width:30px;height:30px;border-radius:7px;background:var(--sage);display:flex;align-items:center;justify-content:center;}
+.logo-mark svg{width:17px;height:17px;}
+h1{font-family:var(--display);font-size:20px;font-weight:700;margin-bottom:6px;}
+.sub{font-size:13px;color:var(--muted);margin-bottom:28px;}
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,.4);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;}
+.field input{width:100%;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);border-radius:9px;padding:11px 13px;font-family:var(--body);font-size:14px;color:#fff;outline:none;transition:.15s;}
+.field input:focus{border-color:var(--sage-l);}
+.field input::placeholder{color:rgba(255,255,255,.25);}
+.btn{width:100%;background:var(--sage);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;font-family:var(--display);cursor:pointer;margin-top:8px;transition:.15s;}
+.btn:hover{background:var(--sage-l);}
+.btn:disabled{opacity:.5;}
+.err{background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);border-radius:8px;padding:10px 14px;font-size:13px;color:#FCA5A5;margin-bottom:16px;display:none;}
+.err.show{display:block;}
+.badge{display:inline-flex;align-items:center;gap:5px;background:rgba(240,180,41,.1);border:1px solid rgba(240,180,41,.2);color:var(--gold);font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:100px;margin-bottom:20px;}
 </style>
-  <link rel="icon" type="image/png" sizes="192x192" href="logo-192.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="logo-512.png">
-  <link rel="shortcut icon" href="logo-192.png">
-  <link rel="apple-touch-icon" href="logo-192.png">
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-LGNX0BPWPJ"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-LGNX0BPWPJ');
-  </script>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-
 <div class="card">
-  <div class="mark"><svg viewBox="0 0 24 24" width="18" height="18" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.4)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></div>
-  <h1>Internal Access</h1>
-  <input type="email" id="email" class="field" placeholder="Email" autocomplete="username">
-  <input type="password" id="password" class="field" placeholder="Password" autocomplete="current-password">
-  <button class="submit" id="btn" onclick="submitLogin()">Sign in</button>
-  <div class="msg" id="msg"></div>
+  <div class="logo">
+    <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.4)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></div>
+    WaitJI AI
+  </div>
+  <div class="badge">🔐 ADMIN ACCESS</div>
+  <h1>Admin Panel</h1>
+  <p class="sub">Restricted access. Do not share this URL.</p>
+  <div class="err" id="err"></div>
+  <div class="field"><label>Email</label><input type="email" id="email" placeholder="admin@waitjiai.in" autocomplete="email"></div>
+  <div class="field"><label>Password</label><input type="password" id="password" placeholder="••••••••"></div>
+  <button class="btn" id="btn" onclick="login()">Sign in as Admin</button>
 </div>
-
 <script>
-const API = 'https://waitjiai-backend.onrender.com';
-
-function showMsg(text, type){
-  const el = document.getElementById('msg');
-  el.textContent = text;
-  el.className = 'msg show ' + (type || 'err');
-}
-
-async function submitLogin(){
-  const email = document.getElementById('email').value.trim().toLowerCase();
-  const password = document.getElementById('password').value;
-  if(!email || !password){ showMsg('Enter email and password.'); return; }
-
-  const btn = document.getElementById('btn');
-  btn.disabled = true; btn.textContent = 'Please wait…';
-
+const API='https://waitjiai-backend.onrender.com';
+async function login(){
+  const email=document.getElementById('email').value.trim();
+  const password=document.getElementById('password').value;
+  const err=document.getElementById('err');
+  const btn=document.getElementById('btn');
+  if(!email||!password){err.textContent='Both fields required';err.classList.add('show');return;}
+  btn.disabled=true;btn.textContent='Signing in…';err.classList.remove('show');
   try{
-    const res = await fetch(API + '/v1/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    let body = null;
-    const raw = await res.text();
-    if(raw){ try{ body = JSON.parse(raw); } catch{ body = null; } }
-
-    if(!res.ok){
-      const errText = body && typeof body.error === 'string' && body.error ? body.error : 'Login failed. Please try again.';
-      showMsg(errText);
-    } else if(!body || !body.token || !body.user || body.user.role !== 'admin'){
-      showMsg('This page is for admin accounts only.');
-    } else {
-      localStorage.setItem('waitji_token', body.token);
-      localStorage.setItem('waitji_role', body.user.role);
-      window.location.href = 'admin.html';
-    }
-  } catch(e){
-    showMsg('Server is waking up (Render free tier). Please wait 20 seconds and try again.', 'warn');
-  }
-  btn.disabled = false; btn.textContent = 'Sign in';
+    const r=await fetch(API+'/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+    const d=await r.json();
+    if(!r.ok){err.textContent=d.error||'Invalid credentials';err.classList.add('show');return;}
+    const ex=await fetch(API+'/v1/auth/exchange',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:d.access_token})});
+    const exd=await ex.json();
+    if(exd.role!=='admin'){err.textContent='Not an admin account';err.classList.add('show');return;}
+    localStorage.setItem('waitji_token',exd.token);
+    localStorage.setItem('waitji_role','admin');
+    window.location.href='admin.html';
+  }catch(e){err.textContent='Network error — try again';err.classList.add('show');}
+  finally{btn.disabled=false;btn.textContent='Sign in as Admin';}
 }
-
-document.getElementById('password').addEventListener('keydown', e => { if(e.key === 'Enter') submitLogin(); });
-
-// warm up the backend on load (Render cold-start mitigation)
-fetch(API + '/health').catch(() => {});
+document.addEventListener('keydown',e=>{if(e.key==='Enter')login();});
 </script>
 </body>
 </html>
