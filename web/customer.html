@@ -4,39 +4,39 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WaitJI AI — Earnings Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
 :root{
-:root{
-  --sage:#2A7A4F; --sage-d:#1E5A3A; --sage-l:#3D9E68; --sage-soft:#EBF5EE;
-  --gold:#F0B429; --gold-d:#C9901A; --gold-l:#F7D070; --gold-soft:#FEF9EC;
-  --ink:#0B0F0A; --ink2:#1C2119;
-  --muted:#6B7568; --muted2:#9AA896;
-  --bg:#F3F0E8; --bg2:#EEE9DD;
-  --surface:#FFFFFF; --surface2:#F8F5EE;
-  --border:#D4D9CF; --border2:#BFC5B9;
-  --red:#DC2626; --red-soft:#FEE2E2;
-  --green:#15803D; --green-soft:#DCFCE7;
-  --amber:#D97706; --amber-soft:#FEF3C7;
-  --sans:'Sora',sans-serif;
+  --ink:#0B0F0A;--ink2:#1C2119;
+  --sage:#2A7A4F;--sage-d:#1E5A3A;--sage-l:#3D9E68;--sage-soft:#EBF5EE;
+  --gold:#F0B429;--gold-d:#C9901A;--gold-l:#F7D070;--gold-soft:#FEF9EC;
+  --cream:#F8F5EE;--cream2:#EEE9DD;
+  --muted:#6B7568;--muted2:#9AA896;
+  --border:#D4D9CF;--border2:#BFC5B9;
+  --surface:#FFFFFF;--surface2:#F8F5EE;--bg:#F3F0E8;
+  --red:#DC2626;--red-soft:#FEE2E2;
+  --green:#15803D;--green-soft:#DCFCE7;
+  --amber:#D97706;--amber-soft:#FEF3C7;
+  /* backward compat aliases */
+  --indigo:var(--sage);--indigo-dark:var(--sage-d);--indigo-soft:var(--sage-soft);
+  --sky:var(--sage-l);
+  --display:'Sora',sans-serif;
   --body:'Inter',sans-serif;
   --mono:'IBM Plex Mono',monospace;
+  --sans:'Sora',sans-serif;
   --shadow-sm:0 1px 3px rgba(11,15,10,.06);
   --shadow:0 4px 24px rgba(11,15,10,.10);
-  /* Backward-compat aliases so old CSS using --indigo still works */
-  --indigo:var(--sage); --indigo-dark:var(--sage-d); --indigo-soft:var(--sage-soft);
-  --indigo-link:var(--sage);
 }
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.6;}
 .topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:var(--surface);border-bottom:1px solid var(--border);}
 .logo{font-family:var(--mono);font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);}
-.logo-mark{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,var(--sage),var(--sage-l));display:flex;align-items:center;justify-content:center;}
+.logo-mark{width:28px;height:28px;border-radius:7px;background:var(--sage),var(--sage-l));display:flex;align-items:center;justify-content:center;}
 .logo-mark svg{width:17px;height:17px;}
 .logo em{color:var(--indigo);font-style:normal;}
 .topbar-r{display:flex;align-items:center;gap:14px;}
-.role-pill{font-size:11px;font-weight:600;padding:5px 12px;border-radius:100px;background:var(--green-soft);color:#047857;font-family:var(--mono);}
+
 .user-email{font-size:13px;color:var(--muted);}
 .btn-out{background:transparent;border:1px solid var(--border2);color:var(--ink);padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);}
 .btn-out:hover{border-color:var(--indigo);color:var(--indigo);}
@@ -72,8 +72,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1
 .upi-input{display:flex;gap:8px;margin-top:8px;}
 .upi-input input{flex:1;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;font-family:var(--mono);font-size:13px;outline:none;}
 .upi-input input:focus{border-color:var(--indigo);}
-.btn-solid{background:var(--indigo);color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);}
-.btn-solid:hover{background:var(--indigo-dark);}
+.btn-solid{background:var(--sage);color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);}
+.btn-solid:hover{background:var(--sage-d);}
 .btn-solid:disabled{opacity:.5;cursor:not-allowed;}
 .btn-payout{width:100%;justify-content:center;padding:13px;font-size:15px;margin-top:4px;}
 .ref-box{background:linear-gradient(135deg,var(--indigo-soft),#E0F2FE);border:1px solid #C7D2FE;border-radius:12px;padding:18px;margin-top:18px;}
@@ -87,6 +87,22 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1
 .toast-t{font-weight:600;font-size:14px;}
 .toast-s{font-size:12px;color:var(--muted);}
 @media(max-width:860px){.wrap{padding:20px;}.cards{grid-template-columns:repeat(2,1fr);}.grid2{grid-template-columns:1fr;}.topbar{padding:12px 18px;}.user-email{display:none;}}
+
+/* ── MATCHING TOPBAR ── */
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:60px;background:rgba(243,240,232,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);}
+.logo{font-family:var(--mono);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);}
+.logo-mark{width:26px;height:26px;border-radius:6px;background:var(--sage);display:flex;align-items:center;justify-content:center;}
+.logo-mark svg{width:15px;height:15px;}
+.logo em{color:var(--sage);font-style:normal;}
+.topbar-r{display:flex;align-items:center;gap:14px;}
+.role-pill{font-size:11px;font-weight:600;padding:4px 12px;border-radius:100px;font-family:var(--mono);}
+.role-pill.earner{background:var(--green-soft);color:var(--green);}
+.role-pill.advertiser{background:var(--sage-soft);color:var(--sage-d);}
+.role-pill.admin{background:var(--gold-soft);color:var(--gold-d);}
+.user-email{font-size:13px;color:var(--muted);}
+.btn-out{background:transparent;border:1.5px solid var(--border2);color:var(--ink);padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);transition:.15s;}
+.btn-out:hover{border-color:var(--sage);color:var(--sage);}
+
 </style>
   <link rel="icon" type="image/png" sizes="192x192" href="logo-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="logo-512.png">
@@ -100,6 +116,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1
     gtag('js', new Date());
     gtag('config', 'G-LGNX0BPWPJ');
   </script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-LGNX0BPWPJ"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-LGNX0BPWPJ');</script>
 </head>
 <body>
 <div class="topbar">
