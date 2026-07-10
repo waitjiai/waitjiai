@@ -7,8 +7,26 @@
 <meta name="robots" content="noindex, nofollow, noarchive">
 <style>
 :root{
-  --i:#4F46E5;--id:#4338CA;--ink:#0F1222;--m:#6B7185;--bg:#0F1222;--sf:#171A2C;--bd:#272B45;
-  --sans:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+:root{
+  --sage:#2A7A4F; --sage-d:#1E5A3A; --sage-l:#3D9E68; --sage-soft:#EBF5EE;
+  --gold:#F0B429; --gold-d:#C9901A; --gold-l:#F7D070; --gold-soft:#FEF9EC;
+  --ink:#0B0F0A; --ink2:#1C2119;
+  --muted:#6B7568; --muted2:#9AA896;
+  --bg:#F3F0E8; --bg2:#EEE9DD;
+  --surface:#FFFFFF; --surface2:#F8F5EE;
+  --border:#D4D9CF; --border2:#BFC5B9;
+  --red:#DC2626; --red-soft:#FEE2E2;
+  --green:#15803D; --green-soft:#DCFCE7;
+  --amber:#D97706; --amber-soft:#FEF3C7;
+  --sans:'Sora',sans-serif;
+  --body:'Inter',sans-serif;
+  --mono:'IBM Plex Mono',monospace;
+  --shadow-sm:0 1px 3px rgba(11,15,10,.06);
+  --shadow:0 4px 24px rgba(11,15,10,.10);
+  /* Backward-compat aliases so old CSS using --indigo still works */
+  --indigo:var(--sage); --indigo-dark:var(--sage-d); --indigo-soft:var(--sage-soft);
+  --indigo-link:var(--sage);
+}
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:#fff;font-family:var(--body);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
@@ -37,6 +55,7 @@ h1{font-family:var(--mono);font-size:13px;font-weight:600;text-align:center;colo
     gtag('js', new Date());
     gtag('config', 'G-LGNX0BPWPJ');
   </script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
