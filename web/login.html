@@ -6,12 +6,29 @@
 <title>Log in — WaitJI AI</title>
 <meta name="robots" content="noindex, follow">
 <link rel="canonical" href="https://waitjiai.in/login.html">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --i:#4F46E5;--id:#4338CA;--s:#0EA5E9;--g:#10B981;--gold:#D97706;
-  --ink:#0F1222;--m:#6B7185;--m2:#9AA0B4;--bg:#FBFBFD;--bg2:#F4F5FB;--sf:#fff;--bd:#E8EAF0;
-  --sans:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+:root{
+  --sage:#2A7A4F; --sage-d:#1E5A3A; --sage-l:#3D9E68; --sage-soft:#EBF5EE;
+  --gold:#F0B429; --gold-d:#C9901A; --gold-l:#F7D070; --gold-soft:#FEF9EC;
+  --ink:#0B0F0A; --ink2:#1C2119;
+  --muted:#6B7568; --muted2:#9AA896;
+  --bg:#F3F0E8; --bg2:#EEE9DD;
+  --surface:#FFFFFF; --surface2:#F8F5EE;
+  --border:#D4D9CF; --border2:#BFC5B9;
+  --red:#DC2626; --red-soft:#FEE2E2;
+  --green:#15803D; --green-soft:#DCFCE7;
+  --amber:#D97706; --amber-soft:#FEF3C7;
+  --sans:'Sora',sans-serif;
+  --body:'Inter',sans-serif;
+  --mono:'IBM Plex Mono',monospace;
+  --shadow-sm:0 1px 3px rgba(11,15,10,.06);
+  --shadow:0 4px 24px rgba(11,15,10,.10);
+  /* Backward-compat aliases so old CSS using --indigo still works */
+  --indigo:var(--sage); --indigo-dark:var(--sage-d); --indigo-soft:var(--sage-soft);
+  --indigo-link:var(--sage);
+}
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.5;min-height:100vh;}
@@ -21,7 +38,7 @@ nav{position:sticky;top:0;z-index:100;background:rgba(251,251,253,.9);backdrop-f
 .nav-inner{max-width:1180px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:16px 24px;}
 .logo{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:16px;font-weight:600;}
 .logo em{color:var(--i);font-style:normal;}
-.logo-mark{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--i),var(--s));display:flex;align-items:center;justify-content:center;}
+.logo-mark{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--sage),var(--sage-l));display:flex;align-items:center;justify-content:center;}
 .nav-back{font-size:13.5px;color:var(--m);font-weight:600;}
 .nav-back:hover{color:var(--i);}
 
@@ -40,7 +57,7 @@ nav{position:sticky;top:0;z-index:100;background:rgba(251,251,253,.9);backdrop-f
 .role-row{display:none;gap:8px;margin-bottom:16px;}
 .role-row.show{display:flex;}
 .role-btn{flex:1;padding:10px;border-radius:9px;border:1px solid var(--bd);background:var(--sf);font-size:12.5px;font-weight:600;cursor:pointer;color:var(--m);}
-.role-btn.active{border-color:var(--i);background:#EEF2FF;color:var(--i);}
+.role-btn.active{border-color:var(--i);background:#EBF5EE;color:var(--i);}
 
 .field{width:100%;padding:12px 14px;border:1px solid var(--bd);border-radius:9px;font-size:14px;font-family:var(--body);margin-bottom:12px;}
 .field:focus{outline:none;border-color:var(--i);}
@@ -52,7 +69,7 @@ nav{position:sticky;top:0;z-index:100;background:rgba(251,251,253,.9);backdrop-f
 .msg{font-size:12.5px;border-radius:9px;padding:11px 13px;margin-top:14px;display:none;line-height:1.6;}
 .msg.show{display:block;}
 .msg.err{background:#FEE2E2;color:#B91C1C;border:1px solid #FCA5A5;}
-.msg.info{background:#EEF2FF;color:#3730A3;border:1px solid #C7D2FE;}
+.msg.info{background:#EBF5EE;color:#3730A3;border:1px solid #C7D2FE;}
 .msg.warn{background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;}
 
 .links-row{display:flex;justify-content:space-between;align-items:center;margin-top:16px;font-size:12.5px;}
