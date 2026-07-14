@@ -167,89 +167,118 @@ async function load(){
 
 function render(e,activity,withdrawals){
   const hasPendingWithdrawal = withdrawals.some(w=>w.status==='pending');
+  const ps = me.profileStatus || {complete:false,missing:[],checks:{}};
   const refLink=`https://waitjiai.in/r/${me.id}`;
+
   document.getElementById('content').innerHTML=`
     <h1 class="page-h">Welcome back${me.name?', '+me.name:''} 👋</h1>
     <p class="page-sub">Your earnings update in real time as you code<span class="live-tag"><span class="live-dot"></span>LIVE</span></p>
+
+    ${!ps.complete ? `
+    <div style="background:#FEF9EC;border:1.5px solid #FDE68A;border-radius:14px;padding:18px 20px;margin-bottom:20px">
+      <div style="font-family:var(--mono);font-size:11px;font-weight:600;color:#D97706;letter-spacing:1px;margin-bottom:8px">⚠️ PROFILE INCOMPLETE — WITHDRAWAL BLOCKED</div>
+      <p style="font-size:13.5px;color:#92400E;margin-bottom:10px">Complete your profile to unlock withdrawals. <b>${(ps.missing||[]).length} step${(ps.missing||[]).length===1?'':'s'} remaining.</b></p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${[
+          {label:'Full name',done:ps.checks?.name?.done},
+          {label:'Phone number',done:ps.checks?.phone?.done},
+          {label:'Email verified',done:ps.checks?.email?.done},
+          {label:'UPI / Bank verified',done:ps.checks?.payout?.done},
+        ].map(c=>`<div style="display:flex;align-items:center;gap:6px;font-size:12.5px;padding:5px 12px;border-radius:100px;background:${c.done?'#DCFCE7':'#FEE2E2'};color:${c.done?'#047857':'#B91C1C'};font-weight:600">${c.done?'✓':'✗'} ${c.label}</div>`).join('')}
+      </div>
+    </div>` : `
+    <div style="background:#DCFCE7;border:1px solid #86EFAC;border-radius:14px;padding:12px 18px;margin-bottom:20px;display:flex;align-items:center;gap:10px;font-size:13.5px;color:#047857;font-weight:600">✓ Profile complete — withdrawals enabled</div>`}
+
     <div class="cards">
       <div class="card hero-card"><div class="card-label">Total earned</div><div class="card-val">₹${e.totalEarnedRupees}</div><div class="card-sub">all time</div></div>
       <div class="card"><div class="card-label">Today</div><div class="card-val" style="color:var(--green)">₹${e.todayRupees}</div><div class="card-sub">last 24 hours</div></div>
-      <div class="card"><div class="card-label">Available to withdraw</div><div class="card-val">₹${e.pendingRupees}</div><div class="card-sub">min ₹100</div></div>
+      <div class="card"><div class="card-label">Available</div><div class="card-val">₹${e.pendingRupees}</div><div class="card-sub">min ₹100</div></div>
       <div class="card"><div class="card-label">Impressions</div><div class="card-val">${e.impressions.toLocaleString('en-IN')}</div><div class="card-sub">${e.clicks} clicks</div></div>
     </div>
+
     <div class="grid2">
-      <div class="panel">
-        <div class="panel-h">Live activity <span class="live-tag"><span class="live-dot"></span>auto-refresh</span></div>
-        <div class="activity" id="activity">${activity.length?activity.map(act=>`
-          <div class="act-row"><div class="act-ic">💻</div><div class="act-tx"><h4>Ad impression</h4><p>${new Date(act.ts).toLocaleTimeString('en-IN')}</p></div><div class="act-amt">+₹${(act.earnedPaise/100).toFixed(2)}</div></div>
-        `).join(''):'<div class="act-empty">No activity yet.<br>Install the extension & start coding to see earnings here.</div>'}</div>
-      </div>
       <div>
-        <div class="panel" style="background:var(--indigo-soft);border-color:#C7D2FE">
+        <div class="panel">
+          <div class="panel-h">Live activity <span class="live-tag"><span class="live-dot"></span>auto-refresh</span></div>
+          <div class="activity">${activity.length?activity.map(act=>`<div class="act-row"><div class="act-ic">💻</div><div class="act-tx"><h4>Ad impression</h4><p>${new Date(act.ts).toLocaleTimeString('en-IN')}</p></div><div class="act-amt">+₹${(act.earnedPaise/100).toFixed(2)}</div></div>`).join(''):'<div class="act-empty">No activity yet.<br>Install the extension &amp; start coding.</div>'}</div>
+        </div>
+        <div class="panel" style="background:#EBF5EE;border-color:#A7F3C8">
           <div class="panel-h">🔌 Connect VS Code extension</div>
-          <p style="font-size:12.5px;color:var(--muted);margin-bottom:10px">Run <b>"WaitJI AI: Connect Your Account"</b> in VS Code, choose "I have my User ID", then paste this:</p>
+          <p style="font-size:12.5px;color:var(--muted);margin-bottom:10px">Run <b>"WaitJI AI: Connect Your Account"</b> in VS Code → paste this User ID:</p>
+          <div class="upi-box"><div class="upi-label">Your User ID</div><div class="ref-link"><input value="${me.id}" readonly id="userIdInput"><button class="btn-solid" onclick="copyUserId()">Copy</button></div></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel">
+          <div class="panel-h">Your profile</div>
           <div class="upi-box">
-            <div class="upi-label">Your User ID</div>
-            <div class="ref-link"><input value="${me.id}" readonly id="userIdInput"><button class="btn-solid" onclick="copyUserId()">Copy</button></div>
+            <div class="upi-label">Full name <span style="color:var(--red);font-size:10px">*required</span></div>
+            <div class="upi-input"><input id="nameInput" placeholder="Enter your full name" value="${me.name?esc(me.name):''}"><button class="btn-solid" onclick="saveName()">Save</button></div>
+            <div style="font-size:11px;margin-top:4px;color:${ps.checks?.name?.done?'#047857':'#B91C1C'}">${ps.checks?.name?.done?'✓ Saved':'Required for withdrawal'}</div>
+          </div>
+          <div class="upi-box" style="margin-top:14px">
+            <div class="upi-label">Phone number <span style="color:var(--red);font-size:10px">*required</span></div>
+            <div class="upi-input"><input id="phoneInput" placeholder="10-digit mobile" value="${me.phone?esc(me.phone):''}" maxlength="10" type="tel"><button class="btn-solid" onclick="savePhone()">Save</button></div>
+            <div style="font-size:11px;margin-top:4px;color:${ps.checks?.phone?.done?'#047857':'#B91C1C'}">${ps.checks?.phone?.done?'✓ Saved':'Required for withdrawal'}</div>
+          </div>
+          <div class="upi-box" style="margin-top:14px">
+            <div class="upi-label">Email</div>
+            <div style="font-size:13px;color:${me.emailVerified?'#047857':'#B91C1C'};font-weight:600">${me.emailVerified?'✓ '+esc(me.email)+' — verified':'✗ Not verified — check your inbox'}</div>
           </div>
         </div>
+
         <div class="panel">
-          <div class="panel-h">Profile</div>
-          <div class="upi-box">
-            <div class="upi-label">Your name</div>
-            <div class="upi-input"><input id="nameInput" placeholder="Your full name" value="${me.name?esc(me.name):''}"><button class="btn-solid" onclick="saveName()">Save</button></div>
+          <div class="panel-h">Payout method <span style="color:var(--red);font-size:10px">*one required</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+            <button class="role-tab ${me.payoutMode!=='bank'?'active':''}" id="tabUpi" onclick="switchPayoutTab('upi')"><div style="font-size:13px;font-weight:700">💳 UPI ID</div><div style="font-size:11px;opacity:.7">Instant</div></button>
+            <button class="role-tab ${me.payoutMode==='bank'?'active':''}" id="tabBank" onclick="switchPayoutTab('bank')"><div style="font-size:13px;font-weight:700">🏦 Bank Account</div><div style="font-size:11px;opacity:.7">NEFT/IMPS</div></button>
           </div>
-        </div>
-        <div class="panel">
-          <div class="panel-h">Payout</div>
-          <div class="upi-box">
-            <div class="upi-label">Your UPI ID</div>
-            ${me.upiId
-              ? `<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-                   <div class="upi-val" id="upiDisplay">${esc(me.upiId)}</div>
-                   <button class="mini-btn" onclick="showChangeUpi()">Change UPI</button>
-                 </div>
-                 <div id="changeUpiBox" style="display:none;margin-top:10px">
-                   <div class="upi-input"><input id="upiChangeInput" placeholder="new@upihandle" value="${esc(me.upiId)}"><button class="btn-solid" onclick="verifyAndSaveUpi()">Verify &amp; Save</button></div>
-                   <div id="upiVerifyResult" style="font-size:12px;margin-top:6px"></div>
-                 </div>`
-              : `<div class="upi-input"><input id="upiInput" placeholder="yourname@upi"><button class="btn-solid" onclick="verifyAndSaveUpi()">Verify &amp; Save</button></div>
-                 <div id="upiVerifyResult" style="font-size:12px;margin-top:6px"></div>
-                 <p style="font-size:11px;color:var(--muted2);margin-top:4px">Format: yourname@upi or 9876543210@okaxis</p>`
+          <div id="upiTab" style="display:${me.payoutMode!=='bank'?'block':'none'}">
+            ${me.upiId && me.payoutVerified && me.payoutMode!=='bank'
+              ?`<div style="background:#EBF5EE;border:1.5px solid #A7F3C8;border-radius:9px;padding:12px;margin-bottom:10px"><div style="font-size:11px;color:var(--muted);margin-bottom:4px">Verified UPI</div><div style="font-weight:700;font-family:var(--mono)">${esc(me.upiId)}</div></div><button class="mini-btn" onclick="showChangeUpi()">Change UPI</button><div id="changeUpiBox" style="display:none;margin-top:10px"><div class="upi-input"><input id="upiChangeInput" placeholder="new@upihandle"><button class="btn-solid" onclick="verifyAndSaveUpi()">Verify &amp; Save</button></div><div id="upiVerifyResult" style="font-size:12px;margin-top:6px"></div></div>`
+              :`<div class="upi-input"><input id="upiInput" placeholder="yourname@upi or 9876543210@okaxis"><button class="btn-solid" onclick="verifyAndSaveUpi()">Verify &amp; Save</button></div><div id="upiVerifyResult" style="font-size:12px;margin-top:6px"></div><p style="font-size:11px;color:var(--muted2);margin-top:4px">We verify the UPI ID is live before saving</p>`
             }
           </div>
-          ${withdrawals.length ? `
-            <div style="margin-bottom:14px">
-              <div class="upi-label" style="margin-bottom:8px">Withdrawal history</div>
-              ${withdrawals.slice(0,3).map(w=>`
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
-                  <div>
-                    <div style="font-weight:600">₹${(w.amountPaise/100).toFixed(2)}</div>
-                    <div style="font-size:11px;color:var(--muted2)">${new Date(w.requestedAt).toLocaleDateString('en-IN')} · ${w.upiId}</div>
-                    ${w.reviewNote?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(w.reviewNote)}</div>`:''}
-                  </div>
-                  <span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;background:${w.status==='approved'||w.status==='paid'?'var(--green-soft)':w.status==='rejected'?'var(--red-soft)':'var(--amber-soft)'};color:${w.status==='approved'||w.status==='paid'?'#047857':w.status==='rejected'?'#B91C1C':'#92400E'}">${w.status}</span>
-                </div>`).join('')}
-            </div>` : ''}
-          ${hasPendingWithdrawal
-            ? `<div style="background:var(--amber-soft);border:1px solid #FDE68A;border-radius:10px;padding:12px 14px;font-size:13px;color:#92400E">
-                ⏳ <b>Withdrawal pending</b> — admin will review within 1–2 business days. You'll get an email once it's processed.
-               </div>`
-            : `<button class="btn-solid btn-payout" onclick="requestWithdrawal()" ${(!me.upiId||parseFloat(e.pendingRupees)<100)?'disabled':''}>
-                Request withdrawal — ₹${e.pendingRupees}
-               </button>
-               <p style="font-size:11px;color:var(--muted2);text-align:center;margin-top:8px">
-                 ${!me.upiId?'Add a UPI ID first':parseFloat(e.pendingRupees)<100?`Earn ₹${(100-parseFloat(e.pendingRupees)).toFixed(2)} more to unlock withdrawal (min ₹100)`:'Arrives in 2–3 business days after admin approval'}
-               </p>`
+          <div id="bankTab" style="display:${me.payoutMode==='bank'?'block':'none'}">
+            ${me.payoutMode==='bank' && me.bankAccount && me.bankVerified
+              ?`<div style="background:#EBF5EE;border:1.5px solid #A7F3C8;border-radius:9px;padding:12px;margin-bottom:10px"><div style="font-size:11px;color:var(--muted)">Verified bank account</div><div style="font-weight:700;font-family:var(--mono)">•••• ${me.bankAccount?.accountNumber?.slice(-4)||'????'}</div><div style="font-size:12px;color:var(--muted);margin-top:3px">${esc(me.bankAccount?.ifsc||'')} · ${esc(me.bankAccount?.accountHolder||'')}</div></div><button class="mini-btn" onclick="showChangeBank()">Change account</button><div id="changeBankBox" style="display:none;margin-top:10px">${bankFormHtml()}</div>`
+              :bankFormHtml()
+            }
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h">Withdrawal</div>
+          ${withdrawals.length?`<div style="margin-bottom:14px">${withdrawals.slice(0,5).map(w=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><div><div style="font-weight:600">₹${(w.amountPaise/100).toFixed(2)}</div><div style="font-size:11px;color:var(--muted2)">${new Date(w.requestedAt).toLocaleDateString('en-IN')}</div>${w.autoPaid?'<div style="font-size:11px;color:#047857">⚡ Auto-transferred via Cashfree</div>':''}</div><span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;background:${w.status==='approved'||w.status==='paid'?'#DCFCE7':w.status==='rejected'?'#FEE2E2':'#FEF3C7'};color:${w.status==='approved'||w.status==='paid'?'#047857':w.status==='rejected'?'#B91C1C':'#92400E'}">${w.status}</span></div>`).join('')}</div>`:''}
+          ${!ps.complete
+            ?'<div style="background:#FEF9EC;border:1px solid #FDE68A;border-radius:10px;padding:12px 14px;font-size:13px;color:#92400E">🔒 Complete your profile to unlock withdrawal</div>'
+            :hasPendingWithdrawal
+            ?'<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:12px 14px;font-size:13px;color:#92400E">⏳ Withdrawal pending — will be auto-processed via Cashfree once reviewed</div>'
+            :parseFloat(e.pendingRupees)<100
+            ?`<div style="text-align:center;padding:16px;font-size:13.5px;color:var(--muted)">Earn <b>₹${(100-parseFloat(e.pendingRupees)).toFixed(2)}</b> more to unlock (min ₹100)</div>`
+            :`<button class="btn-solid btn-payout" onclick="requestWithdrawal()">⚡ Auto-withdraw ₹${e.pendingRupees} via Cashfree</button><p style="font-size:11px;color:var(--muted2);text-align:center;margin-top:8px">Automatically transferred to your verified payout method</p>`
           }
         </div>
+
         <div class="ref-box">
           <h4>🤝 Your referral link</h4>
-          <p>Earn 10% of everything your referrals make — for life.</p>
+          <p>Share and earn 10% of referrals' earnings.</p>
           <div class="ref-link"><input value="${refLink}" readonly id="refInput"><button class="btn-solid" onclick="copyRef()">Copy</button></div>
         </div>
       </div>
     </div>`;
+}
+
+function bankFormHtml(){
+  return '<div><div class="upi-input" style="margin-bottom:8px"><input id="bankIfscInput" placeholder="IFSC code (e.g. HDFC0001234)" maxlength="11" oninput="this.value=this.value.toUpperCase()"><button class="btn-solid" onclick="verifyIFSC()">Verify</button></div><div id="ifscResult" style="font-size:12px;margin-bottom:8px"></div><div class="upi-input" style="margin-bottom:8px"><input id="bankAccInput" placeholder="Account number" type="text" inputmode="numeric"></div><div class="upi-input" style="margin-bottom:8px"><input id="bankAccConfirm" placeholder="Re-enter account number" type="text" inputmode="numeric"></div><button class="btn-solid" onclick="saveBank()">Save bank account</button><div id="bankSaveResult" style="font-size:12px;margin-top:8px"></div></div>';
+}
+
+function switchPayoutTab(tab){
+  document.getElementById('upiTab').style.display=tab==='upi'?'block':'none';
+  document.getElementById('bankTab').style.display=tab==='bank'?'block':'none';
+  document.getElementById('tabUpi').classList.toggle('active',tab==='upi');
+  document.getElementById('tabBank').classList.toggle('active',tab==='bank');
 }
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
@@ -258,6 +287,52 @@ async function saveName(){
   if(!name){ toast('⚠️ Enter your name'); return; }
   await fetch(API+'/v1/customer/profile',{method:'PATCH',headers:H,body:JSON.stringify({name})});
   toast('✓ Name saved'); load();
+}
+
+async function savePhone(){
+  const phone=document.getElementById('phoneInput').value.trim().replace(/\D/g,'');
+  if(!phone||phone.length!==10||!/^[6-9]/.test(phone)){ toast('⚠️ Enter a valid 10-digit Indian mobile number'); return; }
+  const r=await fetch(API+'/v1/customer/profile',{method:'PATCH',headers:H,body:JSON.stringify({phone})});
+  if((await r.json()).user){ toast('✓ Phone number saved'); load(); }
+  else toast('⚠️ Could not save phone');
+}
+
+async function verifyIFSC(){
+  const ifsc=(document.getElementById('bankIfscInput')?.value||'').trim().toUpperCase();
+  if(!ifsc||ifsc.length!==11){ toast('⚠️ Enter a valid 11-character IFSC code'); return; }
+  const res=document.getElementById('ifscResult');
+  res.textContent='Verifying…'; res.style.color='var(--muted)';
+  const r=await fetch(API+'/v1/customer/verify-bank',{method:'POST',headers:H,body:JSON.stringify({ifsc,action:'verify-only',account:'000000000'})});
+  const d=await r.json();
+  if(d.valid||d.bank){
+    res.innerHTML=`<span style="color:#047857">✓ ${d.bank||d.BANK||''} — ${d.branch||d.BRANCH||''}, ${d.city||d.CITY||''}</span>`;
+  } else {
+    res.innerHTML=`<span style="color:#B91C1C">✗ ${d.error||'IFSC not found'}</span>`;
+  }
+}
+
+async function saveBank(){
+  const ifsc=(document.getElementById('bankIfscInput')?.value||'').trim().toUpperCase();
+  const acc=(document.getElementById('bankAccInput')?.value||'').trim();
+  const accC=(document.getElementById('bankAccConfirm')?.value||'').trim();
+  const saveRes=document.getElementById('bankSaveResult');
+  if(!ifsc||ifsc.length!==11){ toast('⚠️ Enter a valid IFSC code'); return; }
+  if(!acc||acc.length<9){ toast('⚠️ Enter a valid account number'); return; }
+  if(acc!==accC){ saveRes.innerHTML='<span style="color:#B91C1C">✗ Account numbers do not match</span>'; return; }
+  saveRes.textContent='Verifying…'; saveRes.style.color='var(--muted)';
+  const r=await fetch(API+'/v1/customer/verify-bank',{method:'POST',headers:H,body:JSON.stringify({ifsc,account:acc})});
+  const d=await r.json();
+  if(r.ok&&d.valid){
+    saveRes.innerHTML=`<span style="color:#047857">✓ ${d.message||'Bank account saved'}</span>`;
+    toast('✓ Bank account verified and saved'); setTimeout(load,800);
+  } else {
+    saveRes.innerHTML=`<span style="color:#B91C1C">✗ ${d.error||'Could not verify'}</span>`;
+  }
+}
+
+function showChangeBank(){
+  const box=document.getElementById('changeBankBox');
+  if(box) box.style.display=box.style.display==='none'?'block':'none';
 }
 
 function showChangeUpi(){
