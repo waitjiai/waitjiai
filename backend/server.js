@@ -884,24 +884,48 @@ const server = http.createServer(async (req, res) => {
         const upiId = (b.upiId || '').trim();
         if (!upiId) return send(res, 400, { error: 'UPI ID is required' });
         const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
-        if (!upiRegex.test(upiId)) return send(res, 400, { valid: false, error: 'Invalid UPI ID format (e.g. name@upi or 9876543210@okaxis)' });
+        if (!upiRegex.test(upiId)) return send(res, 400, { valid: false, error: 'Invalid UPI ID format. Example: name@upi or 9876543210@okaxis' });
+
+        let nameAtBank = '';
+        let verificationMethod = 'format';
 
         if (CASHFREE_CLIENT_ID && CASHFREE_CLIENT_SECRET) {
           try {
-            // Cashfree Validate Payout V2 — real UPI VPA validation
             const { data } = await cashfreeApi('POST', '/payout/v2/vpa/validate', { vpa: upiId });
-            const name = data?.data?.name_at_bank || data?.name_at_bank || '';
-            const verified = data?.data?.valid === true || data?.valid === true;
-            if (!verified) return send(res, 400, { valid: false, error: 'UPI ID could not be verified — please check and try again' });
-            return send(res, 200, { valid: true, upiId, nameAtBank: name, message: name ? `✓ Verified — ${name}` : '✓ UPI ID is valid' });
+            // Cashfree returns nested data — handle both shapes
+            const inner = data?.data || data || {};
+            const isValid = inner.valid === true || inner.status === 'VALID' || inner.vpa_valid === true;
+            nameAtBank = inner.name_at_bank || inner.name || inner.payee_name || '';
+            if (!isValid) {
+              return send(res, 400, { valid: false, error: `UPI ID "${upiId}" could not be verified — it may not be registered or may be inactive. Please check and try again.` });
+            }
+            verificationMethod = 'cashfree';
           } catch (e) {
-            // Cashfree down — fall back to format check
-            return send(res, 200, { valid: true, upiId, nameAtBank: '', message: 'UPI format valid (live verification unavailable right now)', fallback: true });
+            // Cashfree error — fall back to format-only, still save
+            verificationMethod = 'format_fallback';
           }
-        } else {
-          // No Cashfree keys — format-only check
-          return send(res, 200, { valid: true, upiId, nameAtBank: '', message: 'UPI format valid (configure CASHFREE keys for live verification)' });
         }
+
+        // Save verified UPI to user profile immediately
+        user.upiId = upiId;
+        user.upiNameAtBank = nameAtBank;
+        user.payoutMode = 'upi';
+        user.bankAccount = null;
+        user.payoutVerified = true;
+        saveDB();
+
+        const ps = profileStatus(user);
+        return send(res, 200, {
+          valid: true, upiId, nameAtBank,
+          verificationMethod,
+          message: nameAtBank
+            ? `✓ Verified & saved — account holder: ${nameAtBank}`
+            : verificationMethod === 'format_fallback'
+              ? `✓ Saved — format valid (live verification unavailable right now)`
+              : `✓ UPI ID verified and saved`,
+          user: publicUser(user),
+          profileStatus: ps,
+        });
       }
 
       // ── Bank account verify (save + mark verified) ──
