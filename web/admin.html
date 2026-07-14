@@ -149,6 +149,7 @@ tr:last-child td{border-bottom:none;}
     <button class="tab" data-tab="advertisers" onclick="showTab('advertisers')">Advertisers</button>
     <button class="tab" data-tab="customers" onclick="showTab('customers')">Earners</button>
     <button class="tab" data-tab="withdrawals" onclick="showTab('withdrawals')">💸 Withdrawals <span id="pendingBadge" style="display:none;background:#EF4444;color:#fff;font-size:10px;padding:1px 6px;border-radius:100px;margin-left:4px">0</span></button>
+    <button class="tab" data-tab="discounts" onclick="showTab('discounts')">🏷️ Discount Codes</button>
     <button class="tab" data-tab="waitlist" onclick="showTab('waitlist')">📧 Waitlist</button>
     <button class="tab" data-tab="houseads" onclick="showTab('houseads')">🏠 House Ads</button>
   </div>
@@ -189,6 +190,7 @@ async function render(){
     if(curTab==='customers') return renderCustomers((await get('/v1/admin/customers')).customers);
     if(curTab==='waitlist') return renderWaitlist(await get('/v1/admin/waitlist'));
     if(curTab==='withdrawals') return renderWithdrawals(await get('/v1/admin/withdrawals'));
+    if(curTab==='discounts') return renderDiscounts(await get('/v1/admin/discount-codes'));
     if(curTab==='houseads') return renderHouseAds((await get('/v1/admin/house-ads')).houseAds);
   }catch(e){ c.innerHTML='<div class="loading">Error loading data. <a href="" onclick="location.reload();return false">retry</a></div>'; }
 }
@@ -327,7 +329,7 @@ async function rejectCamp(id){
 function renderAdvertisers(advs){
   document.getElementById('tabContent').innerHTML=`<div class="panel"><div class="panel-h">Advertisers (${advs.length})</div>
     ${advs.length?`<table><thead><tr><th>Company</th><th>Email</th><th>Campaigns</th><th>Spent</th><th>Status</th><th></th></tr></thead><tbody>
-    ${advs.map(a=>`<tr><td style="font-weight:600">${esc(a.company||a.name||'—')}</td><td class="mono">${esc(a.email)}</td><td>${a.campaigns}</td><td class="mono">₹${a.totalSpentRupees}</td><td>${a.banned?`<span class="sev high">banned</span><div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(a.banReason||'')}</div>`:'<span class="status active">active</span>'}</td><td><button class="mini-btn ${a.banned?'green':'red'}" onclick="banUser('${a.id}',${!a.banned})">${a.banned?'Unban':'Ban'}</button></td></tr>`).join('')}
+    ${advs.map(a=>`<tr><td style="font-weight:600">${esc(a.company||a.name||'—')}</td><td class="mono">${esc(a.email)}</td><td>${a.campaigns}</td><td class="mono">₹${a.totalSpentRupees}</td><td>${a.banned?`<span class="sev high">banned</span><div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(a.banReason||'')}</div>`:'<span class="status active">active</span>'}</td><td><button class="mini-btn" onclick="viewAdvertiserProfile('${a.id}')">View Profile</button> <button class="mini-btn ${a.banned?'green':'red'}" onclick="banUser('${a.id}',${!a.banned})">${a.banned?'Unban':'Ban'}</button></td></tr>`).join('')}
     </tbody></table>`:`<div class="empty"><div class="empty-ic">📣</div>No advertisers yet.</div>`}</div>`;
 }
 function renderCustomers(custs){
@@ -394,6 +396,87 @@ const DEFAULT_LAUNCH_EMAIL = `<div style="font-family:Arial,sans-serif;max-width
   <p style="font-size:13px;color:#6B7185;line-height:1.6">Questions? Just reply to this email — we read every one.</p>
   <p style="font-size:12px;color:#9AA0B4;margin-top:30px">WaitJI AI · QivaLabs LLP · Udaipur, Rajasthan</p>
 </div>`;
+
+function renderDiscounts(data){
+  const codes=data.codes||[];
+  document.getElementById('tabContent').innerHTML=`
+    <div class="panel">
+      <div class="panel-h" style="display:flex;align-items:center;justify-content:space-between">
+        Discount codes (${codes.length})
+        <button class="btn-solid" onclick="openCreateDiscount()">+ New code</button>
+      </div>
+      ${codes.length?`<table><thead><tr><th>Code</th><th>Discount</th><th>Description</th><th>Used</th><th>Max uses</th><th>Expires</th><th>Status</th><th></th></tr></thead><tbody>
+      ${codes.map(dc=>`<tr>
+        <td class="mono" style="font-weight:700;letter-spacing:1px">${esc(dc.code)}</td>
+        <td class="mono" style="color:var(--green);font-weight:700">${dc.discountPct}% off</td>
+        <td style="font-size:12px;color:var(--muted)">${esc(dc.description||'—')}</td>
+        <td>${dc.usedCount||0}</td>
+        <td>${dc.maxUses||'∞'}</td>
+        <td style="font-size:12px">${dc.expiresAt?new Date(dc.expiresAt).toLocaleDateString('en-IN'):'Never'}</td>
+        <td><span class="status ${dc.active?'active':'paused'}">${dc.active?'active':'disabled'}</span></td>
+        <td>
+          <button class="mini-btn" onclick="toggleDiscount('${dc.id}',${!dc.active})">${dc.active?'Disable':'Enable'}</button>
+          <button class="mini-btn red" onclick="deleteDiscount('${dc.id}')">Delete</button>
+        </td>
+      </tr>`).join('')}
+      </tbody></table>`:`<div class="empty"><div class="empty-ic">🏷️</div>No discount codes yet. Create one to offer trial campaigns.</div>`}
+    </div>
+    <div id="createDiscountForm" style="display:none" class="panel" style="border-color:var(--sage)">
+      <div class="panel-h">New discount code</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+        <div><div style="font-size:12px;font-weight:600;margin-bottom:5px">Code</div><input id="dcCode" class="field-input" placeholder="LAUNCH50" style="width:100%;border:1.5px solid var(--border2);border-radius:8px;padding:9px 12px;font-family:var(--mono);font-size:13px;text-transform:uppercase"></div>
+        <div><div style="font-size:12px;font-weight:600;margin-bottom:5px">Discount %</div><input id="dcPct" type="number" min="1" max="100" placeholder="50" class="field-input" style="width:100%;border:1.5px solid var(--border2);border-radius:8px;padding:9px 12px"></div>
+        <div><div style="font-size:12px;font-weight:600;margin-bottom:5px">Max uses (blank = unlimited)</div><input id="dcMax" type="number" placeholder="10" style="width:100%;border:1.5px solid var(--border2);border-radius:8px;padding:9px 12px"></div>
+        <div><div style="font-size:12px;font-weight:600;margin-bottom:5px">Expires (blank = never)</div><input id="dcExp" type="date" style="width:100%;border:1.5px solid var(--border2);border-radius:8px;padding:9px 12px"></div>
+        <div style="grid-column:span 2"><div style="font-size:12px;font-weight:600;margin-bottom:5px">Description (shown to advertiser)</div><input id="dcDesc" placeholder="50% off your first campaign — welcome offer" style="width:100%;border:1.5px solid var(--border2);border-radius:8px;padding:9px 12px"></div>
+      </div>
+      <div style="display:flex;gap:10px"><button class="btn-solid" onclick="createDiscount()">Create code</button><button class="btn-out" onclick="document.getElementById('createDiscountForm').style.display='none'">Cancel</button></div>
+    </div>`;
+}
+function openCreateDiscount(){document.getElementById('createDiscountForm').style.display='block';}
+async function createDiscount(){
+  const code=document.getElementById('dcCode').value.trim().toUpperCase();
+  const discountPct=+document.getElementById('dcPct').value;
+  const maxUses=document.getElementById('dcMax').value||null;
+  const expiresAt=document.getElementById('dcExp').value||null;
+  const description=document.getElementById('dcDesc').value.trim();
+  if(!code||!discountPct){toast('⚠️ Code and discount % are required');return;}
+  const r=await fetch(API+'/v1/admin/discount-codes',{method:'POST',headers:H,body:JSON.stringify({code,discountPct,maxUses,expiresAt,description})});
+  const d=await r.json();
+  if(r.ok){toast('✅ Discount code created: '+d.code.code);showTab('discounts');}
+  else toast('⚠️ '+(d.error||'Failed'));
+}
+async function toggleDiscount(id,active){
+  await fetch(API+'/v1/admin/discount-codes/'+id,{method:'PATCH',headers:H,body:JSON.stringify({active})});
+  toast('✓ Updated'); showTab('discounts');
+}
+async function deleteDiscount(id){
+  if(!confirm('Delete this discount code?')) return;
+  await fetch(API+'/v1/admin/discount-codes/'+id,{method:'DELETE',headers:H});
+  toast('✓ Deleted'); showTab('discounts');
+}
+
+async function viewAdvertiserProfile(id){
+  const d=await get('/v1/admin/advertisers/'+id);
+  const m=document.createElement('div');
+  m.className='modal-bg show'; m.id='advProfileModal';
+  m.innerHTML=`<div class="modal" style="max-width:580px">
+    <h2>${esc(d.user.company||d.user.name||d.user.email)}</h2>
+    <p class="modal-sub">${esc(d.user.email)} · Joined ${new Date(d.user.createdAt).toLocaleDateString('en-IN')}</p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0">
+      <div class="card" style="padding:10px"><div style="font-size:11px;color:var(--muted)">Total spent</div><div style="font-family:var(--mono);font-size:18px;font-weight:700">₹${d.stats.totalSpentRupees}</div></div>
+      <div class="card" style="padding:10px"><div style="font-size:11px;color:var(--muted)">Impressions</div><div style="font-family:var(--mono);font-size:18px;font-weight:700">${d.stats.totalImpressions}</div></div>
+      <div class="card" style="padding:10px"><div style="font-size:11px;color:var(--muted)">CTR</div><div style="font-family:var(--mono);font-size:18px;font-weight:700">${d.stats.ctr}%</div></div>
+    </div>
+    <div style="font-weight:700;font-size:13px;margin:14px 0 8px">Campaigns (${d.campaigns.length})</div>
+    ${d.campaigns.length?`<table style="width:100%;font-size:12.5px"><thead><tr><th style="text-align:left">Ad text</th><th style="text-align:left">Type</th><th style="text-align:left">Spent</th><th style="text-align:left">Status</th><th style="text-align:left">Discount</th></tr></thead><tbody>
+      ${d.campaigns.map(c=>`<tr><td>${esc(c.adText)}</td><td style="font-family:var(--mono);font-size:11px">${c.adType}</td><td style="font-family:var(--mono)">₹${c.spentRupees}/₹${c.budgetRupees}</td><td><span class="status ${c.status}" style="font-size:10px">${c.status}</span></td><td style="font-size:11px;color:var(--muted)">${c.discountCode||'—'}</td></tr>`).join('')}
+    </tbody></table>`:'<p style="font-size:12.5px;color:var(--muted)">No campaigns yet.</p>'}
+    <div class="modal-actions" style="margin-top:18px"><button class="btn-out" style="flex:1" onclick="document.getElementById('advProfileModal').remove()">Close</button></div>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{if(e.target.id==='advProfileModal')m.remove();});
+}
 
 function renderWithdrawals(data){
   const {withdrawals, summary} = data;
