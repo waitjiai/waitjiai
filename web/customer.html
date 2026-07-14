@@ -345,19 +345,25 @@ async function verifyAndSaveUpi(){
   const upi=(inputEl?.value||'').trim();
   const resultEl=document.getElementById('upiVerifyResult');
   if(!upi){ toast('⚠️ Enter a UPI ID'); return; }
+  if(!upi.includes('@')){ resultEl.textContent='✗ UPI ID must contain @ (e.g. name@upi)'; resultEl.style.color='#B91C1C'; return; }
   resultEl.textContent='Verifying…'; resultEl.style.color='var(--muted)';
-  const r=await fetch(API+'/v1/customer/verify-upi',{method:'POST',headers:H,body:JSON.stringify({upiId:upi})});
-  const d=await r.json();
-  if(!r.ok||!d.valid){
-    resultEl.textContent='✗ '+(d.error||'Invalid UPI ID');
-    resultEl.style.color='var(--red)';
-    return;
+  try{
+    const r=await fetch(API+'/v1/customer/verify-upi',{method:'POST',headers:H,body:JSON.stringify({upiId:upi})});
+    const d=await r.json();
+    if(!r.ok||!d.valid){
+      resultEl.textContent='✗ '+(d.error||'UPI verification failed');
+      resultEl.style.color='#B91C1C';
+      return;
+    }
+    // Backend now saves UPI directly in verify-upi — just reload
+    resultEl.textContent=d.message||'✓ Verified and saved';
+    resultEl.style.color='#047857';
+    toast('✓ UPI ID verified and saved!');
+    setTimeout(()=>load(), 500);
+  }catch(e){
+    resultEl.textContent='✗ Network error — try again';
+    resultEl.style.color='#B91C1C';
   }
-  resultEl.textContent=d.message; resultEl.style.color=d.knownHandle?'var(--green)':'var(--amber)';
-  // Auto-save after successful verify
-  const sr=await fetch(API+'/v1/customer/profile',{method:'PATCH',headers:H,body:JSON.stringify({upiId:upi})});
-  if(sr.ok){ toast('✓ UPI ID saved — '+upi); setTimeout(()=>load(),600); }
-  else toast('⚠️ Could not save UPI ID');
 }
 
 async function requestWithdrawal(){
