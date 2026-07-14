@@ -327,17 +327,40 @@ async function createCamp(){
 // Opens Razorpay checkout for a campaign's budget. Nothing goes live until this
 // completes AND admin approves the ad content — payment alone does not activate it.
 async function payForCampaign(campaignId, amountPaise){
+  // First ask for discount code
+  const discountCode = prompt('Have a discount code? Enter it here (or leave blank to skip):', '')?.trim().toUpperCase() || '';
+  let finalAmount = amountPaise;
+  let discountInfo = null;
+
+  if(discountCode){
+    toast('Validating discount code…');
+    try{
+      const vr=await fetch(API+'/v1/discount/validate',{method:'POST',headers:H,body:JSON.stringify({code:discountCode})});
+      const vd=await vr.json();
+      if(!vr.ok){ toast('⚠️ '+(vd.error||'Invalid code')); return; }
+      discountInfo={code:discountCode, discountPct:vd.discountPct, description:vd.description};
+      const savedPaise=Math.floor(amountPaise*vd.discountPct/100);
+      finalAmount=amountPaise-savedPaise;
+      toast('✅ Code applied! '+vd.discountPct+'% off — saving ₹'+(savedPaise/100).toFixed(0));
+    }catch(e){ toast('⚠️ Could not validate code'); return; }
+  }
+
   toast('💳 Opening payment…');
   try{
-    const r=await fetch(API+'/v1/advertiser/campaigns/'+campaignId+'/create-order',{method:'POST',headers:H});
+    const r=await fetch(API+'/v1/advertiser/campaigns/'+campaignId+'/create-order',{method:'POST',headers:H,body:JSON.stringify({discountCode:discountCode||undefined})});
     const d=await r.json();
     if(!r.ok){ toast('⚠️ '+(d.error||'Could not start payment')); return; }
+
+    const desc=discountInfo
+      ? `Campaign (${discountInfo.discountPct}% off with ${discountInfo.code})`
+      : 'Campaign budget — '+campaignId;
+
     const rzp=new Razorpay({
       key:d.keyId, amount:d.amountPaise, currency:'INR',
-      name:'WaitJI AI', description:'Campaign budget — '+campaignId,
+      name:'WaitJI AI', description:desc,
       order_id:d.orderId,
       prefill:{ email: me.email, name: me.name||'' },
-      theme:{ color:'#4F46E5' },
+      theme:{ color:'#2A7A4F' },
       handler: async function(resp){
         toast('Verifying payment…');
         const vr=await fetch(API+'/v1/advertiser/campaigns/'+campaignId+'/verify-payment',{method:'POST',headers:H,body:JSON.stringify({
