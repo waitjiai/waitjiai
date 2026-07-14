@@ -883,48 +883,47 @@ const server = http.createServer(async (req, res) => {
         const b = await getBody(req);
         const upiId = (b.upiId || '').trim();
         if (!upiId) return send(res, 400, { error: 'UPI ID is required' });
+
+        // Format validation first — this is always run
         const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
-        if (!upiRegex.test(upiId)) return send(res, 400, { valid: false, error: 'Invalid UPI ID format. Example: name@upi or 9876543210@okaxis' });
+        if (!upiRegex.test(upiId)) {
+          return send(res, 400, { valid: false, error: 'Invalid format. Example: name@upi or 9876543210@okaxis' });
+        }
 
         let nameAtBank = '';
-        let verificationMethod = 'format';
+        let liveVerified = false;
 
+        // Try Cashfree live check — but NEVER block the user if it fails
         if (CASHFREE_CLIENT_ID && CASHFREE_CLIENT_SECRET) {
           try {
             const { data } = await cashfreeApi('POST', '/payout/v2/vpa/validate', { vpa: upiId });
-            // Cashfree returns nested data — handle both shapes
             const inner = data?.data || data || {};
-            const isValid = inner.valid === true || inner.status === 'VALID' || inner.vpa_valid === true;
+            liveVerified = inner.valid === true || inner.status === 'VALID' || inner.vpa_valid === true || inner.registered === true;
             nameAtBank = inner.name_at_bank || inner.name || inner.payee_name || '';
-            if (!isValid) {
-              return send(res, 400, { valid: false, error: `UPI ID "${upiId}" could not be verified — it may not be registered or may be inactive. Please check and try again.` });
-            }
-            verificationMethod = 'cashfree';
           } catch (e) {
-            // Cashfree error — fall back to format-only, still save
-            verificationMethod = 'format_fallback';
+            // Cashfree error — proceed with format-only, don't block user
           }
         }
 
-        // Save verified UPI to user profile immediately
+        // Always save if format is valid — Cashfree live check is best-effort only
         user.upiId = upiId;
         user.upiNameAtBank = nameAtBank;
         user.payoutMode = 'upi';
         user.bankAccount = null;
         user.payoutVerified = true;
+        user.upiLiveVerified = liveVerified;
         saveDB();
 
         const ps = profileStatus(user);
+        const message = nameAtBank
+          ? `✓ Verified — account: ${nameAtBank}`
+          : liveVerified
+          ? '✓ UPI ID verified and saved'
+          : '✓ UPI ID saved (format valid — live bank check unavailable right now)';
+
         return send(res, 200, {
-          valid: true, upiId, nameAtBank,
-          verificationMethod,
-          message: nameAtBank
-            ? `✓ Verified & saved — account holder: ${nameAtBank}`
-            : verificationMethod === 'format_fallback'
-              ? `✓ Saved — format valid (live verification unavailable right now)`
-              : `✓ UPI ID verified and saved`,
-          user: publicUser(user),
-          profileStatus: ps,
+          valid: true, upiId, nameAtBank, liveVerified,
+          message, user: publicUser(user), profileStatus: ps,
         });
       }
 
