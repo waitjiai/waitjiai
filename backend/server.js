@@ -90,6 +90,7 @@ let db = {
   sentLaunchEmails: {}, // { email: { sentAt, subject } } — duplicate-send protection for bulk waitlist emails
   houseAds: [],     // { id, text, url, active } — shown when no real advertiser campaign is active
   withdrawalRequests: [], // { id, userId, amountPaise, upiId, status, requestedAt, reviewedAt, reviewNote }
+  discountCodes: [],      // { id, code, discountPct, maxUses, usedCount, expiresAt, createdAt, active, description }
 };
 const HOUSE_AD_RATE_PAISE = 5000; // ₹50 per 1000 impressions, founder-funded (not billed to any advertiser)
 
@@ -107,6 +108,7 @@ async function loadDB() {
         db.sentLaunchEmails ||= {};
         db.houseAds ||= [];
         db.withdrawalRequests ||= [];
+        db.discountCodes ||= [];
         console.log(`Loaded DB from Postgres: ${Object.keys(db.users).length} users, ${Object.keys(db.campaigns).length} campaigns`);
       } else {
         console.log('No existing DB row in Postgres — starting fresh (first boot).');
@@ -563,11 +565,38 @@ const server = http.createServer(async (req, res) => {
         const c = db.campaigns[cid];
         if (!c || c.advertiserId !== user.id) return send(res, 404, { error: 'campaign not found' });
         if (c.status !== 'pending_payment') return send(res, 400, { error: 'This campaign is not awaiting payment.' });
+        const b = await getBody(req);
+
+        // Apply discount code if provided
+        let finalAmountPaise = c.budgetPaise;
+        let discountApplied = null;
+        if (b.discountCode) {
+          const code = b.discountCode.trim().toUpperCase();
+          const dc = (db.discountCodes || []).find(d => d.code === code && d.active);
+          if (dc && (!dc.expiresAt || Date.now() <= dc.expiresAt) && (!dc.maxUses || dc.usedCount < dc.maxUses)) {
+            const discountPaise = Math.floor(c.budgetPaise * dc.discountPct / 100);
+            finalAmountPaise = Math.max(100, c.budgetPaise - discountPaise); // min ₹1
+            discountApplied = { code: dc.code, discountPct: dc.discountPct, savedPaise: discountPaise };
+            // Store on campaign so verify-payment can record usage
+            c.pendingDiscountCode = dc.code;
+          }
+        }
+
         try {
-          const order = await razorpayApi('POST', '/orders', { amount: c.budgetPaise, currency: 'INR', receipt: c.id, notes: { campaignId: c.id, advertiserId: user.id } });
+          const order = await razorpayApi('POST', '/orders', {
+            amount: finalAmountPaise, currency: 'INR', receipt: c.id,
+            notes: { campaignId: c.id, advertiserId: user.id, discountCode: discountApplied?.code || '' }
+          });
           c.orderId = order.id;
+          c.finalBudgetPaise = finalAmountPaise; // actual charged amount
           saveDB();
-          return send(res, 200, { orderId: order.id, amountPaise: c.budgetPaise, keyId: RAZORPAY_KEY_ID });
+          return send(res, 200, {
+            orderId: order.id,
+            amountPaise: finalAmountPaise,
+            originalAmountPaise: c.budgetPaise,
+            keyId: RAZORPAY_KEY_ID,
+            discountApplied,
+          });
         } catch (e) {
           return send(res, 502, { error: e.message });
         }
@@ -590,6 +619,14 @@ const server = http.createServer(async (req, res) => {
         c.status = 'pending_review';
         c.paymentId = razorpay_payment_id;
         c.paidAt = Date.now();
+        c.paidAmountPaise = c.finalBudgetPaise || c.budgetPaise;
+        // Mark discount code as used
+        if (c.pendingDiscountCode) {
+          const dc = (db.discountCodes || []).find(d => d.code === c.pendingDiscountCode);
+          if (dc) { dc.usedCount = (dc.usedCount || 0) + 1; }
+          c.discountCode = c.pendingDiscountCode;
+          delete c.pendingDiscountCode;
+        }
         saveDB();
         return send(res, 200, { campaign: c });
       }
@@ -826,6 +863,23 @@ const server = http.createServer(async (req, res) => {
 
     } // end customer block
 
+    // ── Validate discount code (public — called from advertiser checkout) ──
+    if (method === 'POST' && url === '/v1/discount/validate') {
+      const b = await getBody(req);
+      const code = (b.code || '').trim().toUpperCase();
+      if (!code) return send(res, 400, { error: 'Code is required' });
+      const dc = (db.discountCodes || []).find(d => d.code === code && d.active);
+      if (!dc) return send(res, 404, { error: 'Invalid or expired discount code' });
+      if (dc.expiresAt && Date.now() > dc.expiresAt) return send(res, 400, { error: 'This discount code has expired' });
+      if (dc.maxUses && dc.usedCount >= dc.maxUses) return send(res, 400, { error: 'This discount code has reached its usage limit' });
+      return send(res, 200, {
+        valid: true,
+        code: dc.code,
+        discountPct: dc.discountPct,
+        description: dc.description || `${dc.discountPct}% off your campaign budget`,
+      });
+    }
+
     // ═══════════ ADMIN ═══════════
     if (url.startsWith('/v1/admin')) {
       const user = auth(req);
@@ -957,6 +1011,35 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { withdrawal: wr, message: 'Rejected and earner notified with reason.' });
       }
 
+      // advertiser detail profile
+      if (method === 'GET' && url.match(/^\/v1\/admin\/advertisers\/[^/]+$/)) {
+        const aid = url.split('/').pop();
+        const target = db.users[aid];
+        if (!target || target.role !== 'advertiser') return send(res, 404, { error: 'not found' });
+        const camps = Object.values(db.campaigns).filter(c => c.advertiserId === aid);
+        const allImps = db.impressions.filter(i => camps.some(c => c.id === i.campaignId));
+        const allClks = db.clicks.filter(c => camps.some(camp => camp.id === c.campaignId) && c.valid);
+        return send(res, 200, {
+          user: publicUser(target),
+          stats: {
+            totalCampaigns: camps.length,
+            activeCampaigns: camps.filter(c => c.status === 'active').length,
+            totalSpentRupees: (camps.reduce((s, c) => s + c.spentPaise, 0) / 100).toFixed(2),
+            totalImpressions: allImps.length,
+            totalClicks: allClks.length,
+            ctr: allImps.length ? (allClks.length / allImps.length * 100).toFixed(2) : '0.00',
+          },
+          campaigns: camps.map(c => ({
+            id: c.id, adText: c.adText, adType: c.adType || 'spotlight',
+            status: c.status, bidPaise: c.bidPaise,
+            spentRupees: (c.spentPaise / 100).toFixed(2),
+            budgetRupees: (c.budgetPaise / 100).toFixed(2),
+            discountCode: c.discountCode || null,
+            createdAt: c.createdAt,
+          })),
+        });
+      }
+
       if (method === 'GET' && url === '/v1/admin/advertisers') {
         const advs = Object.values(db.users).filter(u => u.role === 'advertiser').map(u => {
           const camps = Object.values(db.campaigns).filter(c => c.advertiserId === u.id);
@@ -1066,6 +1149,49 @@ const server = http.createServer(async (req, res) => {
       }
 
       // ── HOUSE ADS: manage the zero-advertiser fallback ──
+      // ── Discount codes CRUD ──
+      if (method === 'GET' && url === '/v1/admin/discount-codes') {
+        return send(res, 200, { codes: db.discountCodes || [] });
+      }
+      if (method === 'POST' && url === '/v1/admin/discount-codes') {
+        const b = await getBody(req);
+        if (!b.code || !b.discountPct) return send(res, 400, { error: 'code and discountPct required' });
+        const code = b.code.trim().toUpperCase().replace(/\s+/g, '');
+        if ((db.discountCodes || []).find(d => d.code === code)) return send(res, 400, { error: 'Code already exists' });
+        const dc = {
+          id: uid('dc_'), code,
+          discountPct: Math.min(100, Math.max(1, Number(b.discountPct))),
+          description: b.description || '',
+          maxUses: b.maxUses ? Number(b.maxUses) : null,
+          usedCount: 0,
+          expiresAt: b.expiresAt ? new Date(b.expiresAt).getTime() : null,
+          active: true,
+          createdAt: Date.now(),
+        };
+        db.discountCodes ||= [];
+        db.discountCodes.push(dc);
+        saveDB();
+        return send(res, 201, { code: dc });
+      }
+      if (method === 'PATCH' && url.match(/^\/v1\/admin\/discount-codes\/[^/]+$/)) {
+        const dcId = url.split('/').pop();
+        const dc = (db.discountCodes || []).find(d => d.id === dcId);
+        if (!dc) return send(res, 404, { error: 'not found' });
+        const b = await getBody(req);
+        if (b.active !== undefined) dc.active = !!b.active;
+        if (b.maxUses !== undefined) dc.maxUses = b.maxUses ? Number(b.maxUses) : null;
+        if (b.expiresAt !== undefined) dc.expiresAt = b.expiresAt ? new Date(b.expiresAt).getTime() : null;
+        if (b.description !== undefined) dc.description = b.description;
+        saveDB();
+        return send(res, 200, { code: dc });
+      }
+      if (method === 'DELETE' && url.match(/^\/v1\/admin\/discount-codes\/[^/]+$/)) {
+        const dcId = url.split('/').pop();
+        db.discountCodes = (db.discountCodes || []).filter(d => d.id !== dcId);
+        saveDB();
+        return send(res, 200, { deleted: true });
+      }
+
       if (method === 'GET' && url === '/v1/admin/house-ads') {
         return send(res, 200, { houseAds: db.houseAds || [] });
       }
