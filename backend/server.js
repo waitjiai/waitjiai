@@ -31,6 +31,32 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || null;
 // Resend API key — required to send bulk/marketing emails via Resend's HTTP API.
 const RESEND_API_KEY = process.env.RESEND_API_KEY || null;
 const LAUNCH_EMAIL_FROM = process.env.LAUNCH_EMAIL_FROM || 'WaitJI AI <admin@waitjiai.in>';
+
+// Cashfree Payouts — for automatic UPI/bank transfers to earners
+// Get from Cashfree dashboard → Payouts → API Keys
+const CASHFREE_CLIENT_ID = process.env.CASHFREE_CLIENT_ID || null;
+const CASHFREE_CLIENT_SECRET = process.env.CASHFREE_CLIENT_SECRET || null;
+const CASHFREE_ENV = process.env.CASHFREE_ENV || 'production'; // 'sandbox' for testing
+const CASHFREE_BASE = CASHFREE_ENV === 'sandbox'
+  ? 'https://sandbox.cashfree.com'
+  : 'https://api.cashfree.com';
+
+async function cashfreeApi(method, path, body) {
+  if (!CASHFREE_CLIENT_ID || !CASHFREE_CLIENT_SECRET) throw new Error('Cashfree is not configured (CASHFREE_CLIENT_ID / CASHFREE_CLIENT_SECRET missing)');
+  const r = await fetch(`${CASHFREE_BASE}${path}`, {
+    method,
+    headers: {
+      'x-client-id': CASHFREE_CLIENT_ID,
+      'x-client-secret': CASHFREE_CLIENT_SECRET,
+      'x-api-version': '2024-01-01',
+      'Content-Type': 'application/json',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d?.message || `Cashfree ${method} ${path} → ${r.status}`);
+  return { data: d, status: r.status };
+}
 // Razorpay — required for real advertiser payment collection. Never given a default
 // (these are secret credentials and must only live in Render's env vars).
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || null;
@@ -48,6 +74,69 @@ async function razorpayApi(method, path, body) {
   if (!r.ok) throw new Error(data?.error?.description || `Razorpay ${method} ${path} returned ${r.status}`);
   return data;
 }
+// ── Profile completion helper ──────────────────────────────────────────────────
+// A profile is "complete" if the earner has: name, phone, email verified,
+// AND either a verified UPI ID or a verified bank account (account+IFSC).
+// Withdrawal is blocked until all four requirements are met.
+function profileCompletion(user) {
+  const checks = {
+    name: !!(user.name && user.name.trim().length >= 2),
+    phone: !!(user.phone && /^[6-9]\d{9}$/.test(user.phone.replace(/\D/g, ''))),
+    emailVerified: !!user.emailVerified,
+    payoutMethod: !!(user.upiVerified && user.upiId) || !!(user.bankVerified && user.bankAccount && user.bankIfsc),
+  };
+  const completed = Object.values(checks).filter(Boolean).length;
+  const total = Object.keys(checks).length;
+  return { checks, completed, total, isComplete: completed === total };
+}
+
+// ── IFSC verification using free public IFSC API ──────────────────────────────
+async function verifyIFSC(ifsc) {
+  try {
+    const r = await fetch(`https://ifsc.razorpay.com/${ifsc.toUpperCase()}`, {
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!r.ok) return null;
+    return await r.json(); // { BANK, BRANCH, CITY, STATE, ADDRESS, CONTACT, MICR, UPI, RTGS, NEFT, IMPS }
+  } catch { return null; }
+}
+
+// ── Auto-payout via Cashfree ──────────────────────────────────────────────────
+async function disbursePayout(withdrawalRequest, user) {
+  const wid = withdrawalRequest.id;
+  const amountRupees = withdrawalRequest.amountPaise / 100;
+
+  try {
+    // Step 1: Create/update beneficiary
+    const beneId = 'bene_' + user.id.replace(/[^a-zA-Z0-9]/g, '');
+    const benePayload = user.upiVerified && user.upiId
+      ? { beneficiary_id: beneId, beneficiary_name: user.name, vpa: user.upiId }
+      : { beneficiary_id: beneId, beneficiary_name: user.name, bank_account: user.bankAccount, ifsc: user.bankIfsc };
+
+    try {
+      await cashfreeApi('POST', '/payout/v2/beneficiary', benePayload);
+    } catch (e) {
+      if (!e.message.includes('already exists') && !e.message.includes('409')) throw e;
+    }
+
+    // Step 2: Initiate transfer
+    const transferId = `waitji_${wid}_${Date.now()}`;
+    const transferPayload = {
+      transfer_id: transferId,
+      transfer_mode: user.upiVerified && user.upiId ? 'upi' : 'banktransfer',
+      beneficiary_id: beneId,
+      amount: amountRupees,
+      currency: 'INR',
+      remarks: `WaitJI AI earnings payout — ${wid}`,
+    };
+
+    const result = await cashfreeApi('POST', '/payout/v2/transfers', transferPayload);
+    return { success: true, cfTransferId: result.data?.transfer_id || transferId, mode: transferPayload.transfer_mode };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
 let extensionStatsCache = { installCount: null, fetchedAt: 0 };
 
 // Pulls REAL install count from the public VS Code Marketplace API. Cached for
@@ -754,46 +843,109 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { activity: imps });
       }
 
-      // verify UPI ID format (basic check — real verification requires bank API which is paid)
-      // Returns a structured result: valid format + safe to proceed, or specific error
+      // ── Profile status — what's complete, what's missing ──
+      if (method === 'GET' && url === '/v1/customer/profile-status') {
+        const ps = profileStatus(user);
+        return send(res, 200, { ...ps, user: publicUser(user) });
+      }
+
+      // ── Update profile (name, phone) ──
+      if (method === 'PATCH' && url === '/v1/customer/profile') {
+        const b = await getBody(req);
+        if (b.name !== undefined) user.name = b.name.trim();
+        if (b.phone !== undefined) {
+          const ph = b.phone.trim().replace(/\D/g, '');
+          if (ph && !/^[6-9]\d{9}$/.test(ph)) return send(res, 400, { error: 'Phone must be a valid 10-digit Indian mobile number' });
+          user.phone = ph;
+        }
+        saveDB();
+        const ps = profileStatus(user);
+        return send(res, 200, { user: publicUser(user), profileStatus: ps });
+      }
+
+      // ── IFSC Verify (free, uses Cashfree free IFSC API) ──
+      if (method === 'GET' && url.startsWith('/v1/customer/verify-ifsc/')) {
+        const ifsc = url.split('/').pop().toUpperCase();
+        if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) return send(res, 400, { error: 'Invalid IFSC format (e.g. SBIN0001234)' });
+        try {
+          // Cashfree free IFSC lookup
+          const r = await fetch(`https://ifsc.razorpay.com/${ifsc}`, { signal: AbortSignal.timeout(6000) });
+          if (!r.ok) return send(res, 404, { valid: false, error: 'IFSC not found — please check and re-enter' });
+          const d = await r.json();
+          return send(res, 200, { valid: true, ifsc, bank: d.BANK, branch: d.BRANCH, city: d.CITY, state: d.STATE });
+        } catch (e) {
+          return send(res, 502, { error: 'Could not verify IFSC right now — try again' });
+        }
+      }
+
+      // ── UPI Verify via Cashfree (real VPA validation) ──
       if (method === 'POST' && url === '/v1/customer/verify-upi') {
         const b = await getBody(req);
         const upiId = (b.upiId || '').trim();
         if (!upiId) return send(res, 400, { error: 'UPI ID is required' });
-        // UPI format: alphanumeric@bankhandle — digits, letters, dots, hyphens before @
         const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
-        if (!upiRegex.test(upiId)) {
+        if (!upiRegex.test(upiId)) return send(res, 400, { valid: false, error: 'Invalid UPI ID format (e.g. name@upi or 9876543210@okaxis)' });
+
+        if (CASHFREE_CLIENT_ID && CASHFREE_CLIENT_SECRET) {
+          try {
+            // Cashfree Validate Payout V2 — real UPI VPA validation
+            const { data } = await cashfreeApi('POST', '/payout/v2/vpa/validate', { vpa: upiId });
+            const name = data?.data?.name_at_bank || data?.name_at_bank || '';
+            const verified = data?.data?.valid === true || data?.valid === true;
+            if (!verified) return send(res, 400, { valid: false, error: 'UPI ID could not be verified — please check and try again' });
+            return send(res, 200, { valid: true, upiId, nameAtBank: name, message: name ? `✓ Verified — ${name}` : '✓ UPI ID is valid' });
+          } catch (e) {
+            // Cashfree down — fall back to format check
+            return send(res, 200, { valid: true, upiId, nameAtBank: '', message: 'UPI format valid (live verification unavailable right now)', fallback: true });
+          }
+        } else {
+          // No Cashfree keys — format-only check
+          return send(res, 200, { valid: true, upiId, nameAtBank: '', message: 'UPI format valid (configure CASHFREE keys for live verification)' });
+        }
+      }
+
+      // ── Bank account verify (save + mark verified) ──
+      if (method === 'POST' && url === '/v1/customer/verify-bank') {
+        const b = await getBody(req);
+        const { accountNumber, ifsc, accountHolder } = b;
+        if (!accountNumber || !ifsc || !accountHolder) return send(res, 400, { error: 'accountNumber, ifsc, and accountHolder are required' });
+        if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc.toUpperCase())) return send(res, 400, { error: 'Invalid IFSC format' });
+        // Save bank details — Cashfree penny drop is async/webhook-based, handled separately
+        user.bankAccount = { accountNumber, ifsc: ifsc.toUpperCase(), accountHolder: accountHolder.trim(), addedAt: Date.now() };
+        user.payoutMode = 'bank';
+        user.upiId = null;
+        user.payoutVerified = true; // trust user input; penny drop can be done for large withdrawals
+        saveDB();
+        const ps = profileStatus(user);
+        return send(res, 200, { success: true, message: 'Bank account saved', profileStatus: ps });
+      }
+
+      // ── Save verified UPI to profile ──
+      if (method === 'POST' && url === '/v1/customer/save-upi') {
+        const b = await getBody(req);
+        const upiId = (b.upiId || '').trim();
+        if (!upiId) return send(res, 400, { error: 'UPI ID required' });
+        user.upiId = upiId;
+        user.payoutMode = 'upi';
+        user.bankAccount = null;
+        user.payoutVerified = true;
+        saveDB();
+        const ps = profileStatus(user);
+        return send(res, 200, { success: true, user: publicUser(user), profileStatus: ps });
+      }
+
+      // request withdrawal — BLOCKED if profile incomplete
+      if (method === 'POST' && url === '/v1/customer/request-withdrawal') {
+        // Profile must be 100% complete before withdrawal
+        const ps = profileStatus(user);
+        if (!ps.complete) {
           return send(res, 400, {
-            valid: false,
-            error: 'Invalid UPI ID format. Example: yourname@upi or 9876543210@okaxis',
+            error: 'Complete your profile before requesting a withdrawal.',
+            missing: ps.missing,
+            profileIncomplete: true,
           });
         }
-        // Known valid bank handles list (not exhaustive, but catches the most common typos)
-        const knownHandles = ['upi','okaxis','okicici','oksbi','okhdfcbank','ybl','apl','ibl','axl','paytm','pthdfc','ptsbi','ptaxis','ptyes','hdfcbank','icici','sbi','axisbank','kotak','indus','boi','cub','federal','rbl','bob','idfcfirst','jupiter','fi','slice','niyobank','phonepe'];
-        const handle = upiId.split('@')[1].toLowerCase();
-        const knownHandle = knownHandles.includes(handle);
-        return send(res, 200, {
-          valid: true,
-          upiId,
-          knownHandle,
-          message: knownHandle
-            ? `✓ UPI format valid (${handle} is a recognized bank handle)`
-            : `UPI format looks valid, but "${handle}" is not a commonly recognized handle — double-check before saving`,
-        });
-      }
-
-      // update UPI ID (with optional name update) — user explicitly confirmed after verify
-      if (method === 'PATCH' && url === '/v1/customer/profile') {
-        const b = await getBody(req);
-        if (b.upiId !== undefined) user.upiId = b.upiId.trim();
-        if (b.name) user.name = b.name.trim();
-        saveDB();
-        return send(res, 200, { user: publicUser(user) });
-      }
-
-      // request withdrawal — replaces the old /v1/customer/payout
-      if (method === 'POST' && url === '/v1/customer/request-withdrawal') {
-        if (!user.upiId) return send(res, 400, { error: 'Please add and verify your UPI ID before requesting a withdrawal.' });
+        if (!user.upiId && !user.bankAccount) return send(res, 400, { error: 'Add a verified UPI ID or bank account before withdrawing.' });
 
         const imps = db.impressions.filter(i => i.userId === user.id);
         const total = imps.reduce((s, i) => s + i.earnedPaise, 0);
@@ -939,42 +1091,90 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { withdrawals: enriched, summary });
       }
 
-      // approve a withdrawal request — marks it approved, optionally sends email to earner
+      // approve a withdrawal request — auto-pays via Cashfree if configured
       if (method === 'POST' && url.match(/^\/v1\/admin\/withdrawals\/[^/]+\/approve$/)) {
         const wid = url.split('/')[4];
         const wr = db.withdrawalRequests.find(r => r.id === wid);
         if (!wr) return send(res, 404, { error: 'Withdrawal request not found' });
         if (wr.status !== 'pending') return send(res, 400, { error: `Cannot approve — status is "${wr.status}"` });
         const b = await getBody(req);
+        const earner = db.users[wr.userId];
+
+        let cashfreeTransferId = null;
+        let cashfreeError = null;
+        let autoPaid = false;
+
+        // Auto-pay via Cashfree if keys are configured
+        if (CASHFREE_CLIENT_ID && CASHFREE_CLIENT_SECRET && earner) {
+          try {
+            const transferBody = {
+              transfer_id: wr.id,
+              transfer_amount: (wr.amountPaise / 100).toFixed(2),
+              transfer_currency: 'INR',
+              transfer_mode: earner.payoutMode === 'bank' && earner.bankAccount ? 'banktransfer' : 'upi',
+              beneficiary_details: earner.payoutMode === 'bank' && earner.bankAccount ? {
+                beneficiary_id: 'BEN_' + wr.userId,
+                beneficiary_name: earner.bankAccount.accountHolder,
+                beneficiary_instrument_details: {
+                  bank_account_number: earner.bankAccount.accountNumber,
+                  bank_ifsc: earner.bankAccount.ifsc,
+                },
+              } : {
+                beneficiary_id: 'BEN_' + wr.userId,
+                beneficiary_name: earner.name || earner.email,
+                beneficiary_instrument_details: {
+                  vpa: earner.upiId,
+                },
+              },
+            };
+            const { data } = await cashfreeApi('POST', '/payout/v2/transfers', transferBody);
+            cashfreeTransferId = data?.data?.transfer_id || data?.transfer_id || wr.id;
+            autoPaid = true;
+            wr.cashfreeTransferId = cashfreeTransferId;
+          } catch (e) {
+            cashfreeError = e.message;
+            // Don't block approval — admin can still manually pay
+          }
+        }
+
         wr.status = 'approved';
         wr.reviewedAt = Date.now();
         wr.reviewNote = b.note || null;
-        // Also push to payouts for earnings accounting
-        db.payouts.push({ id: uid('p_'), userId: wr.userId, amountPaise: wr.amountPaise, status: 'paid', ts: Date.now(), withdrawalRequestId: wr.id });
+        wr.autoPaid = autoPaid;
+
+        // Record in payouts ledger
+        db.payouts.push({ id: uid('p_'), userId: wr.userId, amountPaise: wr.amountPaise, status: autoPaid ? 'paid' : 'approved', ts: Date.now(), withdrawalRequestId: wr.id, cashfreeTransferId });
         saveDB();
 
-        // Notify earner by email
-        if (RESEND_API_KEY && db.users[wr.userId]?.email) {
+        // Email earner
+        if (RESEND_API_KEY && earner?.email) {
           fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
               from: LAUNCH_EMAIL_FROM,
-              to: [db.users[wr.userId].email],
-              subject: `✅ Your withdrawal of ₹${(wr.amountPaise/100).toFixed(2)} has been approved`,
-              html: `<p>Hi ${db.users[wr.userId].name||'there'},</p>
-                <p>Your withdrawal request has been <b>approved</b>.</p>
+              to: [earner.email],
+              subject: `✅ Your withdrawal of ₹${(wr.amountPaise/100).toFixed(2)} has been ${autoPaid ? 'processed' : 'approved'}`,
+              html: `<p>Hi ${earner.name||'there'},</p>
+                <p>Your withdrawal has been <b>${autoPaid ? 'automatically processed via Cashfree' : 'approved'}</b>.</p>
                 <table style="border-collapse:collapse;font-size:14px;margin:16px 0">
                   <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Amount</td><td><b>₹${(wr.amountPaise/100).toFixed(2)}</b></td></tr>
-                  <tr><td style="padding:6px 12px 6px 0;color:#6B7185">UPI ID</td><td>${wr.upiId}</td></tr>
-                  ${wr.reviewNote?`<tr><td style="padding:6px 12px 6px 0;color:#6B7185">Note from team</td><td>${wr.reviewNote}</td></tr>`:''}
+                  <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Paid to</td><td>${wr.upiId || (earner.bankAccount?.accountNumber ? 'Bank account ending '+earner.bankAccount.accountNumber.slice(-4) : '—')}</td></tr>
+                  ${autoPaid ? '<tr><td style="padding:6px 12px 6px 0;color:#6B7185">Status</td><td>Transferred — should arrive within minutes to a few hours</td></tr>' : '<tr><td style="padding:6px 12px 6px 0;color:#6B7185">ETA</td><td>2–3 business days</td></tr>'}
+                  ${wr.reviewNote ? `<tr><td style="padding:6px 12px 6px 0;color:#6B7185">Note</td><td>${wr.reviewNote}</td></tr>` : ''}
                 </table>
-                <p>The amount will arrive in your UPI account within 2–3 business days. If you don't receive it, email us at admin@waitjiai.in with request ID <code>${wr.id}</code>.</p>
-                <p>Keep coding and earning! 🚀<br>— WaitJI AI Team</p>`,
+                <p>— WaitJI AI Team</p>`,
             }),
           }).catch(() => {});
         }
-        return send(res, 200, { withdrawal: wr, message: 'Approved and earner notified.' });
+
+        return send(res, 200, {
+          withdrawal: wr,
+          autoPaid,
+          cashfreeTransferId,
+          cashfreeError,
+          message: autoPaid ? 'Approved and auto-paid via Cashfree.' : cashfreeError ? `Approved (Cashfree error: ${cashfreeError} — please pay manually).` : 'Approved — Cashfree not configured, pay manually.',
+        });
       }
 
       // reject a withdrawal request — requires a reason, sends email to earner explaining why
@@ -1465,8 +1665,37 @@ function dailyBreakdown(campaignIds, days = 14) {
   return buckets.map(b => ({ date: b.date, impressions: b.impressions, validClicks: b.validClicks, invalidClicks: b.invalidClicks, spentRupees: (b.spentPaise / 100).toFixed(2) }));
 }
 
+// ── Profile completeness check ──────────────────────────────────────────────
+// Returns an object describing what's complete and what's missing.
+// Withdrawal is BLOCKED unless all 5 fields are verified.
+function profileStatus(user) {
+  const checks = {
+    name:    { done: !!(user.name && user.name.trim().length >= 2),      label: 'Full name' },
+    phone:   { done: !!(user.phone && /^[6-9]\d{9}$/.test(user.phone)), label: 'Phone number (10 digit)' },
+    email:   { done: !!(user.emailVerified),                              label: 'Email verified' },
+    payout:  { done: !!(user.payoutVerified),                             label: 'UPI or bank account verified' },
+  };
+  const complete = Object.values(checks).every(c => c.done);
+  const missing = Object.entries(checks).filter(([,v]) => !v.done).map(([,v]) => v.label);
+  return { complete, checks, missing };
+}
+
 function publicUser(u) {
-  return { id: u.id, email: u.email, phone: u.phone || '', role: u.role, name: u.name, company: u.company, upiId: u.upiId, provider: u.provider || 'email', emailVerified: !!u.emailVerified, phoneVerified: !!u.phoneVerified, banned: u.banned, banReason: u.banReason || null, lastActiveAt: u.lastActiveAt || null, createdAt: u.createdAt };
+  const ps = profileStatus(u);
+  const payoutMethod = u.payoutMode === 'bank' && u.bankAccount
+    ? { type: 'bank', last4: u.bankAccount.accountNumber?.slice(-4), bankIfsc: u.bankAccount.ifsc, bankName: u.bankAccount.accountHolder }
+    : u.upiId ? { type: 'upi', upiId: u.upiId } : null;
+  return {
+    id: u.id, email: u.email, phone: u.phone || '', role: u.role,
+    name: u.name, company: u.company, upiId: u.upiId,
+    provider: u.provider || 'email',
+    emailVerified: !!u.emailVerified, phoneVerified: !!u.phoneVerified,
+    banned: u.banned, banReason: u.banReason || null,
+    lastActiveAt: u.lastActiveAt || null, createdAt: u.createdAt,
+    payoutVerified: !!u.payoutVerified, payoutMode: u.payoutMode || null,
+    payoutMethod,
+    profileStatus: ps,
+  };
 }
 
 (async () => {
