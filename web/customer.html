@@ -104,6 +104,14 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1
 .btn-out{background:transparent;border:1.5px solid var(--border2);color:var(--ink);padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);transition:.15s;}
 .btn-out:hover{border-color:var(--sage);color:var(--sage);}
 
+
+/* ── Moving alert banner ── */
+.alert-banner{background:#B91C1C;color:#fff;padding:9px 0;overflow:hidden;width:100%;position:relative;z-index:99;}
+.alert-banner-track{display:flex;animation:marquee 28s linear infinite;white-space:nowrap;}
+.alert-banner-track:hover{animation-play-state:paused;}
+.alert-banner-item{font-family:var(--mono);font-size:12.5px;font-weight:600;letter-spacing:.3px;padding:0 60px;flex-shrink:0;}
+.alert-banner-item span{margin:0 16px;opacity:.7;}
+@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 </style>
   <link rel="icon" type="image/png" sizes="192x192" href="logo-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="logo-512.png">
@@ -122,6 +130,12 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-LGNX0BPWPJ');</script>
 </head>
 <body>
+<div class="alert-banner" role="alert">
+  <div class="alert-banner-track">
+    <div class="alert-banner-item">⚠️ UPI is currently facing technical issues &nbsp;·&nbsp; Please add your bank account details for smoother &amp; faster withdrawals &nbsp;·&nbsp; Go to: Payout method → Bank Account</div>
+    <div class="alert-banner-item">⚠️ UPI is currently facing technical issues &nbsp;·&nbsp; Please add your bank account details for smoother &amp; faster withdrawals &nbsp;·&nbsp; Go to: Payout method → Bank Account</div>
+  </div>
+</div>
 <div class="topbar">
   <a class="logo" href="index.html"><span class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.35)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></span>Wait<em>JI</em> AI</a>
   <div class="topbar-r">
