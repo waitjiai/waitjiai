@@ -289,7 +289,26 @@ function render(e,activity,withdrawals){
 }
 
 function bankFormHtml(){
-  return '<div><div class="upi-input" style="margin-bottom:8px"><input id="bankIfscInput" placeholder="IFSC code (e.g. HDFC0001234)" maxlength="11" oninput="this.value=this.value.toUpperCase()"><button class="btn-solid" onclick="verifyIFSC()">Verify</button></div><div id="ifscResult" style="font-size:12px;margin-bottom:8px"></div><div class="upi-input" style="margin-bottom:8px"><input id="bankAccInput" placeholder="Account number" type="text" inputmode="numeric"></div><div class="upi-input" style="margin-bottom:8px"><input id="bankAccConfirm" placeholder="Re-enter account number" type="text" inputmode="numeric"></div><button class="btn-solid" onclick="saveBank()">Save bank account</button><div id="bankSaveResult" style="font-size:12px;margin-top:8px"></div></div>';
+  return `<div>
+    <div style="margin-bottom:8px">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Account Holder Name</div>
+      <input id="bankHolderInput" placeholder="Full name as per bank account" style="width:100%;background:var(--cream,#F8F5EE);border:1.5px solid var(--border,#D4D9CF);border-radius:9px;padding:10px 13px;font-family:var(--body);font-size:14px;outline:none;">
+    </div>
+    <div style="margin-bottom:8px">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Account Number</div>
+      <input id="bankAccInput" placeholder="Enter account number" type="text" inputmode="numeric" style="width:100%;background:var(--cream,#F8F5EE);border:1.5px solid var(--border,#D4D9CF);border-radius:9px;padding:10px 13px;font-family:var(--mono);font-size:14px;outline:none;letter-spacing:1px;">
+    </div>
+    <div style="margin-bottom:8px">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Re-enter Account Number</div>
+      <input id="bankAccConfirm" placeholder="Confirm account number" type="text" inputmode="numeric" style="width:100%;background:var(--cream,#F8F5EE);border:1.5px solid var(--border,#D4D9CF);border-radius:9px;padding:10px 13px;font-family:var(--mono);font-size:14px;outline:none;letter-spacing:1px;">
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">IFSC Code</div>
+      <input id="bankIfscInput" placeholder="e.g. HDFC0001234" maxlength="11" oninput="this.value=this.value.toUpperCase()" style="width:100%;background:var(--cream,#F8F5EE);border:1.5px solid var(--border,#D4D9CF);border-radius:9px;padding:10px 13px;font-family:var(--mono);font-size:14px;outline:none;letter-spacing:1px;">
+    </div>
+    <button class="btn-solid" onclick="saveBank()" style="width:100%">Save bank account</button>
+    <div id="bankSaveResult" style="font-size:12px;margin-top:8px"></div>
+  </div>`;
 }
 
 function switchPayoutTab(tab){
@@ -317,36 +336,24 @@ async function savePhone(){
   else toast('⚠️ Could not save phone');
 }
 
-async function verifyIFSC(){
-  const ifsc=(document.getElementById('bankIfscInput')?.value||'').trim().toUpperCase();
-  if(!ifsc||ifsc.length!==11){ toast('⚠️ Enter a valid 11-character IFSC code'); return; }
-  const res=document.getElementById('ifscResult');
-  res.textContent='Verifying…'; res.style.color='var(--muted)';
-  const r=await fetch(API+'/v1/customer/verify-bank',{method:'POST',headers:H,body:JSON.stringify({ifsc,action:'verify-only',account:'000000000'})});
-  const d=await r.json();
-  if(d.valid||d.bank){
-    res.innerHTML=`<span style="color:#047857">✓ ${d.bank||d.BANK||''} — ${d.branch||d.BRANCH||''}, ${d.city||d.CITY||''}</span>`;
-  } else {
-    res.innerHTML=`<span style="color:#B91C1C">✗ ${d.error||'IFSC not found'}</span>`;
-  }
-}
-
 async function saveBank(){
   const ifsc=(document.getElementById('bankIfscInput')?.value||'').trim().toUpperCase();
   const acc=(document.getElementById('bankAccInput')?.value||'').trim();
   const accC=(document.getElementById('bankAccConfirm')?.value||'').trim();
+  const holder=(document.getElementById('bankHolderInput')?.value||'').trim();
   const saveRes=document.getElementById('bankSaveResult');
-  if(!ifsc||ifsc.length!==11){ toast('⚠️ Enter a valid IFSC code'); return; }
-  if(!acc||acc.length<9){ toast('⚠️ Enter a valid account number'); return; }
-  if(acc!==accC){ saveRes.innerHTML='<span style="color:#B91C1C">✗ Account numbers do not match</span>'; return; }
+  if(!ifsc||ifsc.length!==11){ toast('⚠️ Enter a valid 11-character IFSC code'); return; }
+  if(!holder){ saveRes.innerHTML='<span style="color:#B91C1C">✗ Enter account holder name</span>'; return; }
+  if(!acc||acc.length<9){ toast('⚠️ Enter a valid account number (min 9 digits)'); return; }
+  if(acc!==accC){ saveRes.innerHTML='<span style="color:#B91C1C">✗ Account numbers do not match — please re-enter</span>'; return; }
   saveRes.textContent='Verifying…'; saveRes.style.color='var(--muted)';
-  const r=await fetch(API+'/v1/customer/verify-bank',{method:'POST',headers:H,body:JSON.stringify({ifsc,account:acc})});
+  const r=await fetch(API+'/v1/customer/verify-bank',{method:'POST',headers:H,body:JSON.stringify({accountNumber:acc, ifsc, accountHolder:holder})});
   const d=await r.json();
-  if(r.ok&&d.valid){
+  if(r.ok&&(d.success||d.valid)){
     saveRes.innerHTML=`<span style="color:#047857">✓ ${d.message||'Bank account saved'}</span>`;
-    toast('✓ Bank account verified and saved'); setTimeout(load,800);
+    toast('✓ Bank account saved'); setTimeout(load,800);
   } else {
-    saveRes.innerHTML=`<span style="color:#B91C1C">✗ ${d.error||'Could not verify'}</span>`;
+    saveRes.innerHTML=`<span style="color:#B91C1C">✗ ${d.error||'Could not save — check your details and try again'}</span>`;
   }
 }
 
