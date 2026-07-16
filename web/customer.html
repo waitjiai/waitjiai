@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WaitJI AI — Earnings Dashboard</title>
+<meta name="robots" content="noindex,nofollow">
 
 <style>
 :root{
@@ -234,15 +235,32 @@ function render(e,activity,withdrawals){
             <button class="role-tab ${me.payoutMode!=='bank'?'active':''}" id="tabUpi" onclick="switchPayoutTab('upi')"><div style="font-size:13px;font-weight:700">💳 UPI ID</div><div style="font-size:11px;opacity:.7">Instant</div></button>
             <button class="role-tab ${me.payoutMode==='bank'?'active':''}" id="tabBank" onclick="switchPayoutTab('bank')"><div style="font-size:13px;font-weight:700">🏦 Bank Account</div><div style="font-size:11px;opacity:.7">NEFT/IMPS</div></button>
           </div>
-          <div id="upiTab" style="display:${me.payoutMode!=='bank'?'block':'none'}">
-            ${me.upiId && me.payoutVerified && me.payoutMode!=='bank'
-              ?`<div style="background:#EBF5EE;border:1.5px solid #A7F3C8;border-radius:9px;padding:12px;margin-bottom:10px"><div style="font-size:11px;color:var(--muted);margin-bottom:4px">Verified UPI</div><div style="font-weight:700;font-family:var(--mono)">${esc(me.upiId)}</div></div><button class="mini-btn" onclick="showChangeUpi()">Change UPI</button><div id="changeUpiBox" style="display:none;margin-top:10px"><div class="upi-input"><input id="upiChangeInput" placeholder="new@upihandle"><button class="btn-solid" onclick="verifyAndSaveUpi()">Verify &amp; Save</button></div><div id="upiVerifyResult" style="font-size:12px;margin-top:6px"></div></div>`
-              :`<div class="upi-input"><input id="upiInput" placeholder="yourname@upi or 9876543210@okaxis"><button class="btn-solid" onclick="verifyAndSaveUpi()">Verify &amp; Save</button></div><div id="upiVerifyResult" style="font-size:12px;margin-top:6px"></div><p style="font-size:11px;color:var(--muted2);margin-top:4px">We verify the UPI ID is live before saving</p>`
+          <div id="upiTab" style="display:${me.payoutMode==='bank'?'none':'block'}">
+            ${me.upiId && me.payoutVerified
+              ?`<div style="background:#EBF5EE;border:1.5px solid #A7F3C8;border-radius:9px;padding:12px;margin-bottom:10px">
+                  <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Verified UPI</div>
+                  <div style="font-weight:700;font-family:var(--mono)">${esc(me.upiId)}</div>
+                  ${me.upiNameAtBank?`<div style="font-size:11px;color:#047857;margin-top:3px">✓ ${esc(me.upiNameAtBank)}</div>`:''}
+                </div>
+                <button class="mini-btn" onclick="showChangeUpi()">Change UPI</button>
+                <div id="changeUpiBox" style="display:none;margin-top:10px">
+                  <div class="upi-input"><input id="upiChangeInput" placeholder="new@upihandle"><button class="btn-solid" onclick="verifyAndSaveUpi()">Verify &amp; Save</button></div>
+                  <div id="upiVerifyResult" style="font-size:12px;margin-top:6px"></div>
+                </div>`
+              :`<div class="upi-input"><input id="upiInput" placeholder="yourname@upi or 9876543210@okaxis"><button class="btn-solid" onclick="verifyAndSaveUpi()">Verify &amp; Save</button></div>
+                <div id="upiVerifyResult" style="font-size:12px;margin-top:6px"></div>
+                <p style="font-size:11px;color:var(--muted2);margin-top:4px">Enter UPI ID and click Verify &amp; Save</p>`
             }
           </div>
           <div id="bankTab" style="display:${me.payoutMode==='bank'?'block':'none'}">
-            ${me.payoutMode==='bank' && me.bankAccount && me.bankVerified
-              ?`<div style="background:#EBF5EE;border:1.5px solid #A7F3C8;border-radius:9px;padding:12px;margin-bottom:10px"><div style="font-size:11px;color:var(--muted)">Verified bank account</div><div style="font-weight:700;font-family:var(--mono)">•••• ${me.bankAccount?.accountNumber?.slice(-4)||'????'}</div><div style="font-size:12px;color:var(--muted);margin-top:3px">${esc(me.bankAccount?.ifsc||'')} · ${esc(me.bankAccount?.accountHolder||'')}</div></div><button class="mini-btn" onclick="showChangeBank()">Change account</button><div id="changeBankBox" style="display:none;margin-top:10px">${bankFormHtml()}</div>`
+            ${me.bankVerified && me.bankAccount
+              ?`<div style="background:#EBF5EE;border:1.5px solid #A7F3C8;border-radius:9px;padding:12px;margin-bottom:10px">
+                  <div style="font-size:11px;color:var(--muted)">Verified bank account</div>
+                  <div style="font-weight:700;font-family:var(--mono)">•••• ${me.bankAccount?.slice(-4)||me.bankAccount}</div>
+                  <div style="font-size:12px;color:var(--muted);margin-top:3px">${esc(me.bankIfsc||'')} · ${esc(me.bankName||'')}</div>
+                </div>
+                <button class="mini-btn" onclick="showBankForm()">Change account</button>
+                <div id="bankFormBox" style="display:none;margin-top:10px">${bankFormHtml()}</div>`
               :bankFormHtml()
             }
           </div>
@@ -279,6 +297,8 @@ function switchPayoutTab(tab){
   document.getElementById('bankTab').style.display=tab==='bank'?'block':'none';
   document.getElementById('tabUpi').classList.toggle('active',tab==='upi');
   document.getElementById('tabBank').classList.toggle('active',tab==='bank');
+  // Keep local state so tab stays selected after any minor re-render
+  if(me) me._activePayoutTab = tab;
 }
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
@@ -330,6 +350,10 @@ async function saveBank(){
   }
 }
 
+function showBankForm(){
+  const box=document.getElementById('bankFormBox');
+  if(box) box.style.display=box.style.display==='none'?'block':'none';
+}
 function showChangeBank(){
   const box=document.getElementById('changeBankBox');
   if(box) box.style.display=box.style.display==='none'?'block':'none';
