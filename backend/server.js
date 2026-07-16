@@ -936,8 +936,10 @@ const server = http.createServer(async (req, res) => {
         // Save bank details — Cashfree penny drop is async/webhook-based, handled separately
         user.bankAccount = { accountNumber, ifsc: ifsc.toUpperCase(), accountHolder: accountHolder.trim(), addedAt: Date.now() };
         user.payoutMode = 'bank';
+        user.bankVerified = true;
         user.upiId = null;
-        user.payoutVerified = true; // trust user input; penny drop can be done for large withdrawals
+        user.upiVerified = false;
+        user.payoutVerified = true;
         saveDB();
         const ps = profileStatus(user);
         return send(res, 200, { success: true, message: 'Bank account saved', profileStatus: ps });
