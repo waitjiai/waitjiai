@@ -83,7 +83,7 @@ function profileCompletion(user) {
     name: !!(user.name && user.name.trim().length >= 2),
     phone: !!(user.phone && /^[6-9]\d{9}$/.test(user.phone.replace(/\D/g, ''))),
     emailVerified: !!user.emailVerified,
-    payoutMethod: !!(user.upiVerified && user.upiId) || !!(user.bankVerified && user.bankAccount && user.bankIfsc),
+    payoutMethod: !!(user.upiVerified && user.upiId) || !!(user.bankVerified && user.bankAccount?.accountNumber),
   };
   const completed = Object.values(checks).filter(Boolean).length;
   const total = Object.keys(checks).length;
@@ -111,7 +111,7 @@ async function disbursePayout(withdrawalRequest, user) {
     const beneId = 'bene_' + user.id.replace(/[^a-zA-Z0-9]/g, '');
     const benePayload = user.upiVerified && user.upiId
       ? { beneficiary_id: beneId, beneficiary_name: user.name, vpa: user.upiId }
-      : { beneficiary_id: beneId, beneficiary_name: user.name, bank_account: user.bankAccount, ifsc: user.bankIfsc };
+      : { beneficiary_id: beneId, beneficiary_name: user.name, bank_account: user.bankAccount?.accountNumber, ifsc: user.bankAccount?.ifsc };
 
     try {
       await cashfreeApi('POST', '/payout/v2/beneficiary', benePayload);
@@ -1716,6 +1716,9 @@ function publicUser(u) {
     banned: u.banned, banReason: u.banReason || null,
     lastActiveAt: u.lastActiveAt || null, createdAt: u.createdAt,
     payoutVerified: !!u.payoutVerified, payoutMode: u.payoutMode || null,
+    bankVerified: !!u.bankVerified,
+    bankAccount: u.bankAccount || null,   // full object: {accountNumber, ifsc, accountHolder}
+    upiNameAtBank: u.upiNameAtBank || '',
     payoutMethod,
     profileStatus: ps,
   };
