@@ -278,11 +278,11 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
       <div class="card-pricing">
         <div class="price-col">
           <div class="price-role">Advertiser pays</div>
-          <div class="price-val">₹800 <span class="unit">/ 1K impressions</span></div>
+          <div class="price-val"><span id="spotAdvPays">₹800</span> <span class="unit">/ 1K impressions</span></div>
         </div>
         <div class="price-col">
           <div class="price-role">Developer earns</div>
-          <div class="price-val">₹400 <span class="unit">/ 1K impressions</span></div>
+          <div class="price-val"><span id="spotDevEarns">₹520</span> <span class="unit">/ 1K impressions</span></div>
         </div>
       </div>
     </div>
@@ -305,11 +305,11 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
       <div class="card-pricing light">
         <div class="price-col light">
           <div class="price-role" style="color:var(--muted)">Advertiser pays</div>
-          <div class="price-val" style="color:var(--ink)">₹300 <span class="unit" style="color:var(--muted)">/ 1K impressions</span></div>
+          <div class="price-val" style="color:var(--ink)"><span id="streamAdvPays">₹300</span> <span class="unit" style="color:var(--muted)">/ 1K impressions</span></div>
         </div>
         <div class="price-col light">
           <div class="price-role" style="color:var(--muted)">Developer earns</div>
-          <div class="price-val" style="color:var(--ink)">₹150 <span class="unit" style="color:var(--muted)">/ 1K impressions</span></div>
+          <div class="price-val" style="color:var(--ink)"><span id="streamDevEarns">₹195</span> <span class="unit" style="color:var(--muted)">/ 1K impressions</span></div>
         </div>
       </div>
     </div>
@@ -350,14 +350,14 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
     <div class="bid-panel">
       <div class="bid-panel-head">
         <div class="bid-panel-title">★ Spotlight auction <span class="bid-live">LIVE</span></div>
-        <div style="font-family:var(--mono);font-size:12px;color:var(--muted)">min ₹800/1K</div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--muted)">min <span id="spotMinBid">₹800</span>/1K</div>
       </div>
       <div class="bid-rows" id="spotlightRows"><div class="bid-empty">Loading…</div></div>
     </div>
     <div class="bid-panel">
       <div class="bid-panel-head">
         <div class="bid-panel-title">◎ Stream auction <span class="bid-live">LIVE</span></div>
-        <div style="font-family:var(--mono);font-size:12px;color:var(--muted)">min ₹300/1K</div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--muted)">min <span id="streamMinBid">₹300</span>/1K</div>
       </div>
       <div class="bid-rows" id="streamRows"><div class="bid-empty">Loading…</div></div>
     </div>
@@ -375,9 +375,9 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
         <div class="pc-badge featured">★ SPOTLIGHT</div>
         <h3>Premium placement</h3>
         <p class="price-card-sub">Inside the Claude Code thinking spinner — highest developer attention, clickable everywhere.</p>
-        <div class="price-row"><span class="price-role price-row-label">CPM (per 1,000 views)</span><span class="price-row-val">₹800</span></div>
-        <div class="price-row"><span class="price-role price-row-label">Click rate</span><span class="price-row-val">₹0.40/click</span></div>
-        <div class="price-row"><span class="price-role price-row-label">Min. campaign budget</span><span class="price-row-val">₹5,000</span></div>
+        <div class="price-row"><span class="price-role price-row-label">CPM (per 1,000 views)</span><span class="price-row-val" id="spotCPM">₹800</span></div>
+        <div class="price-row"><span class="price-role price-row-label">Click rate (50× CPM)</span><span class="price-row-val" id="spotClickRate">₹0.40/click</span></div>
+        <div class="price-row"><span class="price-role price-row-label">Min. campaign budget</span><span class="price-row-val" id="spotMinBudget">₹5,000</span></div>
         <div class="price-row"><span class="price-role price-row-label">Fraud protection</span><span class="price-row-val">✓ Included</span></div>
         <div class="price-row"><span class="price-role price-row-label">Content review</span><span class="price-row-val">Within 24h</span></div>
         <a href="advertiser.html" class="price-cta">Start Spotlight campaign →</a>
@@ -386,9 +386,9 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
         <div class="pc-badge stream">◎ STREAM</div>
         <h3>Standard placement</h3>
         <p class="price-card-sub">Terminal status line — massive volume at brand-friendly prices for developer awareness campaigns.</p>
-        <div class="price-row"><span class="price-role price-row-label">CPM (per 1,000 views)</span><span class="price-row-val">₹300</span></div>
-        <div class="price-row"><span class="price-role price-row-label">Click rate</span><span class="price-row-val">₹0.15/click</span></div>
-        <div class="price-row"><span class="price-role price-row-label">Min. campaign budget</span><span class="price-row-val">₹2,000</span></div>
+        <div class="price-row"><span class="price-role price-row-label">CPM (per 1,000 views)</span><span class="price-row-val" id="streamCPM">₹300</span></div>
+        <div class="price-row"><span class="price-role price-row-label">Click rate (50× CPM)</span><span class="price-row-val" id="streamClickRate">₹0.15/click</span></div>
+        <div class="price-row"><span class="price-role price-row-label">Min. campaign budget</span><span class="price-row-val" id="streamMinBudget">₹2,000</span></div>
         <div class="price-row"><span class="price-role price-row-label">Fraud protection</span><span class="price-row-val">✓ Included</span></div>
         <div class="price-row"><span class="price-role price-row-label">Content review</span><span class="price-row-val">Within 24h</span></div>
         <a href="advertiser.html" class="price-cta" style="background:var(--sage)">Start Stream campaign →</a>
@@ -698,26 +698,33 @@ function fmt(n, decimals=0){
 function updatePriceElements(){
   const p = currentPricing;
   const sym = p.symbol;
+  const spotDev = Math.round(p.spot * 0.65);
+  const streamDev = Math.round(p.stream * 0.65);
 
-  // Update all [data-price] elements
-  document.querySelectorAll('[data-price]').forEach(el=>{
-    const key = el.dataset.price;
-    let val = '';
-    if(key === 'spotlight_cpm')   val = sym + fmt(p.spot) + '/1K';
-    if(key === 'stream_cpm')      val = sym + fmt(p.stream) + '/1K';
-    if(key === 'dev_earn_spot')   val = sym + fmt(Math.round(p.spot*0.65)) + '/1K';
-    if(key === 'dev_earn_stream') val = sym + fmt(Math.round(p.stream*0.65)) + '/1K';
-    if(key === 'min_budget')      val = sym + fmt(p.minBudget);
-    if(key === 'click_rate_spot') val = sym + (p.spot/200).toFixed(2) + '/click';
-    if(key === 'click_rate_str')  val = sym + (p.stream/200).toFixed(2) + '/click';
-    if(val) el.textContent = val;
-  });
+  function set(id, val){ const el=document.getElementById(id); if(el) el.textContent=val; }
 
-  // Update pricing cards if they exist
-  const spotCard = document.getElementById('spotlightPriceCard');
-  const streamCard = document.getElementById('streamPriceCard');
-  if(spotCard) spotCard.innerHTML = buildPriceCard('spotlight');
-  if(streamCard) streamCard.innerHTML = buildPriceCard('stream');
+  // Ad type cards (big display numbers)
+  set('spotAdvPays',  sym + fmt(p.spot));
+  set('spotDevEarns', sym + fmt(spotDev));
+  set('streamAdvPays',  sym + fmt(p.stream));
+  set('streamDevEarns', sym + fmt(streamDev));
+
+  // Live bid min labels
+  set('spotMinBid',   sym + fmt(p.spot));
+  set('streamMinBid', sym + fmt(p.stream));
+
+  // Pricing section rows — Spotlight
+  set('spotCPM',       sym + fmt(p.spot));
+  set('spotClickRate', sym + (p.spot/20).toFixed(2) + '/click');
+  set('spotMinBudget', sym + fmt(p.minBudget));
+
+  // Pricing section rows — Stream
+  set('streamCPM',       sym + fmt(p.stream));
+  set('streamClickRate', sym + (p.stream/20).toFixed(2) + '/click');
+  set('streamMinBudget', sym + fmt(Math.round(p.minBudget * 0.4)));
+
+  // Global pricing table — India row always stays INR, others dynamic
+  // (Table is static for now — shows comparison across countries)
 }
 
 function buildPriceCard(type){
