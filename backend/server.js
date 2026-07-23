@@ -576,11 +576,19 @@ const server = http.createServer(async (req, res) => {
       const params = new URL('http://x'+url).searchParams;
       const adType = params.get('type') || 'spotlight'; // default: spotlight (VS Code spinner)
 
+      const reqCountry = b?.country || 'IN';
       const ads = Object.values(db.campaigns)
-        .filter(c => c.status === 'active' && c.spentPaise < c.budgetPaise && (c.adType === adType || !c.adType))
+        .filter(c => {
+          if (c.status !== 'active' || c.spentPaise >= c.budgetPaise) return false;
+          if (c.adType && c.adType !== adType) return false;
+          // Geo filter — only serve if campaign targets this country (default IN)
+          const geoCountries = c.geo?.countries || ['IN'];
+          if (geoCountries.length && !geoCountries.includes(reqCountry)) return false;
+          return true;
+        })
         .sort((a, b) => b.bidPaise - a.bidPaise)
         .slice(0, 3)
-        .map(c => ({ id: c.id, text: c.adText, url: c.url, advertiser: c.advertiser, cpmPaise: c.bidPaise, adType: c.adType || 'spotlight', isHouseAd: false }));
+        .map(c => ({ id: c.id, text: c.adText, url: c.url, advertiser: c.advertiser, cpmPaise: c.bidPaise, adType: c.adType || 'spotlight', isHouseAd: false, geo: c.geo }));
 
       if (ads.length > 0) return send(res, 200, { ads, servedAt: Date.now() });
 
@@ -692,10 +700,28 @@ const server = http.createServer(async (req, res) => {
         db.campaigns[id] = {
           id, advertiserId: user.id, advertiser: user.company || user.name || user.email,
           adText: b.adText, url: b.url, bidPaise,
-          adType,  // 'spotlight' | 'stream'
+          adType,
           budgetPaise: b.budgetPaise || 500000, spentPaise: 0,
           status: 'pending_payment', createdAt: Date.now(),
           targetingCategory: b.targetingCategory || 'all',
+          // Geo-targeting
+          geo: {
+            countries: b.geo?.countries || ['IN'],           // ISO country codes ['IN','US']
+            states: b.geo?.states || [],                      // Indian states ['MH','KA','DL']
+            cities: b.geo?.cities || [],                      // ['Mumbai','Bangalore','Delhi']
+            excludeCountries: b.geo?.excludeCountries || [],
+          },
+          // Audience targeting
+          targeting: {
+            devExperience: b.targeting?.devExperience || 'all', // 'junior','mid','senior','all'
+            ideTools: b.targeting?.ideTools || ['vscode'],       // ['vscode','cursor','codex']
+            timeOfDay: b.targeting?.timeOfDay || 'all',          // 'morning','evening','all'
+            languages: b.targeting?.languages || [],             // ['javascript','python','all']
+          },
+          // Campaign metadata
+          companyName: b.companyName || user.company || '',
+          campaignName: b.campaignName || b.adText.slice(0, 40),
+          ctaText: b.ctaText || '',
           paymentId: null, orderId: null, paidAt: null, refunded: false,
         };
         saveDB();
