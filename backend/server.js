@@ -181,7 +181,41 @@ let db = {
   withdrawalRequests: [], // { id, userId, amountPaise, upiId, status, requestedAt, reviewedAt, reviewNote }
   discountCodes: [],      // { id, code, discountPct, maxUses, usedCount, expiresAt, createdAt, active, description }
 };
-const HOUSE_AD_RATE_PAISE = 5000; // ₹50 per 1000 impressions, founder-funded (not billed to any advertiser)
+const HOUSE_AD_RATE_PAISE = 5000; // ₹50 per 1000 impressions, founder-funded
+
+// ── Country-specific pricing (PPP + exchange rate adjusted) ──────────────────
+// Base: India ₹800 Spotlight / ₹300 Stream per 1K impressions
+// All prices stored internally in INR paise. Exchange rates approximate June 2026.
+// Logic: USD price × exchange_rate = INR equivalent, then PPP-adjust for local economy
+const GEO_PRICING = {
+  IN: { currency:'INR', symbol:'₹', rate:1, spotlight:{ min:80000, recommended:80000 }, stream:{ min:30000, recommended:30000 }, label:'India', minBudgetSpotlight:500000, minBudgetStream:200000 },
+  US: { currency:'USD', symbol:'$', rate:8390, spotlight:{ min:101880, recommended:118000 }, stream:{ min:42000, recommended:50000 }, label:'USA', minBudgetSpotlight:1000000, minBudgetStream:400000 },
+  // 1 USD ≈ ₹83.9 · US devs have 3x higher ad value · Spotlight $12/1K, Stream $5/1K
+  GB: { currency:'GBP', symbol:'£', rate:10600, spotlight:{ min:106000, recommended:127000 }, stream:{ min:45000, recommended:53000 }, label:'United Kingdom', minBudgetSpotlight:1000000, minBudgetStream:400000 },
+  // 1 GBP ≈ ₹106 · Spotlight £10/1K
+  SG: { currency:'SGD', symbol:'S$', rate:6200, spotlight:{ min:99200, recommended:111600 }, stream:{ min:40000, recommended:46000 }, label:'Singapore', minBudgetSpotlight:900000, minBudgetStream:360000 },
+  // 1 SGD ≈ ₹62 · Spotlight S$16/1K
+  AU: { currency:'AUD', symbol:'A$', rate:5450, spotlight:{ min:98100, recommended:115000 }, stream:{ min:40000, recommended:47000 }, label:'Australia', minBudgetSpotlight:900000, minBudgetStream:360000 },
+  // 1 AUD ≈ ₹54.5 · Spotlight A$18/1K
+  CA: { currency:'CAD', symbol:'C$', rate:6150, spotlight:{ min:98400, recommended:115000 }, stream:{ min:40000, recommended:47000 }, label:'Canada', minBudgetSpotlight:900000, minBudgetStream:360000 },
+  // 1 CAD ≈ ₹61.5 · Spotlight C$16/1K
+  DE: { currency:'EUR', symbol:'€', rate:9050, spotlight:{ min:99550, recommended:118000 }, stream:{ min:42000, recommended:50000 }, label:'Germany', minBudgetSpotlight:1000000, minBudgetStream:400000 },
+  // 1 EUR ≈ ₹90.5 · Spotlight €11/1K
+  NL: { currency:'EUR', symbol:'€', rate:9050, spotlight:{ min:99550, recommended:118000 }, stream:{ min:42000, recommended:50000 }, label:'Netherlands', minBudgetSpotlight:1000000, minBudgetStream:400000 },
+  AE: { currency:'AED', symbol:'AED', rate:2285, spotlight:{ min:91400, recommended:109000 }, stream:{ min:38000, recommended:45000 }, label:'UAE', minBudgetSpotlight:900000, minBudgetStream:360000 },
+  // 1 AED ≈ ₹22.85 · Spotlight AED 40/1K
+  JP: { currency:'JPY', symbol:'¥', rate:56, spotlight:{ min:100800, recommended:120000 }, stream:{ min:42000, recommended:50000 }, label:'Japan', minBudgetSpotlight:1000000, minBudgetStream:400000 },
+  // 1 JPY ≈ ₹0.56 · Spotlight ¥1800/1K
+};
+
+function getGeoPricing(countries) {
+  // Return pricing for the first/primary target country
+  const primary = (countries && countries[0]) || 'IN';
+  return GEO_PRICING[primary] || GEO_PRICING['IN'];
+}
+
+// Public endpoint to get pricing for a country
+
 
 let pgAvailable = false;
 async function loadDB() {
@@ -685,14 +719,15 @@ const server = http.createServer(async (req, res) => {
 
         // adType: 'spotlight' (VS Code spinner, premium) or 'stream' (terminal status line, standard)
         const adType = b.adType === 'stream' ? 'stream' : 'spotlight';
-        const minBidPaise = adType === 'spotlight' ? 80000 : 30000; // ₹800 / ₹300 per 1K
+        const geoPricing = getGeoPricing(b.geo?.countries);
+        const minBidPaise = adType === 'spotlight' ? geoPricing.spotlight.min : geoPricing.stream.min;
+        const minBudgetPaise = adType === 'spotlight' ? geoPricing.minBudgetSpotlight : geoPricing.minBudgetStream;
         const bidPaise = b.bidPaise || minBidPaise;
 
         if (bidPaise < minBidPaise) {
           return send(res, 400, {
-            error: adType === 'spotlight'
-              ? 'Spotlight minimum bid is ₹800 per 1,000 impressions'
-              : 'Stream minimum bid is ₹300 per 1,000 impressions'
+            error: `Minimum bid for ${geoPricing.label} is ${geoPricing.symbol}${(minBidPaise / geoPricing.rate / 100).toFixed(0)} per 1,000 impressions`,
+            minBidPaise, currency: geoPricing.currency, symbol: geoPricing.symbol,
           });
         }
 
@@ -701,9 +736,12 @@ const server = http.createServer(async (req, res) => {
           id, advertiserId: user.id, advertiser: user.company || user.name || user.email,
           adText: b.adText, url: b.url, bidPaise,
           adType,
-          budgetPaise: b.budgetPaise || 500000, spentPaise: 0,
+          budgetPaise: b.budgetPaise || minBudgetPaise, spentPaise: 0,
           status: 'pending_payment', createdAt: Date.now(),
           targetingCategory: b.targetingCategory || 'all',
+          currency: geoPricing.currency,
+          currencySymbol: geoPricing.symbol,
+          exchangeRate: geoPricing.rate,
           // Geo-targeting
           geo: {
             countries: b.geo?.countries || ['IN'],           // ISO country codes ['IN','US']
@@ -1120,7 +1158,41 @@ const server = http.createServer(async (req, res) => {
 
     } // end customer block
 
-    // ── Validate discount code (public — called from advertiser checkout) ──
+    // ── Public pricing by country ──
+    if (method === 'GET' && url.startsWith('/v1/public/pricing')) {
+      const country = new URL('http://x'+url).searchParams.get('country') || 'IN';
+      const pricing = GEO_PRICING[country] || GEO_PRICING['IN'];
+      return send(res, 200, {
+        country,
+        currency: pricing.currency,
+        symbol: pricing.symbol,
+        spotlight: {
+          minPaise: pricing.spotlight.min,
+          recommendedPaise: pricing.spotlight.recommended,
+          minDisplay: (pricing.spotlight.min / pricing.rate / 100).toFixed(0),
+          recommendedDisplay: (pricing.spotlight.recommended / pricing.rate / 100).toFixed(0),
+          minBudgetPaise: pricing.minBudgetSpotlight,
+          minBudgetDisplay: (pricing.minBudgetSpotlight / pricing.rate / 100).toFixed(0),
+        },
+        stream: {
+          minPaise: pricing.stream.min,
+          recommendedPaise: pricing.stream.recommended,
+          minDisplay: (pricing.stream.min / pricing.rate / 100).toFixed(0),
+          recommendedDisplay: (pricing.stream.recommended / pricing.rate / 100).toFixed(0),
+          minBudgetPaise: pricing.minBudgetStream,
+          minBudgetDisplay: (pricing.minBudgetStream / pricing.rate / 100).toFixed(0),
+        },
+        note: `Prices shown in ${pricing.currency}. Charged in INR at current exchange rate (~${pricing.rate/100} ${pricing.currency}/INR).`,
+        allCountries: Object.entries(GEO_PRICING).map(([code, p]) => ({
+          code, label: p.label, currency: p.currency, symbol: p.symbol,
+          spotlightMinDisplay: (p.spotlight.min / p.rate / 100).toFixed(0),
+          streamMinDisplay: (p.stream.min / p.rate / 100).toFixed(0),
+        })),
+      });
+    }
+
+    // ── Validate discount code (public) ──
+
     if (method === 'POST' && url === '/v1/discount/validate') {
       const b = await getBody(req);
       const code = (b.code || '').trim().toUpperCase();
