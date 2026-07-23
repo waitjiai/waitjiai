@@ -168,6 +168,66 @@ const H={'Authorization':'Bearer '+token,'Content-Type':'application/json'};
 let me=null, camps=[], analytics={};
 let curTab='overview';
 
+// Country-specific pricing (mirrors backend GEO_PRICING)
+const GEO_PRICING = {
+  IN:  { currency:'INR', symbol:'₹',    rate:1,    spotlight:{min:800, rec:800},   stream:{min:300, rec:300},   minBudgetS:5000,  minBudgetSt:2000,  flag:'🇮🇳', label:'India' },
+  US:  { currency:'USD', symbol:'$',    rate:83.9, spotlight:{min:12,  rec:14},    stream:{min:5,   rec:6},     minBudgetS:120,   minBudgetSt:50,    flag:'🇺🇸', label:'USA' },
+  GB:  { currency:'GBP', symbol:'£',    rate:106,  spotlight:{min:10,  rec:12},    stream:{min:4.5, rec:5},     minBudgetS:95,    minBudgetSt:40,    flag:'🇬🇧', label:'UK' },
+  SG:  { currency:'SGD', symbol:'S$',   rate:62,   spotlight:{min:16,  rec:18},    stream:{min:6.5, rec:7.5},   minBudgetS:150,   minBudgetSt:60,    flag:'🇸🇬', label:'Singapore' },
+  AU:  { currency:'AUD', symbol:'A$',   rate:54.5, spotlight:{min:18,  rec:21},    stream:{min:7.5, rec:8.5},   minBudgetS:160,   minBudgetSt:65,    flag:'🇦🇺', label:'Australia' },
+  CA:  { currency:'CAD', symbol:'C$',   rate:61.5, spotlight:{min:16,  rec:19},    stream:{min:6.5, rec:7.5},   minBudgetS:150,   minBudgetSt:60,    flag:'🇨🇦', label:'Canada' },
+  DE:  { currency:'EUR', symbol:'€',    rate:90.5, spotlight:{min:11,  rec:13},    stream:{min:4.5, rec:5.5},   minBudgetS:100,   minBudgetSt:40,    flag:'🇩🇪', label:'Germany' },
+  NL:  { currency:'EUR', symbol:'€',    rate:90.5, spotlight:{min:11,  rec:13},    stream:{min:4.5, rec:5.5},   minBudgetS:100,   minBudgetSt:40,    flag:'🇳🇱', label:'Netherlands' },
+  AE:  { currency:'AED', symbol:'AED ', rate:22.85,spotlight:{min:40,  rec:48},    stream:{min:16,  rec:20},    minBudgetS:370,   minBudgetSt:150,   flag:'🇦🇪', label:'UAE' },
+  JP:  { currency:'JPY', symbol:'¥',    rate:0.56, spotlight:{min:1800,rec:2200},  stream:{min:750, rec:900},   minBudgetS:16500, minBudgetSt:6600,  flag:'🇯🇵', label:'Japan' },
+};
+
+let curPricing = GEO_PRICING['IN'];
+let curCountry = 'IN';
+
+function updatePricingForGeo(){
+  // Get primary country from selected geo
+  const primary = geoForm.countries[0] || 'IN';
+  if(curCountry === primary) return;
+  curCountry = primary;
+  curPricing = GEO_PRICING[primary] || GEO_PRICING['IN'];
+
+  // Update bid input min/value
+  const bidEl = document.getElementById('bid');
+  const budgetEl = document.getElementById('budget');
+  const bidLabelEl = document.getElementById('bidLabel');
+  const budgetLabelEl = document.getElementById('budgetLabel');
+
+  if(bidEl){
+    const minBid = adType==='spotlight' ? curPricing.spotlight.min : curPricing.stream.min;
+    bidEl.min = minBid;
+    bidEl.value = minBid;
+    bidEl.placeholder = curPricing.symbol + minBid + '/1K';
+  }
+  if(budgetEl){
+    const minBudget = adType==='spotlight' ? curPricing.minBudgetS : curPricing.minBudgetSt;
+    budgetEl.min = minBudget;
+    budgetEl.value = minBudget * 2;
+    budgetEl.placeholder = curPricing.symbol + minBudget;
+  }
+  if(bidLabelEl) bidLabelEl.textContent = `Bid per 1,000 impressions (${curPricing.currency}) — min ${curPricing.symbol}${adType==='spotlight'?curPricing.spotlight.min:curPricing.stream.min}`;
+  if(budgetLabelEl) budgetLabelEl.textContent = `Total budget (${curPricing.currency}) — min ${curPricing.symbol}${adType==='spotlight'?curPricing.minBudgetS:curPricing.minBudgetSt}`;
+
+  updateBudgetCalc();
+  updateCurrencyBadge();
+  toast(`💱 Pricing updated for ${curPricing.label} (${curPricing.currency})`);
+}
+
+function updateCurrencyBadge(){
+  const el = document.getElementById('currencyBadge');
+  if(el) el.textContent = `${curPricing.flag||''} ${curPricing.currency} pricing`;
+}
+
+function localToINRPaise(localAmt){
+  // Convert local currency amount to INR paise
+  return Math.round(localAmt * curPricing.rate * 100);
+}
+
 function logout(){localStorage.clear();window.location.href='login.html';}
 function toast(msg,d=3000){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),d);}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -190,7 +250,7 @@ const INDIA_STATES=[
   {code:'BR',name:'Bihar'},
 ];
 const TIER1_CITIES=['Bengaluru','Mumbai','Delhi','Hyderabad','Pune','Chennai','Kolkata','Ahmedabad','Jaipur','Surat','Lucknow','Chandigarh','Udaipur','Noida','Gurgaon'];
-const COUNTRIES=[{code:'IN',name:'India 🇮🇳'},{code:'US',name:'USA 🇺🇸'},{code:'GB',name:'UK 🇬🇧'},{code:'SG',name:'Singapore 🇸🇬'},{code:'AU',name:'Australia 🇦🇺'},{code:'CA',name:'Canada 🇨🇦'},{code:'DE',name:'Germany 🇩🇪'},{code:'NL',name:'Netherlands 🇳🇱'}];
+const COUNTRIES=[{code:'IN',name:'India 🇮🇳',currency:'₹'},{code:'US',name:'USA 🇺🇸',currency:'$'},{code:'GB',name:'UK 🇬🇧',currency:'£'},{code:'SG',name:'Singapore 🇸🇬',currency:'S$'},{code:'AU',name:'Australia 🇦🇺',currency:'A$'},{code:'CA',name:'Canada 🇨🇦',currency:'C$'},{code:'DE',name:'Germany 🇩🇪',currency:'€'},{code:'NL',name:'Netherlands 🇳🇱',currency:'€'},{code:'AE',name:'UAE 🇦🇪',currency:'AED'},{code:'JP',name:'Japan 🇯🇵',currency:'¥'}];
 
 // Campaign form state
 let geoForm={countries:['IN'],states:[],cities:[],excludeCountries:[]};
@@ -390,7 +450,7 @@ function renderCreate(){
           <div class="field">
             <label>Countries</label>
             <div class="geo-grid" id="countryTags">
-              ${COUNTRIES.map(c=>`<div class="geo-tag ${geoForm.countries.includes(c.code)?'selected':''}" onclick="toggleGeo('country','${c.code}')">${c.name}</div>`).join('')}
+              ${COUNTRIES.map(c=>`<div class="geo-tag ${geoForm.countries.includes(c.code)?'selected':''}" onclick="toggleGeo('country','${c.code}')" title="${c.currency} pricing">${c.name} <span style='font-family:var(--mono);font-size:10px;opacity:.65;'>${c.currency}</span></div>`).join('')}
             </div>
           </div>
           <div class="field">
@@ -439,12 +499,12 @@ function renderCreate(){
         <div class="pb">
           <div class="field-row">
             <div class="field">
-              <label>Total campaign budget (₹)</label>
+              <label id="budgetLabel">Total budget (INR) — min ₹5,000 Spotlight / ₹2,000 Stream</label>
               <input id="budget" type="number" min="5000" step="1000" value="10000" oninput="updateBudgetCalc()">
               <div class="field-hint">Min ₹5,000 for Spotlight · ₹2,000 for Stream</div>
             </div>
             <div class="field">
-              <label>Bid per 1,000 impressions (₹)</label>
+              <label id="bidLabel">Bid per 1,000 impressions (INR) — min ₹800 Spotlight / ₹300 Stream</label>
               <input id="bid" type="number" min="${adType==='spotlight'?800:300}" value="${adType==='spotlight'?800:300}" oninput="updateBudgetCalc()">
               <div class="field-hint">Higher bid = higher priority in auction</div>
             </div>
@@ -513,6 +573,7 @@ function toggleGeo(type,val){
     document.querySelectorAll('#cityTags .geo-tag').forEach((el,i)=>el.classList.toggle('selected',geoForm.cities.includes(TIER1_CITIES[i])));
   }
   updateGeoSummary();
+  updatePricingForGeo();
 }
 function setTarget(key,val){
   targetForm[key]=val;
@@ -553,15 +614,24 @@ function updateGeoSummary(){
 function updateBudgetCalc(){
   const el=document.getElementById('budgetCalc');
   if(!el) return;
-  const budget=parseFloat(document.getElementById('budget')?.value||0)*100;
-  const bid=parseFloat(document.getElementById('bid')?.value||0)*100;
-  const estImps=bid>0?Math.floor(budget/bid*1000):0;
+  const sym = curPricing?.symbol || '₹';
+  const budget=parseFloat(document.getElementById('budget')?.value||0);
+  const bid=parseFloat(document.getElementById('bid')?.value||0);
+  const budgetINRPaise = localToINRPaise ? localToINRPaise(budget) : budget*100;
+  const bidINRPaise = localToINRPaise ? localToINRPaise(bid) : bid*100;
+  const estImps=bidINRPaise>0?Math.floor(budgetINRPaise/bidINRPaise*1000):0;
   const estClicks=Math.floor(estImps*0.005);
-  const devShare=Math.floor(budget*0.65);
-  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+  const devShareLocal=Math.floor(budget*0.65);
+  const inrEquiv = curPricing?.rate!==1 ? `<div style="font-size:11px;color:var(--muted2);margin-top:4px;">≈ ₹${Math.round(budget*curPricing.rate).toLocaleString('en-IN')} INR</div>` : '';
+  el.innerHTML=`<div style="background:var(--cream2);border-radius:8px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--sage-d);">
+    <span id="currencyBadge">${curPricing?.flag||'🇮🇳'} ${curPricing?.currency||'INR'} pricing</span>
+    <span style="font-weight:400;color:var(--muted);">· All charges in INR at ~${curPricing?.rate||1} ${curPricing?.currency||'INR'}/₹1 exchange rate</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
     <div><div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Est. impressions</div><div style="font-family:var(--mono);font-size:16px;font-weight:700;">${fmt(estImps)}</div></div>
     <div><div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Est. clicks</div><div style="font-family:var(--mono);font-size:16px;font-weight:700;">${fmt(estClicks)}</div></div>
-    <div><div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Dev pool (65%)</div><div style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--sage);">${fmtRs(devShare)}</div></div>
+    <div><div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Dev pool (65%)</div><div style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--sage);">${sym}${devShareLocal.toFixed(0)}</div></div>
+    <div><div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">In INR</div><div style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--muted);">₹${Math.round(budget*(curPricing?.rate||1)).toLocaleString('en-IN')}</div></div>
   </div>`;
 }
 
@@ -599,8 +669,8 @@ async function createCampaign(){
     campaignName: campName||adText.slice(0,40),
     companyName,
     ctaText,
-    bidPaise: Math.round(bid*100),
-    budgetPaise: Math.round(budget*100),
+    bidPaise: localToINRPaise(bid),
+    budgetPaise: localToINRPaise(budget),
     geo: geoForm,
     targeting: targetForm,
   })});
