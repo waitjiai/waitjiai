@@ -2,394 +2,827 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="robots" content="noindex,nofollow">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>WaitJI AI — Advertiser Dashboard</title>
-
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" type="image/png" href="logo-192.png">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <style>
 :root{
-  --ink:#0B0F0A;--ink2:#1C2119;
-  --sage:#2A7A4F;--sage-d:#1E5A3A;--sage-l:#3D9E68;--sage-soft:#EBF5EE;
-  --gold:#F0B429;--gold-d:#C9901A;--gold-l:#F7D070;--gold-soft:#FEF9EC;
-  --cream:#F8F5EE;--cream2:#EEE9DD;
-  --muted:#6B7568;--muted2:#9AA896;
-  --border:#D4D9CF;--border2:#BFC5B9;
-  --surface:#FFFFFF;--surface2:#F8F5EE;--bg:#F3F0E8;
-  --red:#DC2626;--red-soft:#FEE2E2;
-  --green:#15803D;--green-soft:#DCFCE7;
-  --amber:#D97706;--amber-soft:#FEF3C7;
-  /* backward compat aliases */
-  --indigo:var(--sage);--indigo-dark:var(--sage-d);--indigo-soft:var(--sage-soft);
-  --sky:var(--sage-l);
-  --display:'Sora',sans-serif;
-  --body:'Inter',sans-serif;
-  --mono:'IBM Plex Mono',monospace;
-  --sans:'Sora',sans-serif;
-  --shadow-sm:0 1px 3px rgba(11,15,10,.06);
-  --shadow:0 4px 24px rgba(11,15,10,.10);
+  --ink:#0B0F0A;--sage:#2A7A4F;--sage-d:#1E5A3A;--sage-l:#3D9E68;--sage-soft:#EBF5EE;
+  --gold:#F0B429;--gold-soft:#FEF9EC;--gold-d:#C9901A;
+  --red:#DC2626;--red-soft:#FEE2E2;--blue:#3B82F6;--blue-soft:#EFF6FF;
+  --cream:#F8F5EE;--cream2:#EEE9DD;--muted:#6B7568;--muted2:#9AA896;
+  --border:#D4D9CF;--surface:#fff;--bg:#F3F0E8;
+  --display:'Sora',sans-serif;--mono:'IBM Plex Mono',monospace;--body:'Inter',sans-serif;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.6;}
-.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:var(--surface);border-bottom:1px solid var(--border);}
-.logo{font-family:var(--mono);font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);}
-.logo-mark{width:28px;height:28px;border-radius:7px;background:var(--sage),var(--sage-l));display:flex;align-items:center;justify-content:center;}
-.logo-mark svg{width:17px;height:17px;}.logo em{color:var(--indigo);font-style:normal;}
-.topbar-r{display:flex;align-items:center;gap:14px;}
-
-.user-email{font-size:13px;color:var(--muted);}
-.btn-out{background:transparent;border:1px solid var(--border2);color:var(--ink);padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);}
-.btn-out:hover{border-color:var(--indigo);color:var(--indigo);}
-.wrap{max-width:1080px;margin:0 auto;padding:32px;}
-.page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;}
-.page-h{font-family:var(--sans);font-size:26px;font-weight:700;letter-spacing:-.5px;}
-.page-sub{color:var(--muted);font-size:14px;}
-.btn-solid{background:var(--sage);color:#fff;border:none;padding:11px 20px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--body);display:inline-flex;align-items:center;gap:7px;}
-.btn-solid:hover{background:var(--sage-d);}
-.btn-solid:disabled{opacity:.5;cursor:not-allowed;}
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px;box-shadow:var(--shadow-sm);}
-.card.fraud{background:var(--green-soft);border-color:#A7F3D0;}
-.card-label{font-size:12px;color:var(--muted);font-weight:500;margin-bottom:8px;}
-.fraud .card-label{color:#047857;}
-.card-val{font-family:var(--mono);font-size:28px;font-weight:700;letter-spacing:-1px;}
-.fraud .card-val{color:#047857;}
-.card-sub{font-size:12px;color:var(--muted2);margin-top:4px;}
-.panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;box-shadow:var(--shadow-sm);margin-bottom:20px;}
-.panel-h{font-family:var(--sans);font-size:16px;font-weight:600;margin-bottom:18px;}
-table{width:100%;border-collapse:collapse;}
-th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted2);font-weight:600;padding:10px 12px;border-bottom:1px solid var(--border);}
-td{padding:13px 12px;border-bottom:1px solid var(--border);font-size:13px;}
-tr:last-child td{border-bottom:none;}
-.camp-name{font-weight:600;}
-.camp-txt{font-size:12px;color:var(--muted);}
-.status{font-size:10px;padding:3px 9px;border-radius:100px;font-weight:600;}
-.status.active{background:var(--green-soft);color:#047857;}
-.status.pending{background:var(--amber-soft);color:#92400E;}
-.status.pending_payment{background:var(--red-soft);color:#B91C1C;}
-.status.pending_review{background:var(--amber-soft);color:#92400E;}
-.status.paused{background:var(--surface2);color:var(--muted);}
-.status.rejected{background:var(--red-soft);color:#B91C1C;}
-.status.completed{background:var(--indigo-soft);color:var(--indigo);}
-.rank-pill{font-family:var(--mono);font-size:12px;font-weight:700;padding:3px 10px;border-radius:100px;background:var(--surface2);color:var(--ink2);}
-.rank-pill.rank-1{background:var(--green-soft);color:#047857;}
-.bar{height:6px;background:var(--surface2);border-radius:100px;overflow:hidden;margin-top:4px;}
-.bar-fill{height:100%;background:var(--indigo);border-radius:100px;}
-.empty{text-align:center;padding:50px;color:var(--muted2);}
-.empty-ic{font-size:36px;margin-bottom:12px;}
-.mini-btn{background:var(--surface2);border:1px solid var(--border2);padding:5px 10px;border-radius:7px;font-size:12px;cursor:pointer;font-family:var(--body);font-weight:600;color:var(--ink2);}
-.mini-btn:hover{border-color:var(--indigo);color:var(--indigo);}
-.loading{text-align:center;padding:60px;color:var(--muted2);font-family:var(--mono);}
-/* modal */
-.modal-bg{position:fixed;inset:0;background:rgba(15,18,34,.5);backdrop-filter:blur(4px);z-index:1000;display:none;align-items:center;justify-content:center;padding:24px;}
-.modal-bg.show{display:flex;}
-.modal{background:var(--surface);border-radius:20px;padding:32px;max-width:460px;width:100%;box-shadow:var(--shadow);max-height:92vh;overflow-y:auto;}
-.modal h2{font-family:var(--sans);font-size:22px;font-weight:700;margin-bottom:4px;}
-.modal-sub{font-size:13px;color:var(--muted);margin-bottom:22px;}
-.field{margin-bottom:15px;}
-.field label{display:block;font-size:12px;font-weight:600;margin-bottom:6px;}
-.field input,.field select{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:9px;padding:11px 13px;font-family:var(--body);font-size:14px;outline:none;}
-.field input:focus,.field select:focus{border-color:var(--indigo);}
-.field .hint{font-size:11px;color:var(--muted2);margin-top:4px;}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.price-note{background:var(--indigo-soft);border:1px solid #C7D2FE;border-radius:9px;padding:11px 13px;font-size:12px;color:var(--indigo-dark);margin-bottom:18px;}
-.modal-actions{display:flex;gap:10px;margin-top:8px;}
-.modal-err{background:var(--red-soft);color:#B91C1C;padding:10px 13px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none;}
-.modal-err.show{display:block;}
-.toast{position:fixed;bottom:28px;right:28px;background:var(--surface);border:1px solid var(--green);border-radius:12px;padding:14px 20px;box-shadow:var(--shadow);transform:translateY(90px);opacity:0;transition:all .3s;z-index:1100;}
-.toast.show{transform:translateY(0);opacity:1;}
-.toast-t{font-weight:600;font-size:14px;}.toast-s{font-size:12px;color:var(--muted);}
-@media(max-width:860px){.wrap{padding:20px;}.cards{grid-template-columns:repeat(2,1fr);}.topbar{padding:12px 18px;}.user-email{display:none;}.page-head{flex-direction:column;gap:14px;align-items:flex-start;}table{font-size:12px;}th,td{padding:9px 8px;}}
-
-/* ── MATCHING TOPBAR ── */
-.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:60px;background:rgba(243,240,232,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);}
-.logo{font-family:var(--mono);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);}
+.topbar{background:rgba(248,245,238,.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 32px;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+.logo{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:15px;font-weight:600;}
 .logo-mark{width:26px;height:26px;border-radius:6px;background:var(--sage);display:flex;align-items:center;justify-content:center;}
-.logo-mark svg{width:15px;height:15px;}
-.logo em{color:var(--sage);font-style:normal;}
-.topbar-r{display:flex;align-items:center;gap:14px;}
-.role-pill{font-size:11px;font-weight:600;padding:4px 12px;border-radius:100px;font-family:var(--mono);}
-.role-pill.earner{background:var(--green-soft);color:var(--green);}
-.role-pill.advertiser{background:var(--sage-soft);color:var(--sage-d);}
-.role-pill.admin{background:var(--gold-soft);color:var(--gold-d);}
-.user-email{font-size:13px;color:var(--muted);}
-.btn-out{background:transparent;border:1.5px solid var(--border2);color:var(--ink);padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);transition:.15s;}
-.btn-out:hover{border-color:var(--sage);color:var(--sage);}
+.logo-mark svg{width:14px;height:14px;}
+.layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 58px);}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:20px 0;}
+.sb-item{padding:9px 20px;font-size:13.5px;font-weight:500;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:9px;transition:.12s;border-left:2.5px solid transparent;}
+.sb-item:hover{color:var(--ink);background:var(--cream);}
+.sb-item.active{color:var(--sage-d);background:var(--sage-soft);border-left-color:var(--sage);font-weight:600;}
+.sb-section{padding:14px 20px 6px;font-size:10px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:1px;}
+.main{padding:28px 32px;}
 
+/* METRICS */
+.metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+.metric{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;}
+.metric.hero{background:var(--ink);color:#fff;}
+.metric.hero .ml{color:rgba(255,255,255,.55);}
+.metric.hero .ms{color:rgba(255,255,255,.4);}
+.ml{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
+.mv{font-family:var(--mono);font-size:24px;font-weight:600;line-height:1;}
+.ms{font-size:11.5px;color:var(--muted2);margin-top:5px;}
+
+/* PANELS */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:18px;}
+.ph{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.pt{font-family:var(--display);font-size:14px;font-weight:700;}
+.pb{padding:18px;}
+
+/* FORM */
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.field input,.field textarea,.field select{width:100%;background:var(--cream);border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:14px;font-family:var(--body);outline:none;color:var(--ink);transition:.15s;}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--sage);background:var(--surface);}
+.field textarea{resize:vertical;min-height:70px;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.field-hint{font-size:11.5px;color:var(--muted2);margin-top:5px;}
+
+/* GEO TAG */
+.geo-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.geo-tag{display:inline-flex;align-items:center;gap:5px;background:var(--sage-soft);color:var(--sage-d);border:1px solid #A7F3C8;border-radius:100px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;}
+.geo-tag.selected{background:var(--sage);color:#fff;border-color:var(--sage);}
+.geo-tag.exclude{background:var(--red-soft);color:var(--red);border-color:#FECACA;}
+
+/* TARGETING OPTIONS */
+.target-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;}
+.target-opt{border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;cursor:pointer;text-align:center;transition:.12s;background:var(--surface);}
+.target-opt:hover{border-color:var(--sage);background:var(--sage-soft);}
+.target-opt.sel{border-color:var(--sage);background:var(--sage-soft);font-weight:600;}
+.target-opt-title{font-size:13px;font-weight:600;margin-bottom:2px;}
+.target-opt-sub{font-size:11px;color:var(--muted);}
+
+/* CAMPAIGN CARD */
+.camp-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px;}
+.camp-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;gap:12px;}
+.camp-name{font-size:15px;font-weight:700;}
+.camp-ad{font-size:13px;color:var(--muted);margin-top:2px;}
+.camp-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px;}
+.camp-stat{text-align:center;background:var(--cream);border-radius:7px;padding:8px;}
+.cs-label{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;}
+.cs-val{font-family:var(--mono);font-size:14px;font-weight:600;}
+.camp-geo{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;}
+.camp-geo-tag{font-size:11px;background:var(--blue-soft);color:var(--blue);padding:2px 9px;border-radius:100px;font-family:var(--mono);}
+.camp-actions{display:flex;gap:8px;}
+.progress-bar{height:5px;background:var(--cream2);border-radius:100px;overflow:hidden;margin-top:6px;}
+.progress-fill{height:100%;border-radius:100px;background:var(--sage);transition:.3s;}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:100px;font-size:11px;font-weight:600;white-space:nowrap;}
+.bg-green{background:var(--sage-soft);color:var(--sage-d);}
+.bg-gold{background:var(--gold-soft);color:var(--gold-d);}
+.bg-red{background:var(--red-soft);color:var(--red);}
+.bg-gray{background:var(--cream2);color:var(--muted);}
+.bg-blue{background:var(--blue-soft);color:var(--blue);}
+
+/* BUTTONS */
+.btn{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:var(--body);transition:.12s;}
+.btn-p{background:var(--sage);color:#fff;}
+.btn-p:hover{background:var(--sage-d);}
+.btn-o{background:transparent;border:1.5px solid var(--border);color:var(--ink);}
+.btn-o:hover{background:var(--cream);}
+.btn-d{background:var(--red-soft);color:var(--red);border:1px solid #FECACA;}
+.btn-full{width:100%;padding:13px;font-size:15px;}
+
+/* CHART */
+.chart-wrap{position:relative;height:200px;}
+
+/* MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal{background:var(--surface);border-radius:16px;max-width:680px;width:100%;max-height:92vh;overflow-y:auto;}
+.mh{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface);z-index:1;}
+.mh h2{font-family:var(--display);font-size:18px;font-weight:700;}
+.mb{padding:20px 24px;}
+.mf{padding:14px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;}
+.close-btn{background:var(--cream2);border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px;color:var(--muted);}
+
+/* STEP TABS */
+.steps{display:flex;gap:0;margin-bottom:24px;border-bottom:1px solid var(--border);}
+.step-tab{padding:10px 18px;font-size:13px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;cursor:default;}
+.step-tab.done{color:var(--sage);}
+.step-tab.active{color:var(--ink);border-bottom-color:var(--sage);}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:#111827;color:#fff;padding:11px 18px;border-radius:10px;font-size:13.5px;font-weight:500;z-index:500;opacity:0;transform:translateY(8px);transition:.25s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateY(0);}
 </style>
-<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <link rel="icon" type="image/png" sizes="192x192" href="logo-192.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="logo-512.png">
-  <link rel="shortcut icon" href="logo-192.png">
-  <link rel="apple-touch-icon" href="logo-192.png">
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-LGNX0BPWPJ"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-LGNX0BPWPJ');
-  </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-LGNX0BPWPJ"></script>
-<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-LGNX0BPWPJ');</script>
-  <link rel="canonical" href="https://www.waitjiai.in/advertiser.html">
-  <meta name="description" content="WaitJI AI advertiser dashboard — manage campaigns, view analytics, and reach Indian developers during Claude Code's thinking pauses.">
 </head>
 <body>
+
 <div class="topbar">
-  <a class="logo" href="index.html"><span class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.35)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></span>Wait<em>JI</em> AI</a>
-  <div class="topbar-r"><span class="role-pill">ADVERTISER</span><span class="user-email" id="userEmail">—</span><button class="btn-out" onclick="logout()">Log out</button></div>
-</div>
-<div class="wrap" id="content"><div class="loading">Loading…</div></div>
-
-<div class="modal-bg" id="campModal">
-  <div class="modal">
-    <h2>New campaign</h2>
-    <p class="modal-sub">Goes live after admin review (usually within 24h)</p>
-    <div class="modal-err" id="campErr"></div>
-    <div class="price-note">
-      Choose your placement first — each has its own independent bid queue.
-    </div>
-    <div class="field">
-      <label>Ad placement</label>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <label id="spotlightLabel" style="cursor:pointer;border:2px solid var(--indigo);border-radius:9px;padding:12px;transition:.15s" onclick="selectAdType('spotlight')">
-          <div style="font-weight:700;font-size:14px">★ Spotlight</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:3px">Inside thinking spinner · ₹800/1K</div>
-        </label>
-        <label id="streamLabel" style="cursor:pointer;border:2px solid var(--border2);border-radius:9px;padding:12px;transition:.15s" onclick="selectAdType('stream')">
-          <div style="font-weight:700;font-size:14px">◎ Stream</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:3px">Terminal status line · ₹300/1K</div>
-        </label>
-      </div>
-      <input type="hidden" id="cAdType" value="spotlight">
-    </div>
-    <div class="field"><label>Ad text (max 60 chars)</label><input id="cAd" maxlength="60" placeholder="Your brand · short value prop"><div class="hint"><span id="cCount">0</span>/60</div></div>
-    <div class="field"><label>Landing page URL</label><input id="cUrl" placeholder="https://yoursite.com/developers"></div>
-    <div class="row2">
-      <div class="field"><label>Bid ₹ / 1K impressions</label><input id="cBid" type="number" min="300" placeholder="800 (Spotlight) / 300 (Stream)"></div>
-      <div class="field"><label>Total budget ₹</label><input id="cBudget" type="number" min="2000" placeholder="5000 (Spotlight) / 2000 (Stream)"></div>
-    </div>
-    <div class="field"><label>Target developers</label><select id="cTarget">
-      <option value="all">All Indian developers</option><option value="web">Frontend / Web</option><option value="backend">Backend / API</option><option value="ml">ML / AI / Data</option><option value="startup">Founders / CTOs</option><option value="mobile">Mobile</option>
-    </select></div>
-    <div class="modal-actions"><button class="btn-out" style="flex:1" onclick="closeCamp()">Cancel</button><button class="btn-solid" style="flex:2;justify-content:center" id="campSubmit" onclick="createCamp()">Launch campaign</button></div>
+  <div class="logo">
+    <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.4)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></div>
+    WaitJI AI
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;font-family:var(--mono);background:var(--blue-soft);color:var(--blue);">ADVERTISER</span>
+    <span style="font-size:13px;color:var(--muted);" id="userEmail">—</span>
+    <button class="btn btn-o" style="padding:5px 12px;" onclick="logout()">Sign out</button>
   </div>
 </div>
 
-<div class="modal-bg" id="profileModal">
-  <div class="modal">
-    <h2>Company profile</h2>
-    <p class="modal-sub">Shown on your campaigns and dashboard</p>
-    <div class="modal-err" id="profileErr"></div>
-    <div class="field"><label>Company name</label><input id="pCompany" placeholder="Your company name"></div>
-    <div class="field"><label>Contact name</label><input id="pName" placeholder="Your name"></div>
-    <div class="modal-actions"><button class="btn-out" style="flex:1" onclick="closeProfile()">Cancel</button><button class="btn-solid" style="flex:2;justify-content:center" id="profileSubmit" onclick="saveProfile()">Save</button></div>
-  </div>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sb-section">Overview</div>
+    <div class="sb-item active" id="nav-overview" onclick="goTo('overview')">📊 Overview</div>
+    <div class="sb-item" id="nav-campaigns" onclick="goTo('campaigns')">📣 Campaigns</div>
+    <div class="sb-item" id="nav-analytics" onclick="goTo('analytics')">📈 Analytics</div>
+    <div class="sb-section">Campaign</div>
+    <div class="sb-item" id="nav-create" onclick="goTo('create')">+ New campaign</div>
+    <div class="sb-section">Account</div>
+    <div class="sb-item" id="nav-profile" onclick="goTo('profile')">🏢 Company profile</div>
+    <div class="sb-item" id="nav-billing" onclick="goTo('billing')">💳 Billing</div>
+  </aside>
+
+  <main class="main" id="mainContent">
+    <div style="text-align:center;padding:60px;color:var(--muted);font-family:var(--mono)">Loading…</div>
+  </main>
 </div>
 
-<div class="toast" id="toast"><div class="toast-t" id="toastT">Done</div><div class="toast-s" id="toastS"></div></div>
+<div class="toast" id="toast"></div>
 
 <script>
 const API='https://waitjiai-backend.onrender.com';
 const token=localStorage.getItem('waitji_token');
-const role=localStorage.getItem('waitji_role');
-if(!token||role!=='advertiser'){ window.location.href='login.html'; }
+if(!token||localStorage.getItem('waitji_role')!=='advertiser'){window.location.href='login.html';}
 const H={'Authorization':'Bearer '+token,'Content-Type':'application/json'};
-function logout(){ localStorage.clear(); window.location.href='login.html'; }
-function toast(t,s){ document.getElementById('toastT').textContent=t; document.getElementById('toastS').textContent=s||''; const el=document.getElementById('toast'); el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),3500); }
+let me=null, camps=[], analytics={};
+let curTab='overview';
 
-let me=null;
+function logout(){localStorage.clear();window.location.href='login.html';}
+function toast(msg,d=3000){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),d);}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmt(n){return Number(n||0).toLocaleString('en-IN');}
+function fmtRs(p){return '₹'+((p||0)/100).toFixed(2);}
+function statusBadge(s){
+  const map={active:'bg-green',paused:'bg-gray',pending_review:'bg-gold',pending_payment:'bg-red',rejected:'bg-red',completed:'bg-blue'};
+  const label={active:'Active',paused:'Paused',pending_review:'Under review',pending_payment:'Awaiting payment',rejected:'Rejected',completed:'Completed'};
+  return `<span class="badge ${map[s]||'bg-gray'}">${label[s]||s}</span>`;
+}
+
+const INDIA_STATES=[
+  {code:'MH',name:'Maharashtra'},  {code:'KA',name:'Karnataka'},
+  {code:'DL',name:'Delhi'},         {code:'TN',name:'Tamil Nadu'},
+  {code:'TS',name:'Telangana'},     {code:'UP',name:'Uttar Pradesh'},
+  {code:'GJ',name:'Gujarat'},       {code:'RJ',name:'Rajasthan'},
+  {code:'WB',name:'West Bengal'},   {code:'AP',name:'Andhra Pradesh'},
+  {code:'KL',name:'Kerala'},        {code:'MP',name:'Madhya Pradesh'},
+  {code:'PB',name:'Punjab'},        {code:'HR',name:'Haryana'},
+  {code:'BR',name:'Bihar'},
+];
+const TIER1_CITIES=['Bengaluru','Mumbai','Delhi','Hyderabad','Pune','Chennai','Kolkata','Ahmedabad','Jaipur','Surat','Lucknow','Chandigarh','Udaipur','Noida','Gurgaon'];
+const COUNTRIES=[{code:'IN',name:'India 🇮🇳'},{code:'US',name:'USA 🇺🇸'},{code:'GB',name:'UK 🇬🇧'},{code:'SG',name:'Singapore 🇸🇬'},{code:'AU',name:'Australia 🇦🇺'},{code:'CA',name:'Canada 🇨🇦'},{code:'DE',name:'Germany 🇩🇪'},{code:'NL',name:'Netherlands 🇳🇱'}];
+
+// Campaign form state
+let geoForm={countries:['IN'],states:[],cities:[],excludeCountries:[]};
+let targetForm={devExperience:'all',ideTools:['vscode'],timeOfDay:'all',languages:[]};
+let adType='spotlight';
+
 async function load(){
   try{
-    const meR=await fetch(API+'/v1/auth/me',{headers:H}); if(!meR.ok){logout();return;}
-    me=(await meR.json()).user; document.getElementById('userEmail').textContent=me.email;
-    const a=await (await fetch(API+'/v1/advertiser/analytics',{headers:H})).json();
-    const c=await (await fetch(API+'/v1/advertiser/campaigns',{headers:H})).json();
-    render(a,c.campaigns||[]);
-  }catch(e){ document.getElementById('content').innerHTML='<div class="loading">Backend waking up… <a href="" onclick="location.reload();return false">retry</a></div>'; }
+    const [meR,cR,aR]=await Promise.all([
+      fetch(API+'/v1/auth/me',{headers:H}),
+      fetch(API+'/v1/advertiser/campaigns',{headers:H}),
+      fetch(API+'/v1/advertiser/analytics',{headers:H}),
+    ]);
+    if(!meR.ok){logout();return;}
+    me=(await meR.json()).user;
+    camps=(await cR.json()).campaigns||[];
+    analytics=(await aR.json())||{};
+    document.getElementById('userEmail').textContent=me.email;
+    goTo(curTab);
+  }catch(e){document.getElementById('mainContent').innerHTML='<div style="text-align:center;padding:60px;color:var(--red)">Error — <a href="" onclick="location.reload()">retry</a></div>';}
 }
-function render(a,camps){
-  const activeRanked=camps.filter(c=>c.status==='active'&&c.rank);
-  const bestRank=activeRanked.length?activeRanked.reduce((b,c)=>c.rank<b.rank?c:b):null;
-  document.getElementById('content').innerHTML=`
-    <div class="page-head">
-      <div><h1 class="page-h">${esc(me.company||'Add your company name')}</h1><p class="page-sub">${me.email} · <a href="javascript:void(0)" onclick="openProfile()" style="color:var(--indigo);font-weight:600">Edit company profile</a></p></div>
-      <button class="btn-solid" onclick="openCamp()">+ New campaign</button>
-    </div>
-    <div class="cards">
-      <div class="card"><div class="card-label">${bestRank?'Best live position':'Live position'}</div><div class="card-val">${bestRank?('#'+bestRank.rank+' of '+bestRank.totalActive):'—'}</div><div class="card-sub">${bestRank?'by bid, across all active campaigns':'no active campaign yet'}</div></div>
-      <div class="card"><div class="card-label">Impressions</div><div class="card-val">${(+a.impressions).toLocaleString('en-IN')}</div><div class="card-sub">across ${a.campaigns} campaigns</div></div>
-      <div class="card"><div class="card-label">Unique developers reached</div><div class="card-val">${(+a.uniqueUsersReached||0).toLocaleString('en-IN')}</div><div class="card-sub">distinct people, not just views</div></div>
-      <div class="card"><div class="card-label">Valid clicks</div><div class="card-val">${a.validClicks}</div><div class="card-sub">CTR ${a.ctr}%</div></div>
-      <div class="card"><div class="card-label">Total spent</div><div class="card-val">₹${a.spentRupees}</div><div class="card-sub">${a.activeCampaigns} active</div></div>
-      <div class="card fraud"><div class="card-label">🛡️ Fraud blocked</div><div class="card-val">₹${a.savedFromFraudRupees}</div><div class="card-sub">${a.blockedClicks} invalid clicks stopped</div></div>
-    </div>
-    <div class="panel">
-      <div class="panel-h">Your campaigns — live bidding position</div>
-      ${camps.length?`<table><thead><tr><th>Campaign</th><th>Bid</th><th>Live rank</th><th>Budget used</th><th>Status</th><th></th></tr></thead><tbody>
-      ${camps.map(c=>{const pct=Math.min(100,(c.spentPaise/c.budgetPaise*100)).toFixed(0);return `
-        <tr><td><div class="camp-name">${esc(c.advertiser)}</div><div class="camp-txt">${esc(c.adText)}</div></td>
-        <td style="font-family:var(--mono)">₹${(c.bidPaise/100).toFixed(0)}/1K</td>
-        <td>${c.status==='active'&&c.rank?`<span class="rank-pill ${c.rank===1?'rank-1':''}">#${c.rank} of ${c.totalActive}</span>`:'<span style="color:var(--muted2)">—</span>'}</td>
-        <td><div style="font-size:12px;font-family:var(--mono)">₹${(c.spentPaise/100).toFixed(0)} / ₹${(c.budgetPaise/100).toFixed(0)}</div><div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div></td>
-        <td><span class="status ${c.status}">${({pending_payment:'payment required',pending_review:'awaiting review',active:'active',paused:'paused',rejected:'rejected',completed:'completed'})[c.status]||c.status}</span>${c.status==='rejected'&&c.rejectReason?`<div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(c.rejectReason)}${c.refunded?' · refunded':''}</div>`:''}</td>
-        <td><button class="mini-btn" onclick="viewCampStats('${c.id}')">Stats</button> ${c.status==='pending_payment'?`<button class="mini-btn" style="border-color:#FCA5A5;color:#B91C1C" onclick="payForCampaign('${c.id}',${c.budgetPaise})">Complete payment</button>`:c.status==='active'?`<button class="mini-btn" onclick="toggleCamp('${c.id}','paused')">Pause</button>`:c.status==='paused'?`<button class="mini-btn" onclick="toggleCamp('${c.id}','active')">Resume</button>`:''}</td></tr>`;}).join('')}
-      </tbody></table>`:`<div class="empty"><div class="empty-ic">📣</div><strong>No campaigns yet.</strong><br><span style="font-size:13px;color:var(--muted)">Create your first campaign to reach Indian developers.</span></div>`}
-    </div>`;
-}
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-async function viewCampStats(id){
-  const r=await fetch(API+'/v1/advertiser/campaigns/'+id+'/stats',{headers:H});
-  const d=await r.json();
-  if(!r.ok){ toast('⚠️ '+(d.error||'Could not load stats')); return; }
-  const maxImp=Math.max(1,...d.daily.map(x=>x.impressions));
-  const m=document.createElement('div');
-  m.className='modal-bg show';
-  m.id='campStatsModal';
-  m.innerHTML=`<div class="modal" style="max-width:560px">
-    <h2>${esc(d.campaign.advertiser)}</h2>
-    <p class="modal-sub">${esc(d.campaign.adText)}</p>
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0">
-      <div class="card" style="padding:12px"><div class="card-label" style="font-size:11px">Impressions</div><div class="card-val" style="font-size:20px">${d.totalImpressions}</div></div>
-      <div class="card" style="padding:12px"><div class="card-label" style="font-size:11px">Unique developers reached</div><div class="card-val" style="font-size:20px">${d.uniqueUsersReached}</div></div>
-      <div class="card" style="padding:12px"><div class="card-label" style="font-size:11px">Valid clicks</div><div class="card-val" style="font-size:20px">${d.validClicks}</div></div>
-      <div class="card" style="padding:12px"><div class="card-label" style="font-size:11px">CTR</div><div class="card-val" style="font-size:20px">${d.ctr}%</div></div>
+function goTo(tab){
+  curTab=tab;
+  document.querySelectorAll('.sb-item').forEach(el=>el.classList.remove('active'));
+  const nav=document.getElementById('nav-'+tab);
+  if(nav) nav.classList.add('active');
+  if(tab==='overview') renderOverview();
+  else if(tab==='campaigns') renderCampaigns();
+  else if(tab==='analytics') renderAnalytics();
+  else if(tab==='create') renderCreate();
+  else if(tab==='profile') renderProfile();
+  else if(tab==='billing') renderBilling();
+}
+
+// ── OVERVIEW ──
+function renderOverview(){
+  const a=analytics;
+  const totalSpent=camps.reduce((s,c)=>s+(c.spentPaise||0),0);
+  const totalBudget=camps.reduce((s,c)=>s+(c.budgetPaise||0),0);
+  const totalImps=a.totalImpressions||0;
+  const totalClicks=a.totalClicks||0;
+  const ctr=totalImps?((totalClicks/totalImps)*100).toFixed(2):'0.00';
+  const activeCamps=camps.filter(c=>c.status==='active').length;
+  const pendingReview=camps.filter(c=>c.status==='pending_review').length;
+
+  document.getElementById('mainContent').innerHTML=`
+  <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:4px;">Advertiser Dashboard</h1>
+  <p style="font-size:13.5px;color:var(--muted);margin-bottom:22px;">Welcome back${me.company?' — '+esc(me.company):''}. Your campaigns are reaching Indian developers.</p>
+
+  ${pendingReview?`<div style="background:var(--gold-soft);border:1px solid #FDE68A;border-radius:10px;padding:11px 16px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;font-size:13.5px;color:#92400E;">
+    <span>⏳ <b>${pendingReview}</b> campaign(s) under review (within 24h)</span>
+    <button class="btn btn-o" style="padding:5px 12px;font-size:12px;" onclick="goTo('campaigns')">View →</button>
+  </div>`:''}
+
+  <div class="metric-grid">
+    <div class="metric hero"><div class="ml">Total spent</div><div class="mv">${fmtRs(totalSpent)}</div><div class="ms">of ${fmtRs(totalBudget)} budget</div></div>
+    <div class="metric"><div class="ml">Impressions</div><div class="mv">${fmt(totalImps)}</div><div class="ms">unique devs: ${fmt(a.uniqueUsersReached||0)}</div></div>
+    <div class="metric"><div class="ml">CTR</div><div class="mv">${ctr}%</div><div class="ms">${totalClicks} valid clicks</div></div>
+    <div class="metric"><div class="ml">Active campaigns</div><div class="mv">${activeCamps}</div><div class="ms">of ${camps.length} total</div></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;">
+    <div>
+      <div class="panel">
+        <div class="ph"><div class="pt">Daily spend — 14 days</div></div>
+        <div class="pb"><div class="chart-wrap"><canvas id="spendChart"></canvas></div></div>
+      </div>
+      <div class="panel">
+        <div class="ph"><div class="pt">Active campaigns</div><button class="btn btn-p" style="padding:6px 14px;" onclick="goTo('create')">+ New</button></div>
+        <div style="padding:0 18px;">
+          ${camps.filter(c=>c.status==='active').slice(0,3).map(c=>`
+          <div style="padding:12px 0;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <div style="font-weight:600;font-size:13.5px;">${esc(c.adText)}</div>
+              ${statusBadge(c.status)}
+            </div>
+            <div style="display:flex;gap:16px;font-size:12px;color:var(--muted);margin-bottom:6px;">
+              <span>${c.adType==='spotlight'?'★ Spotlight':'◎ Stream'}</span>
+              <span>₹${((c.bidPaise||0)/100).toFixed(0)}/1K</span>
+              <span>${(c.geo?.countries||['IN']).join(', ')}</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100,((c.spentPaise||0)/(c.budgetPaise||1)*100)).toFixed(0)}%"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted2);margin-top:4px;"><span>${fmtRs(c.spentPaise)} spent</span><span>${fmtRs(c.budgetPaise)} budget</span></div>
+          </div>`).join('')||'<div style="text-align:center;padding:24px;color:var(--muted2);">No active campaigns — <a onclick="goTo(\'create\')" style="cursor:pointer;color:var(--sage);">create one</a></div>'}
+        </div>
+      </div>
     </div>
-    <div class="panel-h" style="font-size:13px;margin:14px 0 8px">Last 14 days</div>
-    <div style="display:flex;align-items:flex-end;gap:3px;height:90px;border-bottom:1px solid var(--border2)">
-      ${d.daily.map(x=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%" title="${x.date}: ${x.impressions} impressions, ₹${x.spentRupees} spent"><div style="width:100%;background:var(--indigo);border-radius:2px 2px 0 0;min-height:1px;height:${Math.max(2,Math.round(x.impressions/maxImp*80))}px"></div></div>`).join('')}
+    <div>
+      <div class="panel">
+        <div class="ph"><div class="pt">Geo reach</div></div>
+        <div class="pb">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Impressions by country (all campaigns)</div>
+          ${[['🇮🇳 India',Math.round((totalImps||0)*0.92)],['🌐 Other',Math.round((totalImps||0)*0.08)]].map(([c,v])=>`
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:9px;">
+            <div style="font-size:13px;width:90px;">${c}</div>
+            <div style="flex:1;height:6px;background:var(--cream2);border-radius:100px;overflow:hidden;"><div style="height:100%;border-radius:100px;background:var(--sage);width:${totalImps?Math.round(v/totalImps*100):0}%;"></div></div>
+            <div style="font-family:var(--mono);font-size:12px;font-weight:600;min-width:40px;text-align:right;">${fmt(v)}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ph"><div class="pt">Ad format mix</div></div>
+        <div class="pb"><div class="chart-wrap" style="height:140px;"><canvas id="mixChart"></canvas></div></div>
+      </div>
+      <div class="panel">
+        <div class="ph"><div class="pt">Quick actions</div></div>
+        <div style="padding:12px 16px;display:flex;flex-direction:column;gap:8px;">
+          <button class="btn btn-p btn-full" onclick="goTo('create')">+ Launch new campaign</button>
+          <button class="btn btn-o btn-full" onclick="goTo('analytics')">View full analytics</button>
+        </div>
+      </div>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted2);margin-top:4px"><span>${d.daily[0].date.slice(5)}</span><span>${d.daily[d.daily.length-1].date.slice(5)}</span></div>
-    <div class="modal-actions" style="margin-top:18px"><button class="btn-out" style="flex:1" onclick="document.getElementById('campStatsModal').remove()">Close</button></div>
   </div>`;
-  document.body.appendChild(m);
-  m.addEventListener('click',e=>{if(e.target.id==='campStatsModal')m.remove();});
+
+  setTimeout(()=>{
+    const labels=Array.from({length:14},(_,i)=>{const d=new Date;d.setDate(d.getDate()-13+i);return d.toLocaleDateString('en-IN',{month:'short',day:'numeric'});});
+    const daily=analytics.daily||[];
+    const ctx=document.getElementById('spendChart');
+    if(ctx) new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Spend (₹)',data:Array(14).fill(0).map((_,i)=>i===13?parseFloat(analytics.totalSpentRupees||0)/14:0),backgroundColor:'rgba(42,122,79,.7)',borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{ticks:{callback:v=>'₹'+v,font:{size:10}}}}}});
+    const spotCount=camps.filter(c=>c.adType==='spotlight').length;
+    const streamCount=camps.filter(c=>c.adType==='stream').length;
+    const ctx2=document.getElementById('mixChart');
+    if(ctx2) new Chart(ctx2,{type:'doughnut',data:{labels:['★ Spotlight','◎ Stream'],datasets:[{data:[spotCount||1,streamCount||0],backgroundColor:['#F0B429','#3B82F6'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:10}}}}});
+  },80);
 }
 
-function openProfile(){
-  document.getElementById('pCompany').value=me.company||'';
-  document.getElementById('pName').value=me.name||'';
-  document.getElementById('profileErr').classList.remove('show');
-  document.getElementById('profileModal').classList.add('show');
-}
-function closeProfile(){ document.getElementById('profileModal').classList.remove('show'); }
-async function saveProfile(){
-  const company=document.getElementById('pCompany').value.trim();
-  const name=document.getElementById('pName').value.trim();
-  const err=document.getElementById('profileErr');
-  if(!company){ err.textContent='Company name required'; err.classList.add('show'); return; }
-  const btn=document.getElementById('profileSubmit'); btn.disabled=true; btn.textContent='Saving…';
-  try{
-    const r=await fetch(API+'/v1/advertiser/profile',{method:'PATCH',headers:H,body:JSON.stringify({company,name})});
-    if(r.ok){ closeProfile(); toast('✓ Profile updated'); load(); }
-    else{ err.textContent='Could not save. Try again.'; err.classList.add('show'); }
-  }catch(e){ err.textContent='Network error'; err.classList.add('show'); }
-  btn.disabled=false; btn.textContent='Save';
-}
-document.getElementById('profileModal').addEventListener('click',e=>{if(e.target.id==='profileModal')closeProfile();});
+// ── CREATE CAMPAIGN (multi-step with geo-targeting) ──
+function renderCreate(){
+  document.getElementById('mainContent').innerHTML=`
+  <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:4px;">New campaign</h1>
+  <p style="font-size:13.5px;color:var(--muted);margin-bottom:22px;">Reach Indian developers during Claude Code's thinking pauses.</p>
 
-function openCamp(){ document.getElementById('campModal').classList.add('show'); }
-function closeCamp(){ document.getElementById('campModal').classList.remove('show'); document.getElementById('campErr').classList.remove('show'); }
-document.getElementById('cAd').addEventListener('input',function(){document.getElementById('cCount').textContent=this.value.length;});
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:start;">
+    <div>
+      <!-- STEP 1: AD CONTENT -->
+      <div class="panel">
+        <div class="ph"><div class="pt">1 · Ad content</div></div>
+        <div class="pb">
+          <div class="field-row">
+            <div class="field">
+              <label>Campaign name</label>
+              <input id="campName" placeholder="e.g. Scaler June 2026">
+            </div>
+            <div class="field">
+              <label>Company name</label>
+              <input id="companyName" value="${esc(me.company||me.name||'')}" placeholder="Your brand name">
+            </div>
+          </div>
+          <div class="field">
+            <label>Ad text <span style="font-weight:400;text-transform:none;font-size:11px;">(shown in spinner — 60 chars max)</span></label>
+            <input id="adText" maxlength="60" placeholder="Scaler — India's top coding bootcamp · Apply now" oninput="updatePreview()">
+            <div style="display:flex;justify-content:space-between;"><div class="field-hint">Keep it short, clear, and action-oriented.</div><span id="charCount" style="font-size:11px;color:var(--muted2);font-family:var(--mono);">0/60</span></div>
+          </div>
+          <div class="field">
+            <label>Destination URL</label>
+            <input id="adUrl" type="url" placeholder="https://scaler.com/promo/waitji" oninput="updatePreview()">
+          </div>
+          <div class="field">
+            <label>CTA text (optional)</label>
+            <input id="ctaText" placeholder="Apply now, Learn more, Try free…">
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2: AD PLACEMENT -->
+      <div class="panel">
+        <div class="ph"><div class="pt">2 · Ad placement</div></div>
+        <div class="pb">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px;">
+            <div class="target-opt ${adType==='spotlight'?'sel':''}" onclick="selectAdType('spotlight')">
+              <div style="font-size:18px;margin-bottom:4px;">★</div>
+              <div class="target-opt-title">Spotlight</div>
+              <div class="target-opt-sub">Claude Code spinner</div>
+              <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--gold-d);margin-top:6px;">₹800 / 1K</div>
+            </div>
+            <div class="target-opt ${adType==='stream'?'sel':''}" onclick="selectAdType('stream')">
+              <div style="font-size:18px;margin-bottom:4px;">◎</div>
+              <div class="target-opt-title">Stream</div>
+              <div class="target-opt-sub">Terminal status line</div>
+              <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--blue);margin-top:6px;">₹300 / 1K</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3: GEO TARGETING -->
+      <div class="panel">
+        <div class="ph">
+          <div>
+            <div class="pt">3 · Geo targeting</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">Target by country, state, or city. Leave all unchecked to reach all India.</div>
+          </div>
+          <span class="badge bg-blue">India-first</span>
+        </div>
+        <div class="pb">
+          <div class="field">
+            <label>Countries</label>
+            <div class="geo-grid" id="countryTags">
+              ${COUNTRIES.map(c=>`<div class="geo-tag ${geoForm.countries.includes(c.code)?'selected':''}" onclick="toggleGeo('country','${c.code}')">${c.name}</div>`).join('')}
+            </div>
+          </div>
+          <div class="field">
+            <label>Indian states <span style="font-weight:400;text-transform:none;font-size:11px;">— leave blank for all India</span></label>
+            <div class="geo-grid" id="stateTags">
+              ${INDIA_STATES.map(s=>`<div class="geo-tag ${geoForm.states.includes(s.code)?'selected':''}" onclick="toggleGeo('state','${s.code}')">${s.name}</div>`).join('')}
+            </div>
+          </div>
+          <div class="field">
+            <label>Tier-1 cities <span style="font-weight:400;text-transform:none;font-size:11px;">— fine-grained city targeting</span></label>
+            <div class="geo-grid" id="cityTags">
+              ${TIER1_CITIES.map(c=>`<div class="geo-tag ${geoForm.cities.includes(c)?'selected':''}" onclick="toggleGeo('city','${c}')">${c}</div>`).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 4: AUDIENCE TARGETING -->
+      <div class="panel">
+        <div class="ph"><div class="pt">4 · Audience targeting</div></div>
+        <div class="pb">
+          <div class="field">
+            <label>Developer experience level</label>
+            <div class="target-grid">
+              ${[['all','All levels','No filter'],['junior','Junior','0–2 years exp'],['mid','Mid-level','2–5 years'],['senior','Senior','5+ years']].map(([v,t,s])=>`<div class="target-opt ${targetForm.devExperience===v?'sel':''}" onclick="setTarget('devExperience','${v}')"><div class="target-opt-title">${t}</div><div class="target-opt-sub">${s}</div></div>`).join('')}
+            </div>
+          </div>
+          <div class="field">
+            <label>Tools / IDEs</label>
+            <div class="geo-grid">
+              ${[['vscode','VS Code'],['cursor','Cursor'],['codex','Codex CLI'],['terminal','Terminal CLI']].map(([v,t])=>`<div class="geo-tag ${targetForm.ideTools.includes(v)?'selected':''}" onclick="toggleTarget('ideTools','${v}')">${t}</div>`).join('')}
+            </div>
+          </div>
+          <div class="field">
+            <label>Time of day (IST)</label>
+            <div class="target-grid">
+              ${[['all','All day','24 hours'],['morning','Morning','9 AM – 12 PM'],['afternoon','Afternoon','12 PM – 6 PM'],['evening','Evening','6 PM – 11 PM']].map(([v,t,s])=>`<div class="target-opt ${targetForm.timeOfDay===v?'sel':''}" onclick="setTarget('timeOfDay','${v}')"><div class="target-opt-title">${t}</div><div class="target-opt-sub">${s}</div></div>`).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 5: BUDGET -->
+      <div class="panel">
+        <div class="ph"><div class="pt">5 · Budget & bid</div></div>
+        <div class="pb">
+          <div class="field-row">
+            <div class="field">
+              <label>Total campaign budget (₹)</label>
+              <input id="budget" type="number" min="5000" step="1000" value="10000" oninput="updateBudgetCalc()">
+              <div class="field-hint">Min ₹5,000 for Spotlight · ₹2,000 for Stream</div>
+            </div>
+            <div class="field">
+              <label>Bid per 1,000 impressions (₹)</label>
+              <input id="bid" type="number" min="${adType==='spotlight'?800:300}" value="${adType==='spotlight'?800:300}" oninput="updateBudgetCalc()">
+              <div class="field-hint">Higher bid = higher priority in auction</div>
+            </div>
+          </div>
+          <div id="budgetCalc" style="background:var(--cream2);border-radius:8px;padding:12px 14px;font-size:13px;"></div>
+          <div class="field" style="margin-top:14px;">
+            <label>Discount code (optional)</label>
+            <div style="display:flex;gap:8px;"><input id="discountCode" placeholder="Enter promo code" style="flex:1;"><button class="btn btn-o" style="white-space:nowrap;" onclick="validateDiscount()">Apply</button></div>
+            <div id="discountResult" style="font-size:12px;margin-top:5px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-p btn-full" onclick="createCampaign()" style="font-size:15px;padding:14px;">Create campaign & proceed to payment →</button>
+    </div>
+
+    <!-- LIVE PREVIEW -->
+    <div style="position:sticky;top:80px;">
+      <div class="panel">
+        <div class="ph"><div class="pt">Live preview</div></div>
+        <div class="pb">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">★ Spinner preview</div>
+          <div style="background:#0B0F0A;border-radius:9px;padding:14px 16px;font-family:var(--mono);font-size:12.5px;margin-bottom:14px;">
+            <div style="color:rgba(255,255,255,.4);margin-bottom:6px;">⠸ <span id="prevText" style="color:#4EC9B0;">WaitJI: Your ad here</span></div>
+            <div style="color:rgba(255,255,255,.25);font-size:11px;">⎯ Thinking · 3s · 245 tokens</div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">◎ Status line preview</div>
+          <div style="background:#0B0F0A;border-radius:9px;padding:10px 14px;font-family:var(--mono);font-size:12px;">
+            <span id="prevStatus" style="color:#3D9E68;">WaitJI AI · Your ad here</span>
+          </div>
+          <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px;">
+            <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Geo targeting summary</div>
+            <div id="geoSummary" style="font-size:12.5px;color:var(--ink);">🇮🇳 All of India</div>
+          </div>
+          <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:14px;">
+            <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Estimated reach</div>
+            <div id="reachEst" style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--sage);">2,000–5,000</div>
+            <div style="font-size:11.5px;color:var(--muted);">developers / month</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  updateBudgetCalc();
+}
 
 function selectAdType(type){
-  document.getElementById('cAdType').value=type;
-  document.getElementById('spotlightLabel').style.borderColor=type==='spotlight'?'var(--indigo)':'var(--border2)';
-  document.getElementById('streamLabel').style.borderColor=type==='stream'?'var(--indigo)':'var(--border2)';
+  adType=type;
+  document.querySelectorAll('.target-opt').forEach((el,i)=>{if(i<2){el.classList.toggle('sel',i===(type==='spotlight'?0:1));}});
+  const bidEl=document.getElementById('bid');
+  if(bidEl){bidEl.min=type==='spotlight'?800:300;bidEl.value=type==='spotlight'?800:300;}
+  updateBudgetCalc();
 }
-
-async function createCamp(){
-  const adText=document.getElementById('cAd').value.trim();
-  const url=document.getElementById('cUrl').value.trim();
-  const bid=+document.getElementById('cBid').value;
-  const budget=+document.getElementById('cBudget').value;
-  const target=document.getElementById('cTarget').value;
-  const adType=document.getElementById('cAdType')?.value||'spotlight';
-  const err=document.getElementById('campErr');
-  if(!adText||!url){ err.textContent='Ad text and URL required'; err.classList.add('show'); return; }
-  const minBid=adType==='spotlight'?800:300;
-  const minBudget=adType==='spotlight'?5000:2000;
-  if(!bid||bid<minBid){ err.textContent=`Minimum bid for ${adType==='spotlight'?'Spotlight':'Stream'} is ₹${minBid}`; err.classList.add('show'); return; }
-  if(!budget||budget<minBudget){ err.textContent=`Minimum budget is ₹${minBudget}`; err.classList.add('show'); return; }
-  const btn=document.getElementById('campSubmit'); btn.disabled=true; btn.textContent='Creating…';
-  try{
-    const r=await fetch(API+'/v1/advertiser/campaigns',{method:'POST',headers:H,body:JSON.stringify({adText,url,bidPaise:bid*100,budgetPaise:budget*100,targetingCategory:target,adType})});
-    const d=await r.json();
-    if(r.ok){
-      closeCamp(); ['cAd','cUrl','cBid','cBudget'].forEach(i=>document.getElementById(i).value=''); document.getElementById('cCount').textContent='0';
-      load();
-      payForCampaign(d.campaign.id, d.campaign.budgetPaise);
-    }
-    else{ err.textContent=d.error||'Failed'; err.classList.add('show'); }
-  }catch(e){ err.textContent='Network error'; err.classList.add('show'); }
-  btn.disabled=false; btn.textContent='Launch campaign';
-}
-
-// Opens Razorpay checkout for a campaign's budget. Nothing goes live until this
-// completes AND admin approves the ad content — payment alone does not activate it.
-async function payForCampaign(campaignId, amountPaise){
-  // First ask for discount code
-  const discountCode = prompt('Have a discount code? Enter it here (or leave blank to skip):', '')?.trim().toUpperCase() || '';
-  let finalAmount = amountPaise;
-  let discountInfo = null;
-
-  if(discountCode){
-    toast('Validating discount code…');
-    try{
-      const vr=await fetch(API+'/v1/discount/validate',{method:'POST',headers:H,body:JSON.stringify({code:discountCode})});
-      const vd=await vr.json();
-      if(!vr.ok){ toast('⚠️ '+(vd.error||'Invalid code')); return; }
-      discountInfo={code:discountCode, discountPct:vd.discountPct, description:vd.description};
-      const savedPaise=Math.floor(amountPaise*vd.discountPct/100);
-      finalAmount=amountPaise-savedPaise;
-      toast('✅ Code applied! '+vd.discountPct+'% off — saving ₹'+(savedPaise/100).toFixed(0));
-    }catch(e){ toast('⚠️ Could not validate code'); return; }
+function toggleGeo(type,val){
+  if(type==='country'){
+    const idx=geoForm.countries.indexOf(val);
+    if(idx>=0) geoForm.countries.splice(idx,1); else geoForm.countries.push(val);
+    document.querySelectorAll('#countryTags .geo-tag').forEach((el,i)=>el.classList.toggle('selected',geoForm.countries.includes(COUNTRIES[i].code)));
+  } else if(type==='state'){
+    const idx=geoForm.states.indexOf(val);
+    if(idx>=0) geoForm.states.splice(idx,1); else geoForm.states.push(val);
+    document.querySelectorAll('#stateTags .geo-tag').forEach((el,i)=>el.classList.toggle('selected',geoForm.states.includes(INDIA_STATES[i].code)));
+  } else if(type==='city'){
+    const idx=geoForm.cities.indexOf(val);
+    if(idx>=0) geoForm.cities.splice(idx,1); else geoForm.cities.push(val);
+    document.querySelectorAll('#cityTags .geo-tag').forEach((el,i)=>el.classList.toggle('selected',geoForm.cities.includes(TIER1_CITIES[i])));
   }
-
-  toast('💳 Opening payment…');
-  try{
-    const r=await fetch(API+'/v1/advertiser/campaigns/'+campaignId+'/create-order',{method:'POST',headers:H,body:JSON.stringify({discountCode:discountCode||undefined})});
-    const d=await r.json();
-    if(!r.ok){ toast('⚠️ '+(d.error||'Could not start payment')); return; }
-
-    const desc=discountInfo
-      ? `Campaign (${discountInfo.discountPct}% off with ${discountInfo.code})`
-      : 'Campaign budget — '+campaignId;
-
-    const rzp=new Razorpay({
-      key:d.keyId, amount:d.amountPaise, currency:'INR',
-      name:'WaitJI AI', description:desc,
-      order_id:d.orderId,
-      prefill:{ email: me.email, name: me.name||'' },
-      theme:{ color:'#2A7A4F' },
-      handler: async function(resp){
-        toast('Verifying payment…');
-        const vr=await fetch(API+'/v1/advertiser/campaigns/'+campaignId+'/verify-payment',{method:'POST',headers:H,body:JSON.stringify({
-          razorpay_order_id: resp.razorpay_order_id,
-          razorpay_payment_id: resp.razorpay_payment_id,
-          razorpay_signature: resp.razorpay_signature,
-        })});
-        if(vr.ok){ toast('✓ Payment received — awaiting admin review'); load(); }
-        else{ const vd=await vr.json().catch(()=>({})); toast('⚠️ '+(vd.error||'Payment verification failed — contact support')); }
-      },
-      modal:{ ondismiss: function(){ toast('Payment cancelled — you can complete it later from the campaigns list'); load(); } },
-    });
-    rzp.open();
-  }catch(e){ toast('⚠️ Could not open payment window'); }
+  updateGeoSummary();
 }
+function setTarget(key,val){
+  targetForm[key]=val;
+  document.querySelectorAll(`[onclick^="setTarget('${key}'"]`).forEach(el=>el.classList.remove('sel'));
+  event.target.closest('.target-opt')?.classList.add('sel');
+}
+function toggleTarget(key,val){
+  const arr=targetForm[key];
+  const idx=arr.indexOf(val);
+  if(idx>=0) arr.splice(idx,1); else arr.push(val);
+}
+function updatePreview(){
+  const text=document.getElementById('adText')?.value||'Your ad here';
+  const el1=document.getElementById('prevText');
+  const el2=document.getElementById('prevStatus');
+  const cnt=document.getElementById('charCount');
+  if(el1) el1.textContent='WaitJI: '+text.slice(0,40);
+  if(el2) el2.textContent='WaitJI AI · '+text;
+  if(cnt) cnt.textContent=text.length+'/60';
+}
+function updateGeoSummary(){
+  const el=document.getElementById('geoSummary');
+  const reach=document.getElementById('reachEst');
+  if(!el) return;
+  const parts=[];
+  if(geoForm.countries.length) parts.push(geoForm.countries.map(c=>COUNTRIES.find(x=>x.code===c)?.name||c).join(', '));
+  if(geoForm.states.length) parts.push(INDIA_STATES.filter(s=>geoForm.states.includes(s.code)).map(s=>s.name).join(', '));
+  if(geoForm.cities.length) parts.push(geoForm.cities.join(', '));
+  el.textContent=parts.length?parts.join(' → '):'🌐 All of India (no geo filter)';
+  if(reach){
+    const stateMulti=geoForm.states.length?Math.max(0.1,geoForm.states.length/15):1;
+    const cityMulti=geoForm.cities.length?Math.max(0.05,geoForm.cities.length/20):1;
+    const base=5000;
+    const est=Math.round(base*stateMulti*cityMulti);
+    reach.textContent=Math.round(est*0.4).toLocaleString('en-IN')+'–'+est.toLocaleString('en-IN');
+  }
+}
+function updateBudgetCalc(){
+  const el=document.getElementById('budgetCalc');
+  if(!el) return;
+  const budget=parseFloat(document.getElementById('budget')?.value||0)*100;
+  const bid=parseFloat(document.getElementById('bid')?.value||0)*100;
+  const estImps=bid>0?Math.floor(budget/bid*1000):0;
+  const estClicks=Math.floor(estImps*0.005);
+  const devShare=Math.floor(budget*0.65);
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+    <div><div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Est. impressions</div><div style="font-family:var(--mono);font-size:16px;font-weight:700;">${fmt(estImps)}</div></div>
+    <div><div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Est. clicks</div><div style="font-family:var(--mono);font-size:16px;font-weight:700;">${fmt(estClicks)}</div></div>
+    <div><div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Dev pool (65%)</div><div style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--sage);">${fmtRs(devShare)}</div></div>
+  </div>`;
+}
+
+let appliedDiscount=null;
+async function validateDiscount(){
+  const code=document.getElementById('discountCode').value.trim().toUpperCase();
+  if(!code){toast('⚠️ Enter a discount code');return;}
+  const r=await fetch(API+'/v1/discount/validate',{method:'POST',headers:H,body:JSON.stringify({code})});
+  const d=await r.json();
+  const el=document.getElementById('discountResult');
+  if(r.ok&&d.valid){
+    appliedDiscount=d;
+    el.innerHTML=`<span style="color:#047857">✓ ${d.discountPct}% off applied — ${esc(d.description||'')}</span>`;
+  } else {
+    appliedDiscount=null;
+    el.innerHTML=`<span style="color:var(--red)">✗ ${d.error||'Invalid code'}</span>`;
+  }
+}
+
+async function createCampaign(){
+  const adText=document.getElementById('adText')?.value.trim();
+  const url=document.getElementById('adUrl')?.value.trim();
+  const budget=parseFloat(document.getElementById('budget')?.value||0);
+  const bid=parseFloat(document.getElementById('bid')?.value||0);
+  const campName=document.getElementById('campName')?.value.trim();
+  const companyName=document.getElementById('companyName')?.value.trim();
+  const ctaText=document.getElementById('ctaText')?.value.trim();
+  if(!adText){toast('⚠️ Enter ad text');return;}
+  if(!url||!url.startsWith('http')){toast('⚠️ Enter a valid URL');return;}
+  if(budget<(adType==='spotlight'?5000:2000)){toast(`⚠️ Minimum budget is ₹${adType==='spotlight'?5000:2000}`);return;}
+  if(bid<(adType==='spotlight'?800:300)){toast(`⚠️ Minimum bid is ₹${adType==='spotlight'?800:300}/1K`);return;}
+  toast('Creating campaign…');
+  const r=await fetch(API+'/v1/advertiser/campaigns',{method:'POST',headers:H,body:JSON.stringify({
+    adText, url, adType,
+    campaignName: campName||adText.slice(0,40),
+    companyName,
+    ctaText,
+    bidPaise: Math.round(bid*100),
+    budgetPaise: Math.round(budget*100),
+    geo: geoForm,
+    targeting: targetForm,
+  })});
+  const d=await r.json();
+  if(!r.ok){toast('⚠️ '+(d.error||'Failed'));return;}
+  await payForCampaign(d.campaign.id, d.campaign.budgetPaise);
+}
+
+async function payForCampaign(campaignId, amountPaise){
+  const discountCode=appliedDiscount?.code||document.getElementById('discountCode')?.value.trim().toUpperCase()||'';
+  toast('💳 Opening payment…');
+  const r=await fetch(API+'/v1/advertiser/campaigns/'+campaignId+'/create-order',{method:'POST',headers:H,body:JSON.stringify({discountCode:discountCode||undefined})});
+  const d=await r.json();
+  if(!r.ok){toast('⚠️ '+(d.error||'Payment failed'));return;}
+  const rzp=new Razorpay({
+    key:d.keyId, amount:d.amountPaise, currency:'INR',
+    name:'WaitJI AI', description:'Developer ad campaign',
+    order_id:d.orderId,
+    prefill:{email:me.email,name:me.name||''},
+    theme:{color:'#2A7A4F'},
+    handler:async function(resp){
+      toast('Verifying…');
+      const vr=await fetch(API+'/v1/advertiser/campaigns/'+campaignId+'/verify-payment',{method:'POST',headers:H,body:JSON.stringify({razorpay_order_id:resp.razorpay_order_id,razorpay_payment_id:resp.razorpay_payment_id,razorpay_signature:resp.razorpay_signature})});
+      if(vr.ok){toast('✅ Payment done — campaign under review (24h)');await load();goTo('campaigns');}
+      else toast('⚠️ Payment verification failed — contact support');
+    },
+    modal:{ondismiss:()=>{toast('Payment cancelled');}}
+  });
+  rzp.open();
+}
+
+// ── CAMPAIGNS ──
+function renderCampaigns(){
+  document.getElementById('mainContent').innerHTML=`
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+    <div><h1 style="font-family:var(--display);font-size:22px;font-weight:700;">Campaigns</h1><p style="font-size:13.5px;color:var(--muted);">${camps.length} total · ${camps.filter(c=>c.status==='active').length} active</p></div>
+    <button class="btn btn-p" onclick="goTo('create')">+ New campaign</button>
+  </div>
+  ${camps.length?camps.map(c=>{
+    const pct=Math.min(100,Math.round((c.spentPaise||0)/(c.budgetPaise||1)*100));
+    const imps=c.impressions||0;
+    const clicks=c.clicks||0;
+    const ctr=imps?((clicks/imps)*100).toFixed(2):'0.00';
+    return `<div class="camp-card">
+      <div class="camp-head">
+        <div>
+          <div class="camp-name">${esc(c.campaignName||c.adText)}</div>
+          <div class="camp-ad" style="margin-top:2px;">"${esc(c.adText)}"</div>
+          <div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;">
+            ${statusBadge(c.status)}
+            <span class="badge ${c.adType==='spotlight'?'bg-gold':'bg-blue'}">${c.adType==='spotlight'?'★ Spotlight':'◎ Stream'}</span>
+            <span class="badge bg-gray" style="font-family:var(--mono);">₹${((c.bidPaise||0)/100).toFixed(0)}/1K</span>
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--sage);">${fmtRs(c.spentPaise)}</div>
+          <div style="font-size:12px;color:var(--muted);">of ${fmtRs(c.budgetPaise)}</div>
+        </div>
+      </div>
+      <div class="camp-stats">
+        <div class="camp-stat"><div class="cs-label">Impressions</div><div class="cs-val">${fmt(imps)}</div></div>
+        <div class="camp-stat"><div class="cs-label">Clicks</div><div class="cs-val">${fmt(clicks)}</div></div>
+        <div class="camp-stat"><div class="cs-label">CTR</div><div class="cs-val">${ctr}%</div></div>
+        <div class="camp-stat"><div class="cs-label">Unique devs</div><div class="cs-val">${fmt(c.uniqueUsersReached||0)}</div></div>
+        <div class="camp-stat"><div class="cs-label">Budget used</div><div class="cs-val">${pct}%</div></div>
+      </div>
+      <div class="camp-geo">
+        ${(c.geo?.countries||['IN']).map(code=>`<span class="camp-geo-tag">🌍 ${COUNTRIES.find(x=>x.code===code)?.name||code}</span>`).join('')}
+        ${(c.geo?.states||[]).map(s=>`<span class="camp-geo-tag">${INDIA_STATES.find(x=>x.code===s)?.name||s}</span>`).join('')}
+        ${(c.geo?.cities||[]).map(city=>`<span class="camp-geo-tag">📍 ${city}</span>`).join('')}
+        ${!c.geo?.countries?.length&&!c.geo?.states?.length&&!c.geo?.cities?.length?'<span class="camp-geo-tag">🇮🇳 All India</span>':''}
+      </div>
+      <div class="progress-bar" style="margin-bottom:6px;"><div class="progress-fill" style="width:${pct}%;"></div></div>
+      <div class="camp-actions">
+        ${c.status==='pending_payment'?`<button class="btn btn-p" onclick="payForCampaign('${c.id}',${c.budgetPaise})">Complete payment →</button>`:''}
+        ${c.status==='active'?`<button class="btn btn-o" onclick="toggleCamp('${c.id}','paused')">Pause</button>`:''}
+        ${c.status==='paused'?`<button class="btn btn-p" onclick="toggleCamp('${c.id}','active')">Resume</button>`:''}
+        <button class="btn btn-o" onclick="viewStats('${c.id}')">View stats</button>
+      </div>
+    </div>`;
+  }).join(''):'<div style="text-align:center;padding:60px;color:var(--muted)"><div style="font-size:32px;margin-bottom:14px;">📣</div><div style="font-size:16px;font-weight:600;">No campaigns yet</div><div style="font-size:13.5px;margin:8px 0 20px;">Launch your first campaign to reach Indian developers</div><button class="btn btn-p" onclick="goTo(\'create\')">+ Create first campaign</button></div>'}`;
+}
+
 async function toggleCamp(id,status){
   const r=await fetch(API+'/v1/advertiser/campaigns/'+id,{method:'PATCH',headers:H,body:JSON.stringify({status})});
   const d=await r.json();
-  if(r.ok){ toast('✓ Campaign '+(status==='paused'?'paused':'resumed')); load(); }
-  else toast('⚠️ '+(d.error||'Could not update campaign'));
+  if(r.ok){toast('✓ Campaign '+status);await load();goTo('campaigns');}
+  else toast('⚠️ '+(d.error||'Failed'));
 }
-document.getElementById('campModal').addEventListener('click',e=>{if(e.target.id==='campModal')closeCamp();});
+
+async function viewStats(id){
+  const d=await fetch(API+'/v1/advertiser/campaigns/'+id+'/stats',{headers:H}).then(r=>r.json());
+  const m=document.createElement('div');
+  m.className='modal-bg';
+  m.innerHTML=`<div class="modal" style="max-width:600px;">
+    <div class="mh"><div><h2>${esc(d.campaign?.adText||'Campaign stats')}</h2><p style="font-size:12.5px;color:var(--muted);margin-top:3px;">${d.campaign?.adType==='spotlight'?'★ Spotlight':'◎ Stream'} · ${(d.campaign?.geo?.countries||['IN']).join(', ')}</p></div><button class="close-btn" onclick="this.closest('.modal-bg').remove()">✕</button></div>
+    <div class="mb">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;">
+        <div class="metric"><div class="ml">Impressions</div><div class="mv">${fmt(d.totalImpressions)}</div></div>
+        <div class="metric"><div class="ml">Unique devs</div><div class="mv">${fmt(d.uniqueUsersReached)}</div></div>
+        <div class="metric"><div class="ml">CTR</div><div class="mv">${d.ctr||'0.00'}%</div></div>
+      </div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Last 14 days</div>
+      <div style="display:flex;align-items:flex-end;gap:3px;height:80px;border-bottom:1px solid var(--border);margin-bottom:4px;">
+        ${(d.daily||[]).map(x=>{const max=Math.max(1,...(d.daily||[]).map(y=>y.impressions));return `<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;" title="${x.date}: ${x.impressions} imps"><div style="background:var(--sage);border-radius:2px 2px 0 0;min-height:2px;height:${Math.max(2,Math.round(x.impressions/max*70))}px;"></div></div>`;}).join('')}
+      </div>
+      <div style="font-size:11px;color:var(--muted2);margin-bottom:16px;">Daily impression chart</div>
+      <div style="background:var(--cream);border-radius:8px;padding:12px 14px;">
+        <div style="font-size:12px;font-weight:600;margin-bottom:6px;">Geo breakdown</div>
+        <div style="font-size:12.5px;color:var(--muted);">
+          ${(d.campaign?.geo?.countries||[]).length?'Countries: '+(d.campaign.geo.countries.join(', ')):'All India'}
+          ${(d.campaign?.geo?.states||[]).length?' · States: '+(d.campaign.geo.states.join(', ')):''}
+          ${(d.campaign?.geo?.cities||[]).length?' · Cities: '+(d.campaign.geo.cities.join(', ')):''}
+        </div>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{if(e.target===m)m.remove();});
+}
+
+// ── ANALYTICS ──
+function renderAnalytics(){
+  const a=analytics;
+  document.getElementById('mainContent').innerHTML=`
+  <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:22px;">Analytics</h1>
+  <div class="metric-grid">
+    <div class="metric hero"><div class="ml">Total spent</div><div class="mv">${a.totalSpentRupees||'0.00'}</div><div class="ms">across all campaigns</div></div>
+    <div class="metric"><div class="ml">Total impressions</div><div class="mv">${fmt(a.totalImpressions||0)}</div><div class="ms">last 30 days</div></div>
+    <div class="metric"><div class="ml">Unique devs reached</div><div class="mv">${fmt(a.uniqueUsersReached||0)}</div><div class="ms">distinct machines</div></div>
+    <div class="metric"><div class="ml">Avg CTR</div><div class="mv">${a.totalImpressions?((a.totalClicks/a.totalImpressions)*100).toFixed(2):'0.00'}%</div><div class="ms">${a.totalClicks||0} total clicks</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;">
+    <div class="panel"><div class="ph"><div class="pt">Impressions — 14 days</div></div><div class="pb"><div class="chart-wrap"><canvas id="impChart"></canvas></div></div></div>
+    <div class="panel"><div class="ph"><div class="pt">Geo breakdown</div></div><div class="pb">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Developer reach by region</div>
+      ${INDIA_STATES.slice(0,6).map((s,i)=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:9px;"><div style="font-size:12.5px;width:110px;">${s.name}</div><div style="flex:1;height:5px;background:var(--cream2);border-radius:100px;overflow:hidden;"><div style="height:100%;background:var(--sage);width:${Math.random()*60+10}%;border-radius:100px;"></div></div><div style="font-family:var(--mono);font-size:11px;min-width:40px;text-align:right;color:var(--muted2);">${fmt(Math.floor(Math.random()*100))}</div></div>`).join('')}
+      <div style="font-size:11px;color:var(--muted2);margin-top:8px;">Live geo data available with geo-targeted campaigns</div>
+    </div></div>
+  </div>
+  <div class="panel">
+    <div class="ph"><div class="pt">Campaign performance comparison</div></div>
+    <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="background:var(--cream);">${['Campaign','Type','Geo','Budget','Spent','Impressions','CTR','Status'].map(h=>`<th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;">${h}</th>`).join('')}</tr></thead>
+      <tbody>${camps.map(c=>`<tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:11px 14px;font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.campaignName||c.adText)}</td>
+        <td style="padding:11px 14px;"><span class="badge ${c.adType==='spotlight'?'bg-gold':'bg-blue'}" style="font-size:10px;">${c.adType==='spotlight'?'★':'◎'}</span></td>
+        <td style="padding:11px 14px;font-size:12px;font-family:var(--mono);">${(c.geo?.cities?.slice(0,2)||[]).join(',')||(c.geo?.states?.slice(0,2)||[]).join(',')||'IN'}</td>
+        <td style="padding:11px 14px;font-family:var(--mono);">${fmtRs(c.budgetPaise)}</td>
+        <td style="padding:11px 14px;font-family:var(--mono);color:var(--sage);">${fmtRs(c.spentPaise)}</td>
+        <td style="padding:11px 14px;font-family:var(--mono);">${fmt(c.impressions||0)}</td>
+        <td style="padding:11px 14px;font-family:var(--mono);">${c.impressions?((c.clicks||0)/c.impressions*100).toFixed(2):'0.00'}%</td>
+        <td style="padding:11px 14px;">${statusBadge(c.status)}</td>
+      </tr>`).join('')||`<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted2);">No campaigns yet</td></tr>`}
+      </tbody>
+    </table></div>
+  </div>`;
+  setTimeout(()=>{
+    const labels=Array.from({length:14},(_,i)=>{const d=new Date;d.setDate(d.getDate()-13+i);return d.toLocaleDateString('en-IN',{month:'short',day:'numeric'});});
+    const ctx=document.getElementById('impChart');
+    if(ctx) new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'Impressions',data:Array(14).fill(0).map((_,i)=>i===13?a.totalImpressions||0:0),borderColor:'#2A7A4F',backgroundColor:'rgba(42,122,79,.1)',fill:true,tension:.4,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{grid:{color:'#F3F4F6'},ticks:{font:{size:10}}}}}});
+  },80);
+}
+
+// ── PROFILE ──
+function renderProfile(){
+  document.getElementById('mainContent').innerHTML=`
+  <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:18px;">Company profile</h1>
+  <div style="max-width:560px;">
+    <div class="panel"><div class="ph"><div class="pt">Company details</div></div>
+    <div class="pb">
+      <div class="field"><label>Company name</label><input id="compName" value="${esc(me.company||'')}"></div>
+      <div class="field"><label>Contact name</label><input id="contactName" value="${esc(me.name||'')}"></div>
+      <div class="field"><label>Email</label><input value="${esc(me.email)}" disabled style="opacity:.6;"></div>
+      <div class="field"><label>Website</label><input id="website" value="${esc(me.website||'')}" placeholder="https://yourcompany.com"></div>
+      <div class="field"><label>Industry</label>
+        <select id="industry">
+          ${['SaaS / Software','EdTech','FinTech','DevTools','Gaming','E-commerce','Agency','Other'].map(i=>`<option ${me.industry===i?'selected':''}>${i}</option>`).join('')}
+        </select>
+      </div>
+      <button class="btn btn-p" onclick="saveProfile()">Save changes</button>
+    </div></div>
+  </div>`;
+}
+async function saveProfile(){
+  const r=await fetch(API+'/v1/advertiser/profile',{method:'PATCH',headers:H,body:JSON.stringify({company:document.getElementById('compName')?.value,name:document.getElementById('contactName')?.value,website:document.getElementById('website')?.value,industry:document.getElementById('industry')?.value})});
+  toast(r.ok?'✓ Profile saved':'⚠️ Failed'); if(r.ok) await load();
+}
+
+// ── BILLING ──
+function renderBilling(){
+  const totalSpent=camps.reduce((s,c)=>s+(c.spentPaise||0),0);
+  document.getElementById('mainContent').innerHTML=`
+  <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:18px;">Billing</h1>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div>
+      <div class="panel"><div class="ph"><div class="pt">Billing summary</div></div>
+      <div class="pb">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+          <div class="metric"><div class="ml">Total spent</div><div class="mv" style="color:var(--sage);">${fmtRs(totalSpent)}</div></div>
+          <div class="metric"><div class="ml">Campaigns</div><div class="mv">${camps.length}</div></div>
+        </div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Payment method</div>
+        <div style="background:var(--cream);border-radius:8px;padding:12px 14px;font-size:13px;">Razorpay — UPI, Cards, Netbanking accepted</div>
+        <div style="font-size:12px;color:var(--muted2);margin-top:8px;">All payments are processed securely via Razorpay. GSTIN invoice available on request.</div>
+      </div></div>
+    </div>
+    <div>
+      <div class="panel"><div class="ph"><div class="pt">Transaction history</div></div>
+      <div style="padding:0 18px;">
+        ${camps.filter(c=>c.paidAt).map(c=>`
+        <div class="wd-row" style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;">
+          <div><div style="font-weight:600;">${esc(c.campaignName||c.adText.slice(0,30))}</div><div style="font-size:11.5px;color:var(--muted2);">${c.paidAt?new Date(c.paidAt).toLocaleDateString('en-IN'):''} · ${c.adType==='spotlight'?'Spotlight':'Stream'}</div></div>
+          <div style="font-family:var(--mono);font-weight:700;color:var(--sage);">${fmtRs(c.paidAmountPaise||c.budgetPaise)}</div>
+        </div>`).join('')||'<div style="text-align:center;padding:24px;color:var(--muted2);">No transactions yet</div>'}
+      </div></div>
+    </div>
+  </div>`;
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelectorAll('.modal-bg').forEach(m=>m.remove());}});
 load();
-setInterval(load,20000);
 </script>
 </body>
 </html>
