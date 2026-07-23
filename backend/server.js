@@ -445,6 +445,60 @@ const server = http.createServer(async (req, res) => {
   try {
     // ═══════════ PUBLIC ═══════════
     if (method === 'GET' && url === '/health') {
+
+    // ── Public leaderboard — top earners (anonymized) ──
+    if (method === 'GET' && url === '/v1/public/leaderboard') {
+      const earners = Object.values(db.users)
+        .filter(u => u.role === 'customer' && !u.banned)
+        .map(u => {
+          const imps = db.impressions.filter(i => i.userId === u.id && !i.isHouseAd);
+          const clks = db.clicks.filter(c => c.userId === u.id && c.valid);
+          const totalPaise = imps.reduce((s, i) => s + i.earnedPaise, 0);
+          return { totalPaise, imps: imps.length, clicks: clks.length };
+        })
+        .filter(e => e.totalPaise > 0)
+        .sort((a, b) => b.totalPaise - a.totalPaise)
+        .slice(0, 20)
+        .map((e, i) => ({
+          rank: i + 1,
+          handle: `Developer ${Math.random().toString(36).slice(2,7).toUpperCase()}`,
+          lifetimeRupees: (e.totalPaise / 100).toFixed(2),
+          impressions: e.imps,
+          clicks: e.clicks,
+        }));
+      return send(res, 200, { leaderboard: earners, updatedAt: Date.now() });
+    }
+
+    // ── Public bid market — live auction state ──
+    if (method === 'GET' && url === '/v1/public/market') {
+      const activeCampaigns = Object.values(db.campaigns)
+        .filter(c => c.status === 'active')
+        .sort((a, b) => b.bidPaise - a.bidPaise)
+        .map((c, i) => ({
+          rank: i + 1,
+          advertiser: c.advertiser || 'Anonymous advertiser',
+          bidRupees: (c.bidPaise / 100).toFixed(0),
+          adType: c.adType || 'spotlight',
+          impressions: db.impressions.filter(i => i.campaignId === c.id).length,
+        }));
+      const totalImpsLast24h = db.impressions.filter(i => Date.now() - i.ts < 86400000).length;
+      const topBid = activeCampaigns[0]?.bidRupees || '0';
+      return send(res, 200, {
+        market: activeCampaigns,
+        stats: {
+          activeCampaigns: activeCampaigns.length,
+          topBidRupees: topBid,
+          developerShare: '65%',
+          impsLast24h: totalImpsLast24h,
+          clickMultiplier: 50,
+          minBidSpotlight: 800,
+          minBidStream: 300,
+        },
+        updatedAt: Date.now(),
+      });
+    }
+
+
       return send(res, 200, { status: 'ok', version: '3.0.0-supabase', ts: Date.now() });
     }
     if (method === 'GET' && url === '/') {
@@ -562,7 +616,7 @@ const server = http.createServer(async (req, res) => {
       const check = validateImpression(userId, ip);
       if (!check.valid) return send(res, 200, { success: false, reason: check.reason, billed: false });
 
-      const earnPaise = Math.floor(c.bidPaise / 1000 / 2); // 50% of per-impression
+      const earnPaise = Math.floor(c.bidPaise / 1000 * 0.65); // 65% of per-impression to developer
       const advCostPaise = Math.floor(c.bidPaise / 1000);
       // budget guard
       if (c.spentPaise + advCostPaise > c.budgetPaise) {
@@ -601,9 +655,9 @@ const server = http.createServer(async (req, res) => {
         saveDB();
         return send(res, 200, { success: false, reason: check.reason, billed: false });
       }
-      // valid click bills advertiser 50x impression, dev earns 50% of that
+      // valid click bills advertiser 50x impression, dev earns 65% of that
       const clickCostPaise = Math.floor(c.bidPaise / 1000) * 50;
-      const clickEarnPaise = Math.floor(clickCostPaise / 2);
+      const clickEarnPaise = Math.floor(clickCostPaise * 0.65);
       if (c.spentPaise + clickCostPaise <= c.budgetPaise) {
         c.spentPaise += clickCostPaise;
       }
