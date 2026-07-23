@@ -2,333 +2,598 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>WaitJI AI — Earnings Dashboard</title>
 <meta name="robots" content="noindex,nofollow">
-
+<link rel="icon" type="image/png" href="logo-192.png">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root{
-  --ink:#0B0F0A;--ink2:#1C2119;
-  --sage:#2A7A4F;--sage-d:#1E5A3A;--sage-l:#3D9E68;--sage-soft:#EBF5EE;
-  --gold:#F0B429;--gold-d:#C9901A;--gold-l:#F7D070;--gold-soft:#FEF9EC;
+  --ink:#0B0F0A;--sage:#2A7A4F;--sage-d:#1E5A3A;--sage-l:#3D9E68;--sage-soft:#EBF5EE;
+  --gold:#F0B429;--gold-soft:#FEF9EC;--gold-d:#C9901A;
+  --red:#DC2626;--red-soft:#FEE2E2;
   --cream:#F8F5EE;--cream2:#EEE9DD;
   --muted:#6B7568;--muted2:#9AA896;
-  --border:#D4D9CF;--border2:#BFC5B9;
-  --surface:#FFFFFF;--surface2:#F8F5EE;--bg:#F3F0E8;
-  --red:#DC2626;--red-soft:#FEE2E2;
-  --green:#15803D;--green-soft:#DCFCE7;
-  --amber:#D97706;--amber-soft:#FEF3C7;
-  /* backward compat aliases */
-  --indigo:var(--sage);--indigo-dark:var(--sage-d);--indigo-soft:var(--sage-soft);
-  --sky:var(--sage-l);
-  --display:'Sora',sans-serif;
-  --body:'Inter',sans-serif;
-  --mono:'IBM Plex Mono',monospace;
-  --sans:'Sora',sans-serif;
-  --shadow-sm:0 1px 3px rgba(11,15,10,.06);
-  --shadow:0 4px 24px rgba(11,15,10,.10);
-}
+  --border:#D4D9CF;--surface:#fff;--bg:#F3F0E8;
+  --blue:#3B82F6;--blue-soft:#EFF6FF;
+  --display:'Sora',sans-serif;--mono:'IBM Plex Mono',monospace;--body:'Inter',sans-serif;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.6;}
-.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:var(--surface);border-bottom:1px solid var(--border);}
-.logo{font-family:var(--mono);font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);}
-.logo-mark{width:28px;height:28px;border-radius:7px;background:var(--sage),var(--sage-l));display:flex;align-items:center;justify-content:center;}
-.logo-mark svg{width:17px;height:17px;}
-.logo em{color:var(--indigo);font-style:normal;}
-.topbar-r{display:flex;align-items:center;gap:14px;}
+a{color:var(--sage);text-decoration:none;}
 
+/* ALERT BANNER */
+.alert-banner{background:#B91C1C;color:#fff;padding:9px 0;overflow:hidden;}
+.alert-banner-track{display:flex;animation:ticker 30s linear infinite;white-space:nowrap;}
+.alert-banner-item{font-family:var(--mono);font-size:12px;font-weight:600;padding:0 60px;flex-shrink:0;}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* TOPBAR */
+.topbar{background:rgba(248,245,238,.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 32px;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+.logo{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:15px;font-weight:600;color:var(--ink);}
+.logo-mark{width:26px;height:26px;border-radius:6px;background:var(--sage);display:flex;align-items:center;justify-content:center;}
+.logo-mark svg{width:14px;height:14px;}
+.topbar-r{display:flex;align-items:center;gap:12px;}
+.role-pill{font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;font-family:var(--mono);background:var(--sage-soft);color:var(--sage-d);}
 .user-email{font-size:13px;color:var(--muted);}
-.btn-out{background:transparent;border:1px solid var(--border2);color:var(--ink);padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);}
-.btn-out:hover{border-color:var(--indigo);color:var(--indigo);}
-.wrap{max-width:1080px;margin:0 auto;padding:32px;}
-.page-h{font-family:var(--sans);font-size:26px;font-weight:700;letter-spacing:-0.5px;margin-bottom:4px;}
-.page-sub{color:var(--muted);font-size:14px;margin-bottom:28px;}
-.live-tag{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--green);font-family:var(--mono);font-weight:500;margin-left:10px;}
-.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.6s infinite;}
-@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.4)}50%{box-shadow:0 0 0 5px rgba(16,185,129,0)}}
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px;box-shadow:var(--shadow-sm);}
-.card.hero-card{background:linear-gradient(135deg,var(--indigo),var(--indigo-dark));color:#fff;border:none;}
-.card-label{font-size:12px;color:var(--muted);font-weight:500;margin-bottom:8px;}
-.hero-card .card-label{color:rgba(255,255,255,.8);}
-.card-val{font-family:var(--mono);font-size:30px;font-weight:700;letter-spacing:-1px;}
-.card-sub{font-size:12px;color:var(--muted2);margin-top:4px;}
-.hero-card .card-sub{color:rgba(255,255,255,.7);}
-.grid2{display:grid;grid-template-columns:1.4fr 1fr;gap:20px;}
-.panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;box-shadow:var(--shadow-sm);}
-.panel-h{font-family:var(--sans);font-size:16px;font-weight:600;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;}
-.activity{display:flex;flex-direction:column;gap:2px;max-height:380px;overflow-y:auto;}
-.act-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border);}
-.act-row:last-child{border-bottom:none;}
-.act-ic{width:34px;height:34px;border-radius:9px;background:var(--indigo-soft);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
-.act-tx{flex:1;}
-.act-tx h4{font-size:13px;font-weight:600;}
-.act-tx p{font-size:11px;color:var(--muted2);font-family:var(--mono);}
-.act-amt{font-family:var(--mono);font-size:13px;color:var(--green);font-weight:600;}
-.act-empty{text-align:center;padding:40px 20px;color:var(--muted2);font-size:13px;}
-.upi-box{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:18px;}
-.upi-label{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;}
-.upi-val{font-family:var(--mono);font-size:15px;font-weight:600;}
-.upi-input{display:flex;gap:8px;margin-top:8px;}
-.upi-input input{flex:1;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;font-family:var(--mono);font-size:13px;outline:none;}
-.upi-input input:focus{border-color:var(--indigo);}
-.btn-solid{background:var(--sage);color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);}
+.btn-out{background:transparent;border:1.5px solid var(--border);color:var(--ink);padding:6px 13px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);}
+
+/* LAYOUT */
+.layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 58px);}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:20px 0;}
+.sidebar-item{padding:9px 20px;font-size:13.5px;font-weight:500;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:9px;transition:.12s;border-left:2.5px solid transparent;}
+.sidebar-item:hover{color:var(--ink);background:var(--cream);}
+.sidebar-item.active{color:var(--sage-d);background:var(--sage-soft);border-left-color:var(--sage);font-weight:600;}
+.sidebar-section{padding:14px 20px 6px;font-size:10px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:1px;}
+.main{padding:28px 32px;overflow-x:hidden;}
+
+/* METRIC CARDS */
+.metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+.metric{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;}
+.metric-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.metric-dot{width:7px;height:7px;border-radius:50%;display:inline-block;}
+.metric-val{font-family:var(--mono);font-size:26px;font-weight:600;line-height:1;}
+.metric-sub{font-size:11.5px;color:var(--muted2);margin-top:5px;}
+.metric.hero{background:linear-gradient(135deg,var(--sage),var(--sage-d));color:#fff;}
+.metric.hero .metric-label{color:rgba(255,255,255,.7);}
+.metric.hero .metric-sub{color:rgba(255,255,255,.65);}
+
+/* PANELS */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:18px;}
+.panel-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.panel-title{font-family:var(--display);font-size:14px;font-weight:700;}
+.panel-body{padding:18px;}
+
+/* EARNINGS LIMITS */
+.limit-bar-wrap{margin-bottom:12px;}
+.limit-label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;}
+.limit-label span:first-child{color:var(--muted);font-weight:500;}
+.limit-label span:last-child{font-family:var(--mono);font-weight:600;}
+.limit-bar-bg{height:6px;background:var(--cream2);border-radius:100px;overflow:hidden;}
+.limit-bar-fill{height:100%;border-radius:100px;background:var(--sage);transition:.3s;}
+
+/* CHART WRAP */
+.chart-wrap{position:relative;height:160px;}
+
+/* ACTIVITY LEDGER */
+.ledger-filters{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.ledger-search{flex:1;min-width:160px;background:var(--cream);border:1px solid var(--border);border-radius:7px;padding:7px 12px;font-size:13px;font-family:var(--body);outline:none;color:var(--ink);}
+.ledger-select{background:var(--cream);border:1px solid var(--border);border-radius:7px;padding:7px 10px;font-size:13px;font-family:var(--body);outline:none;color:var(--ink);}
+.ledger-row{display:grid;grid-template-columns:1fr 80px 80px 90px;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:12.5px;align-items:center;}
+.ledger-row:last-child{border-bottom:none;}
+.ledger-head{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding-bottom:8px;border-bottom:1.5px solid var(--border);}
+.ledger-empty{text-align:center;padding:32px;color:var(--muted2);font-size:13px;}
+
+/* FUNNEL */
+.funnel-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.funnel-row:last-child{border-bottom:none;}
+.funnel-bar-wrap{flex:1;margin:0 12px;}
+.funnel-bar{height:5px;background:var(--sage);border-radius:100px;min-width:2px;}
+
+/* HEATMAP */
+.heatmap-grid{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;margin-top:10px;}
+.heatmap-cell{height:14px;border-radius:2px;background:var(--cream2);}
+.heatmap-labels{display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--muted2);font-family:var(--mono);}
+
+/* STREAK / STICKINESS */
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.stat-box{background:var(--cream);border-radius:8px;padding:12px;}
+.stat-box-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+.stat-box-val{font-family:var(--mono);font-size:18px;font-weight:600;}
+.stat-box-sub{font-size:11px;color:var(--muted2);margin-top:2px;}
+
+/* PAYOUT TABS */
+.payout-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+.payout-tab{border:2px solid var(--border);background:transparent;border-radius:9px;padding:10px;cursor:pointer;text-align:center;transition:.12s;font-family:var(--body);}
+.payout-tab.active{border-color:var(--sage);background:var(--sage-soft);}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:100px;font-size:11px;font-weight:600;}
+.badge-green{background:var(--sage-soft);color:var(--sage-d);}
+.badge-gold{background:var(--gold-soft);color:var(--gold-d);}
+.badge-red{background:var(--red-soft);color:var(--red);}
+.badge-blue{background:var(--blue-soft);color:var(--blue);}
+.badge-gray{background:var(--cream2);color:var(--muted);}
+
+/* BUTTONS */
+.btn-solid{background:var(--sage);color:#fff;border:none;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);transition:.12s;}
 .btn-solid:hover{background:var(--sage-d);}
 .btn-solid:disabled{opacity:.5;cursor:not-allowed;}
-.btn-payout{width:100%;justify-content:center;padding:13px;font-size:15px;margin-top:4px;}
-.ref-box{background:linear-gradient(135deg,var(--indigo-soft),#E0F2FE);border:1px solid #C7D2FE;border-radius:12px;padding:18px;margin-top:18px;}
-.ref-box h4{font-size:14px;font-weight:600;margin-bottom:6px;}
-.ref-box p{font-size:12px;color:var(--muted);margin-bottom:10px;}
-.ref-link{display:flex;gap:8px;}
-.ref-link input{flex:1;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;font-family:var(--mono);font-size:12px;outline:none;color:var(--ink2);}
-.loading{text-align:center;padding:60px;color:var(--muted2);font-family:var(--mono);font-size:13px;}
-.toast{position:fixed;bottom:28px;right:28px;background:var(--surface);border:1px solid var(--green);border-radius:12px;padding:14px 20px;box-shadow:var(--shadow);transform:translateY(90px);opacity:0;transition:all .3s;z-index:100;}
-.toast.show{transform:translateY(0);opacity:1;}
-.toast-t{font-weight:600;font-size:14px;}
-.toast-s{font-size:12px;color:var(--muted);}
-@media(max-width:860px){.wrap{padding:20px;}.cards{grid-template-columns:repeat(2,1fr);}.grid2{grid-template-columns:1fr;}.topbar{padding:12px 18px;}.user-email{display:none;}}
+.btn-solid.full{width:100%;padding:12px;font-size:14px;}
+.btn-ghost{background:transparent;border:1.5px solid var(--border);color:var(--ink);padding:7px 14px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);}
 
-/* ── MATCHING TOPBAR ── */
-.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:60px;background:rgba(243,240,232,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);}
-.logo{font-family:var(--mono);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);}
-.logo-mark{width:26px;height:26px;border-radius:6px;background:var(--sage);display:flex;align-items:center;justify-content:center;}
-.logo-mark svg{width:15px;height:15px;}
-.logo em{color:var(--sage);font-style:normal;}
-.topbar-r{display:flex;align-items:center;gap:14px;}
-.role-pill{font-size:11px;font-weight:600;padding:4px 12px;border-radius:100px;font-family:var(--mono);}
-.role-pill.earner{background:var(--green-soft);color:var(--green);}
-.role-pill.advertiser{background:var(--sage-soft);color:var(--sage-d);}
-.role-pill.admin{background:var(--gold-soft);color:var(--gold-d);}
-.user-email{font-size:13px;color:var(--muted);}
-.btn-out{background:transparent;border:1.5px solid var(--border2);color:var(--ink);padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);transition:.15s;}
-.btn-out:hover{border-color:var(--sage);color:var(--sage);}
+/* FORM */
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
+.field input{width:100%;background:var(--cream);border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:14px;font-family:var(--body);outline:none;color:var(--ink);}
+.field input:focus{border-color:var(--sage);}
 
+/* LIVE DOT */
+.live-tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#15803D;font-family:var(--mono);}
+.live-dot{width:6px;height:6px;border-radius:50%;background:#15803D;animation:pulse 1.6s infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.4)}50%{box-shadow:0 0 0 4px rgba(16,185,129,0)}}
 
-/* ── Moving alert banner ── */
-.alert-banner{background:#B91C1C;color:#fff;padding:9px 0;overflow:hidden;width:100%;position:relative;z-index:99;}
-.alert-banner-track{display:flex;animation:marquee 28s linear infinite;white-space:nowrap;}
-.alert-banner-track:hover{animation-play-state:paused;}
-.alert-banner-item{font-family:var(--mono);font-size:12.5px;font-weight:600;letter-spacing:.3px;padding:0 60px;flex-shrink:0;}
-.alert-banner-item span{margin:0 16px;opacity:.7;}
-@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:#111827;color:#fff;padding:11px 18px;border-radius:10px;font-size:13.5px;font-weight:500;z-index:500;opacity:0;transform:translateY(8px);transition:.25s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateY(0);}
+
+/* PROFILE CHECKS */
+.profile-check{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.profile-check:last-child{border-bottom:none;}
+.check-icon{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
+.check-done{background:#DCFCE7;color:#047857;}
+.check-todo{background:var(--red-soft);color:var(--red);}
+
+/* WITHDRAWAL HISTORY */
+.wd-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.wd-row:last-child{border-bottom:none;}
+
+/* UPIBOX */
+.copy-box{background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;}
+.copy-box-val{font-family:var(--mono);font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.copy-btn{background:var(--sage);color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;}
+
+@media(max-width:860px){
+  .layout{grid-template-columns:1fr;}
+  .sidebar{display:none;}
+  .metric-grid{grid-template-columns:repeat(2,1fr);}
+  .topbar{padding:0 18px;}
+  .main{padding:18px;}
+}
 </style>
-  <link rel="icon" type="image/png" sizes="192x192" href="logo-192.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="logo-512.png">
-  <link rel="shortcut icon" href="logo-192.png">
-  <link rel="apple-touch-icon" href="logo-192.png">
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-LGNX0BPWPJ"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-LGNX0BPWPJ');
-  </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-LGNX0BPWPJ"></script>
-<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-LGNX0BPWPJ');</script>
 </head>
 <body>
-<div class="alert-banner" role="alert">
+
+<div class="alert-banner">
   <div class="alert-banner-track">
-    <div class="alert-banner-item">⚠️ UPI is currently facing technical issues &nbsp;·&nbsp; Please add your bank account details for smoother &amp; faster withdrawals &nbsp;·&nbsp; Go to: Payout method → Bank Account</div>
-    <div class="alert-banner-item">⚠️ UPI is currently facing technical issues &nbsp;·&nbsp; Please add your bank account details for smoother &amp; faster withdrawals &nbsp;·&nbsp; Go to: Payout method → Bank Account</div>
+    <div class="alert-banner-item">⚠️ UPI is currently facing technical issues &nbsp;·&nbsp; Please add your bank account details for smoother withdrawals &nbsp;·&nbsp; Settings → Payout method → Bank Account</div>
+    <div class="alert-banner-item">⚠️ UPI is currently facing technical issues &nbsp;·&nbsp; Please add your bank account details for smoother withdrawals &nbsp;·&nbsp; Settings → Payout method → Bank Account</div>
   </div>
 </div>
+
 <div class="topbar">
-  <a class="logo" href="index.html"><span class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.35)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></span>Wait<em>JI</em> AI</a>
+  <div class="logo">
+    <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.4)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></div>
+    WaitJI AI
+  </div>
   <div class="topbar-r">
     <span class="role-pill">EARNER</span>
     <span class="user-email" id="userEmail">—</span>
-    <button class="btn-out" onclick="logout()">Log out</button>
+    <button class="btn-out" onclick="logout()">Sign out</button>
   </div>
 </div>
 
-<div class="wrap" id="content">
-  <div class="loading">Loading your dashboard…</div>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-section">Overview</div>
+    <div class="sidebar-item active" id="nav-dashboard" onclick="showTab('dashboard')">📊 Dashboard</div>
+    <div class="sidebar-item" id="nav-activity" onclick="showTab('activity')">📋 Activity ledger</div>
+    <div class="sidebar-item" id="nav-analytics" onclick="showTab('analytics')">📈 Analytics</div>
+    <div class="sidebar-section">Account</div>
+    <div class="sidebar-item" id="nav-profile" onclick="showTab('profile')">👤 Profile</div>
+    <div class="sidebar-item" id="nav-payout" onclick="showTab('payout')">💳 Payout method</div>
+    <div class="sidebar-item" id="nav-withdraw" onclick="showTab('withdraw')">💸 Withdraw</div>
+    <div class="sidebar-section">Refer</div>
+    <div class="sidebar-item" id="nav-referral" onclick="showTab('referral')">🤝 Referral</div>
+  </aside>
+
+  <main class="main" id="mainContent">
+    <div style="text-align:center;padding:60px;color:var(--muted);font-family:var(--mono)">Loading…</div>
+  </main>
 </div>
 
-<div class="toast" id="toast"><div class="toast-t" id="toastT">Done</div><div class="toast-s" id="toastS"></div></div>
+<div class="toast" id="toast"></div>
 
 <script>
 const API='https://waitjiai-backend.onrender.com';
 const token=localStorage.getItem('waitji_token');
-const role=localStorage.getItem('waitji_role');
-if(!token||role!=='customer'){ window.location.href='login.html'; }
+if(!token||localStorage.getItem('waitji_role')!=='customer'){window.location.href='login.html';}
 const H={'Authorization':'Bearer '+token,'Content-Type':'application/json'};
+let me=null, earnings=null, activityData=[], withdrawals=[];
+let curTab='dashboard';
 
-function logout(){ localStorage.clear(); window.location.href='login.html'; }
-function toast(t,s){ document.getElementById('toastT').textContent=t; document.getElementById('toastS').textContent=s||''; const el=document.getElementById('toast'); el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),3500); }
+function logout(){localStorage.clear();window.location.href='login.html';}
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),3000);}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmt(n){return Number(n||0).toLocaleString('en-IN');}
+function fmtRs(p){return '₹'+(p/100).toFixed(2);}
+function timeAgo(ts){if(!ts)return'—';const m=Math.floor((Date.now()-ts)/60000);if(m<1)return'just now';if(m<60)return m+'m ago';const h=Math.floor(m/60);if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago';}
 
-let me=null;
 async function load(){
   try{
-    const meR=await fetch(API+'/v1/auth/me',{headers:H});
-    if(!meR.ok){ logout(); return; }
-    me=(await meR.json()).user;
-    document.getElementById('userEmail').textContent=me.email;
-    const [eRes, aRes, wRes] = await Promise.all([
+    const [meR,eR,aR,wR]=await Promise.all([
+      fetch(API+'/v1/auth/me',{headers:H}),
       fetch(API+'/v1/customer/earnings',{headers:H}),
       fetch(API+'/v1/customer/activity',{headers:H}),
       fetch(API+'/v1/customer/withdrawals',{headers:H}),
     ]);
-    const e=await eRes.json();
-    const a=await aRes.json();
-    const w=await wRes.json();
-    render(e, a.activity||[], w.withdrawals||[]);
-  }catch(err){ document.getElementById('content').innerHTML='<div class="loading">Backend waking up… <a href="" onclick="location.reload();return false">retry</a></div>'; }
+    if(!meR.ok){logout();return;}
+    me=(await meR.json()).user;
+    earnings=await eR.json();
+    activityData=(await aR.json()).activity||[];
+    withdrawals=(await wR.json()).withdrawals||[];
+    document.getElementById('userEmail').textContent=me.email;
+    showTab(curTab);
+  }catch(e){document.getElementById('mainContent').innerHTML='<div style="text-align:center;padding:60px;color:var(--red)">Error loading — <a href="" onclick="location.reload();return false">retry</a></div>';}
 }
 
-function render(e,activity,withdrawals){
-  const hasPendingWithdrawal = withdrawals.some(w=>w.status==='pending');
-  const ps = me.profileStatus || {complete:false,missing:[],checks:{}};
-  const refLink=`https://waitjiai.in/r/${me.id}`;
+function showTab(tab){
+  curTab=tab;
+  document.querySelectorAll('.sidebar-item').forEach(el=>el.classList.remove('active'));
+  const nav=document.getElementById('nav-'+tab);
+  if(nav) nav.classList.add('active');
+  const el=document.getElementById('mainContent');
+  if(tab==='dashboard') renderDashboard();
+  else if(tab==='activity') renderActivity();
+  else if(tab==='analytics') renderAnalytics();
+  else if(tab==='profile') renderProfile();
+  else if(tab==='payout') renderPayout();
+  else if(tab==='withdraw') renderWithdraw();
+  else if(tab==='referral') renderReferral();
+}
 
-  document.getElementById('content').innerHTML=`
-    <h1 class="page-h">Welcome back${me.name?', '+me.name:''} 👋</h1>
-    <p class="page-sub">Your earnings update in real time as you code<span class="live-tag"><span class="live-dot"></span>LIVE</span></p>
+// ── DASHBOARD ──
+function renderDashboard(){
+  const e=earnings||{};
+  const ps=me.profileStatus||{complete:false,checks:{},missing:[]};
+  const pending=parseFloat(e.pendingRupees||0);
+  const hoursActive=Math.round((activityData.length*90)/3600*10)/10;
+  const hourlyRate=hoursActive>0?(pending/hoursActive).toFixed(2):'—';
+  const hasPending=withdrawals.some(w=>w.status==='pending');
 
-    ${!ps.complete ? `
-    <div style="background:#FEF9EC;border:1.5px solid #FDE68A;border-radius:14px;padding:18px 20px;margin-bottom:20px">
-      <div style="font-family:var(--mono);font-size:11px;font-weight:600;color:#D97706;letter-spacing:1px;margin-bottom:8px">⚠️ PROFILE INCOMPLETE — WITHDRAWAL BLOCKED</div>
-      <p style="font-size:13.5px;color:#92400E;margin-bottom:10px">Complete your profile to unlock withdrawals. <b>${(ps.missing||[]).length} step${(ps.missing||[]).length===1?'':'s'} remaining.</b></p>
-      <div style="display:flex;flex-wrap:wrap;gap:8px">
-        ${[
-          {label:'Full name',done:ps.checks?.name?.done},
-          {label:'Phone number',done:ps.checks?.phone?.done},
-          {label:'Email verified',done:ps.checks?.email?.done},
-          {label:'UPI / Bank verified',done:ps.checks?.payout?.done},
-        ].map(c=>`<div style="display:flex;align-items:center;gap:6px;font-size:12.5px;padding:5px 12px;border-radius:100px;background:${c.done?'#DCFCE7':'#FEE2E2'};color:${c.done?'#047857':'#B91C1C'};font-weight:600">${c.done?'✓':'✗'} ${c.label}</div>`).join('')}
+  document.getElementById('mainContent').innerHTML=`
+  <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:4px;">Welcome back${me.name?', '+esc(me.name):''} 👋</h1>
+  <p style="font-size:13.5px;color:var(--muted);margin-bottom:22px;">Your earnings dashboard <span class="live-tag"><span class="live-dot"></span>live</span></p>
+
+  ${!ps.complete?`
+  <div style="background:var(--gold-soft);border:1.5px solid #FDE68A;border-radius:12px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div><div style="font-family:var(--mono);font-size:11px;font-weight:700;color:#D97706;letter-spacing:1px;margin-bottom:4px;">⚠️ PROFILE INCOMPLETE — WITHDRAWALS BLOCKED</div>
+    <div style="font-size:13px;color:#92400E;">${(ps.missing||[]).length} step${(ps.missing||[]).length===1?'':'s'} remaining to unlock withdrawals</div></div>
+    <button class="btn-solid" onclick="showTab('profile')">Complete profile →</button>
+  </div>`:`
+  <div style="background:#DCFCE7;border:1px solid #86EFAC;border-radius:12px;padding:11px 16px;margin-bottom:20px;font-size:13.5px;color:#047857;font-weight:600;">✓ Profile complete — withdrawals enabled</div>`}
+
+  <div class="metric-grid">
+    <div class="metric hero"><div class="metric-label">Total earned</div><div class="metric-val">₹${e.totalEarnedRupees||'0.00'}</div><div class="metric-sub">all time</div></div>
+    <div class="metric"><div class="metric-label"><span class="metric-dot" style="background:#15803D;"></span>Today</div><div class="metric-val" style="color:#15803D;">₹${e.todayRupees||'0.00'}</div><div class="metric-sub">last 24 hours</div></div>
+    <div class="metric"><div class="metric-label">Available</div><div class="metric-val">₹${e.pendingRupees||'0.00'}</div><div class="metric-sub">min ₹100 to withdraw</div></div>
+    <div class="metric"><div class="metric-label">Impressions</div><div class="metric-val">${fmt(e.impressions||0)}</div><div class="metric-sub">${e.clicks||0} clicks</div></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:18px;">
+    <div class="metric"><div class="metric-label">Active hours</div><div class="metric-val">${hoursActive}h</div><div class="metric-sub">coding with Claude Code</div></div>
+    <div class="metric"><div class="metric-label">Hourly rate</div><div class="metric-val" style="font-size:18px;">₹${hourlyRate}</div><div class="metric-sub">avg earnings/hour</div></div>
+    <div class="metric"><div class="metric-label">Click-through</div><div class="metric-val" style="font-size:18px;">${e.impressions?((e.clicks/e.impressions)*100).toFixed(2):'0.00'}%</div><div class="metric-sub">${e.clicks||0} valid clicks</div></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px;">
+    <div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Live activity</div><span class="live-tag"><span class="live-dot"></span>auto-refresh 15s</span></div>
+        <div style="padding:0 18px;max-height:280px;overflow-y:auto;">
+          ${activityData.length?activityData.slice(0,10).map(a=>`
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+            <div style="width:32px;height:32px;background:var(--sage-soft);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">💻</div>
+            <div style="flex:1;"><div style="font-size:13px;font-weight:600;">Ad impression</div><div style="font-size:11px;color:var(--muted2);font-family:var(--mono);">${new Date(a.ts).toLocaleTimeString('en-IN')} · ${timeAgo(a.ts)}</div></div>
+            <div style="font-family:var(--mono);font-size:13px;font-weight:600;color:#15803D;">+${fmtRs(a.earnedPaise||0)}</div>
+          </div>`).join(''):'<div style="text-align:center;padding:32px;color:var(--muted2);font-size:13px;">No activity yet — install the extension and start coding</div>'}
+        </div>
       </div>
-    </div>` : `
-    <div style="background:#DCFCE7;border:1px solid #86EFAC;border-radius:14px;padding:12px 18px;margin-bottom:20px;display:flex;align-items:center;gap:10px;font-size:13.5px;color:#047857;font-weight:600">✓ Profile complete — withdrawals enabled</div>`}
 
-    <div class="cards">
-      <div class="card hero-card"><div class="card-label">Total earned</div><div class="card-val">₹${e.totalEarnedRupees}</div><div class="card-sub">all time</div></div>
-      <div class="card"><div class="card-label">Today</div><div class="card-val" style="color:var(--green)">₹${e.todayRupees}</div><div class="card-sub">last 24 hours</div></div>
-      <div class="card"><div class="card-label">Available</div><div class="card-val">₹${e.pendingRupees}</div><div class="card-sub">min ₹100</div></div>
-      <div class="card"><div class="card-label">Impressions</div><div class="card-val">${e.impressions.toLocaleString('en-IN')}</div><div class="card-sub">${e.clicks} clicks</div></div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Earning limits</div></div>
+        <div class="panel-body">
+          <div class="limit-bar-wrap">
+            <div class="limit-label"><span>Hourly limit</span><span style="color:var(--sage)">₹${e.todayRupees||'0.00'} / ₹500.00</span></div>
+            <div class="limit-bar-bg"><div class="limit-bar-fill" style="width:${Math.min(100,(parseFloat(e.todayRupees||0)/500)*100).toFixed(1)}%"></div></div>
+          </div>
+          <div class="limit-bar-wrap">
+            <div class="limit-label"><span>Daily limit</span><span style="color:var(--sage)">₹${e.todayRupees||'0.00'} / ₹5,000.00</span></div>
+            <div class="limit-bar-bg"><div class="limit-bar-fill" style="width:${Math.min(100,(parseFloat(e.todayRupees||0)/5000)*100).toFixed(1)}%"></div></div>
+          </div>
+          <div style="font-size:12px;color:var(--muted2);margin-top:8px;">Limits reset daily at 00:00 IST. Fraud protection active.</div>
+        </div>
+      </div>
     </div>
 
-    <div class="grid2">
-      <div>
-        <div class="panel">
-          <div class="panel-h">Live activity <span class="live-tag"><span class="live-dot"></span>auto-refresh</span></div>
-          <div class="activity">${activity.length?activity.map(act=>`<div class="act-row"><div class="act-ic">💻</div><div class="act-tx"><h4>Ad impression</h4><p>${new Date(act.ts).toLocaleTimeString('en-IN')}</p></div><div class="act-amt">+₹${(act.earnedPaise/100).toFixed(2)}</div></div>`).join(''):'<div class="act-empty">No activity yet.<br>Install the extension &amp; start coding.</div>'}</div>
+    <div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Connect extension</div></div>
+        <div class="panel-body">
+          <p style="font-size:13px;color:var(--muted);margin-bottom:10px;">Paste this User ID in VS Code → WaitJI AI: Connect Your Account</p>
+          <div class="copy-box">
+            <div class="copy-box-val">${me.id}</div>
+            <button class="copy-btn" onclick="navigator.clipboard.writeText('${me.id}');toast('✓ User ID copied')">Copy</button>
+          </div>
+          <div style="margin-top:10px;font-size:12px;color:var(--muted2);">Or install via terminal:</div>
+          <div style="background:#0B0F0A;border-radius:8px;padding:10px 12px;font-family:var(--mono);font-size:11px;color:#9BDDBB;margin-top:6px;word-break:break-all;">curl -L https://waitjiai.in/vsix -o waitji.vsix && code --install-extension waitji.vsix</div>
         </div>
-        <div class="panel" style="background:#EBF5EE;border-color:#A7F3C8">
-          <div class="panel-h">🔌 Connect VS Code extension</div>
-          <p style="font-size:12.5px;color:var(--muted);margin-bottom:10px">Run <b>"WaitJI AI: Connect Your Account"</b> in VS Code → paste this User ID:</p>
-          <div class="upi-box"><div class="upi-label">Your User ID</div><div class="ref-link"><input value="${me.id}" readonly id="userIdInput"><button class="btn-solid" onclick="copyUserId()">Copy</button></div></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Impression funnel</div></div>
+        <div class="panel-body">
+          ${['Rendered','Viewable','Threshold met','View-ticks (5s)','Clicks'].map((label,i,arr)=>{
+            const vals=[e.impressions||0,e.impressions||0,e.impressions||0,e.impressions||0,e.clicks||0];
+            const max=Math.max(1,vals[0]);
+            return `<div class="funnel-row">
+              <div style="font-size:12.5px;color:var(--muted);width:110px;">${label}</div>
+              <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${(vals[i]/max*100).toFixed(0)}%;background:${i===arr.length-1?'var(--gold)':'var(--sage)'};"></div></div>
+              <div style="font-family:var(--mono);font-size:12px;font-weight:600;min-width:40px;text-align:right;">${fmt(vals[i])}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── ACTIVITY LEDGER ──
+function renderActivity(){
+  document.getElementById('mainContent').innerHTML=`
+  <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:18px;">Activity ledger</h1>
+  <div class="panel">
+    <div class="panel-body">
+      <div class="ledger-filters">
+        <input class="ledger-search" id="ledgerSearch" placeholder="Search brand, ad line, event…" oninput="filterLedger()">
+        <select class="ledger-select" id="ledgerFilter" onchange="filterLedger()">
+          <option value="all">All events</option>
+          <option value="impression">Impressions</option>
+          <option value="click">Clicks</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;">
+          <input type="checkbox" id="showUncredited" onchange="filterLedger()"> Show uncredited
+        </label>
+      </div>
+      <div id="ledgerBody">
+        <div class="ledger-row ledger-head">
+          <div>Event</div><div>Earned</div><div>Type</div><div>Time</div>
+        </div>
+        ${activityData.length?activityData.map(a=>`
+        <div class="ledger-row">
+          <div style="font-size:12.5px;">Ad impression <span style="color:var(--muted2);">·</span> <span style="font-family:var(--mono);font-size:11px;color:var(--muted);">${esc(a.advertiser||'WaitJI AI')}</span></div>
+          <div style="font-family:var(--mono);font-size:12.5px;font-weight:600;color:#15803D;">+${fmtRs(a.earnedPaise||0)}</div>
+          <div><span class="badge badge-green">impression</span></div>
+          <div style="font-size:11.5px;color:var(--muted2);">${new Date(a.ts).toLocaleString('en-IN',{hour12:true,hour:'numeric',minute:'2-digit',month:'short',day:'numeric'})}</div>
+        </div>`).join(''):'<div class="ledger-empty">No activity yet.<br>Install the extension and start coding with Claude Code.</div>'}
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--muted2);">${activityData.length} of ${activityData.length} rows · Credited events only</div>
+    </div>
+  </div>`;
+}
+function filterLedger(){
+  const q=document.getElementById('ledgerSearch').value.toLowerCase();
+  const filter=document.getElementById('ledgerFilter').value;
+  // Simple client-side filter — re-render matching rows
+  const filtered=activityData.filter(a=>{
+    if(filter==='click'&&!a.clicked) return false;
+    if(filter==='impression'&&a.clicked) return false;
+    if(q&&!esc(a.advertiser||'').toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const body=document.getElementById('ledgerBody');
+  if(!body) return;
+  const rows=filtered.map(a=>`
+  <div class="ledger-row">
+    <div style="font-size:12.5px;">Ad impression · <span style="font-family:var(--mono);font-size:11px;color:var(--muted);">${esc(a.advertiser||'WaitJI AI')}</span></div>
+    <div style="font-family:var(--mono);font-size:12.5px;font-weight:600;color:#15803D;">+${fmtRs(a.earnedPaise||0)}</div>
+    <div><span class="badge badge-green">impression</span></div>
+    <div style="font-size:11.5px;color:var(--muted2);">${timeAgo(a.ts)}</div>
+  </div>`).join('');
+  body.innerHTML=`<div class="ledger-row ledger-head"><div>Event</div><div>Earned</div><div>Type</div><div>Time</div></div>${rows||'<div class="ledger-empty">No matching events</div>'}`;
+}
+
+// ── ANALYTICS ──
+function renderAnalytics(){
+  const e=earnings||{};
+  const daily=e.daily||[];
+  document.getElementById('mainContent').innerHTML=`
+  <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:18px;">Analytics</h1>
+
+  <div class="stat-row">
+    <div class="stat-box"><div class="stat-box-label">Coding time / day</div><div class="stat-box-val">${Math.round((activityData.length*90)/3600*10)/10}h</div><div class="stat-box-sub">ad-visible active time</div></div>
+    <div class="stat-box"><div class="stat-box-label">Prompts / day</div><div class="stat-box-val">${activityData.length||0}</div><div class="stat-box-sub">0 turns total</div></div>
+    <div class="stat-box"><div class="stat-box-label">Thinking time</div><div class="stat-box-val">${activityData.length*5||0}s</div><div class="stat-box-sub">${activityData.length||0} × 5s ticks</div></div>
+  </div>
+  <div class="stat-row">
+    <div class="stat-box"><div class="stat-box-label">Click-through</div><div class="stat-box-val">${e.impressions?((e.clicks/e.impressions)*100).toFixed(2):'0.00'}%</div><div class="stat-box-sub">${e.clicks||0} clicks</div></div>
+    <div class="stat-box"><div class="stat-box-label">Current streak</div><div class="stat-box-val">0d</div><div class="stat-box-sub">longest 0d</div></div>
+    <div class="stat-box"><div class="stat-box-label">Total earned</div><div class="stat-box-val" style="color:var(--sage);">₹${e.totalEarnedRupees||'0.00'}</div><div class="stat-box-sub">₹${e.todayRupees||'0.00'}/active day</div></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Daily earnings — 14 days</div></div>
+      <div class="panel-body"><div class="chart-wrap"><canvas id="earningsChart"></canvas></div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Earnings by surface</div></div>
+      <div class="panel-body"><div class="chart-wrap"><canvas id="surfaceChart"></canvas></div></div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Activity heatmap (24h)</div></div>
+      <div class="panel-body">
+        <div style="font-size:11px;color:var(--muted2);margin-bottom:8px;">Hour of day — darker = more active</div>
+        <div class="heatmap-grid" id="heatmap"></div>
+        <div class="heatmap-labels"><span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>11 PM</span></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Gap between prompts</div></div>
+      <div class="panel-body">
+        ${[['≤10s',0],['10–30s',0],['30–60s',0],['1–5m',activityData.length],['5–30m',0],['>30m',0]].map(([label,val])=>`
+        <div class="funnel-row">
+          <div style="font-size:12.5px;color:var(--muted);width:70px;">${label}</div>
+          <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${val>0?'60%':'2%'};"></div></div>
+          <div style="font-family:var(--mono);font-size:12px;font-weight:600;min-width:30px;text-align:right;">${val}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+
+  setTimeout(()=>{
+    const labels=Array.from({length:14},(_,i)=>{const d=new Date;d.setDate(d.getDate()-13+i);return d.toLocaleDateString('en-IN',{month:'short',day:'numeric'});});
+    const ctx1=document.getElementById('earningsChart');
+    if(ctx1) new Chart(ctx1,{type:'bar',data:{labels,datasets:[{label:'Earnings (₹)',data:Array(14).fill(0).map((_,i)=>i===13?parseFloat(e.todayRupees||0):0),backgroundColor:'rgba(42,122,79,.7)',borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{grid:{color:'#F3F4F6'},ticks:{font:{size:10},callback:v=>'₹'+v}}}}});
+    const ctx2=document.getElementById('surfaceChart');
+    if(ctx2) new Chart(ctx2,{type:'doughnut',data:{labels:['Terminal CLI','VS Code'],datasets:[{data:[activityData.length,0],backgroundColor:['#2A7A4F','#3B82F6'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:12}}}}});
+    const heatmap=document.getElementById('heatmap');
+    if(heatmap){
+      const hourCounts=new Array(24).fill(0);
+      activityData.forEach(a=>{hourCounts[new Date(a.ts).getHours()]++;});
+      const max=Math.max(1,...hourCounts);
+      heatmap.innerHTML=hourCounts.map(c=>`<div class="heatmap-cell" style="background:rgba(42,122,79,${(c/max).toFixed(2)});"></div>`).join('');
+    }
+  },100);
+}
+
+// ── PROFILE ──
+function renderProfile(){
+  const ps=me.profileStatus||{complete:false,checks:{},missing:[]};
+  document.getElementById('mainContent').innerHTML=`
+  <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:18px;">Your profile</h1>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Profile completion</div></div>
+        <div class="panel-body">
+          ${[
+            {label:'Full name',done:ps.checks?.name?.done,action:"showTab('profile')"},
+            {label:'Phone number',done:ps.checks?.phone?.done},
+            {label:'Email verified',done:ps.checks?.email?.done},
+            {label:'Payout method',done:ps.checks?.payout?.done,action:"showTab('payout')"},
+          ].map(c=>`
+          <div class="profile-check">
+            <div class="check-icon ${c.done?'check-done':'check-todo'}">${c.done?'✓':'✗'}</div>
+            <div style="flex:1;font-size:13.5px;">${c.label}</div>
+            ${!c.done?`<button class="btn-ghost" style="font-size:12px;padding:4px 10px;" onclick="showTab('payout')">Add →</button>`:'<span class="badge badge-green">Done</span>'}
+          </div>`).join('')}
+          <div style="margin-top:14px;background:${ps.complete?'#DCFCE7':'var(--gold-soft)'};border-radius:8px;padding:10px 14px;font-size:13px;font-weight:600;color:${ps.complete?'#047857':'#92400E'};">
+            ${ps.complete?'✓ Profile complete — withdrawals enabled':'⚠️ Complete all steps to unlock withdrawals'}
+          </div>
         </div>
       </div>
 
-      <div>
-        <div class="panel">
-          <div class="panel-h">Your profile</div>
-          <div class="upi-box">
-            <div class="upi-label">Full name <span style="color:var(--red);font-size:10px">*required</span></div>
-            <div class="upi-input"><input id="nameInput" placeholder="Enter your full name" value="${me.name?esc(me.name):''}"><button class="btn-solid" onclick="saveName()">Save</button></div>
-            <div style="font-size:11px;margin-top:4px;color:${ps.checks?.name?.done?'#047857':'#B91C1C'}">${ps.checks?.name?.done?'✓ Saved':'Required for withdrawal'}</div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Account details</div></div>
+        <div class="panel-body">
+          <div class="field"><label>Full name</label>
+            <div style="display:flex;gap:8px;"><input id="nameInput" value="${esc(me.name||'')}" placeholder="Enter your full name"><button class="btn-solid" onclick="saveName()">Save</button></div>
           </div>
-          <div class="upi-box" style="margin-top:14px">
-            <div class="upi-label">Phone number <span style="color:var(--red);font-size:10px">*required</span></div>
-            <div class="upi-input"><input id="phoneInput" placeholder="10-digit mobile" value="${me.phone?esc(me.phone):''}" maxlength="10" type="tel"><button class="btn-solid" onclick="savePhone()">Save</button></div>
-            <div style="font-size:11px;margin-top:4px;color:${ps.checks?.phone?.done?'#047857':'#B91C1C'}">${ps.checks?.phone?.done?'✓ Saved':'Required for withdrawal'}</div>
+          <div class="field"><label>Phone number</label>
+            <div style="display:flex;gap:8px;"><input id="phoneInput" value="${esc(me.phone||'')}" placeholder="10-digit mobile" maxlength="10" type="tel"><button class="btn-solid" onclick="savePhone()">Save</button></div>
           </div>
-          <div class="upi-box" style="margin-top:14px">
-            <div class="upi-label">Email</div>
-            <div style="font-size:13px;color:${me.emailVerified?'#047857':'#B91C1C'};font-weight:600">${me.emailVerified?'✓ '+esc(me.email)+' — verified':'✗ Not verified — check your inbox'}</div>
+          <div class="field"><label>Email</label>
+            <input value="${esc(me.email)}" disabled style="opacity:.6;">
+            <div style="font-size:12px;margin-top:4px;color:${me.emailVerified?'#047857':'var(--red)'};">${me.emailVerified?'✓ Verified':'✗ Not verified — check your inbox'}</div>
           </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-h">Payout method <span style="color:var(--red);font-size:10px">*one required</span></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
-            <button class="role-tab ${me.payoutMode!=='bank'?'active':''}" id="tabUpi" onclick="switchPayoutTab('upi')"><div style="font-size:13px;font-weight:700">💳 UPI ID</div><div style="font-size:11px;opacity:.7">Instant</div></button>
-            <button class="role-tab ${me.payoutMode==='bank'?'active':''}" id="tabBank" onclick="switchPayoutTab('bank')"><div style="font-size:13px;font-weight:700">🏦 Bank Account</div><div style="font-size:11px;opacity:.7">NEFT/IMPS</div></button>
-          </div>
-          <div id="upiTab" style="display:${me.payoutMode==='bank'?'none':'block'}">
-            ${me.upiId && me.payoutVerified
-              ?`<div style="background:#EBF5EE;border:1.5px solid #A7F3C8;border-radius:9px;padding:12px;margin-bottom:10px">
-                  <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Verified UPI</div>
-                  <div style="font-weight:700;font-family:var(--mono)">${esc(me.upiId)}</div>
-                  ${me.upiNameAtBank?`<div style="font-size:11px;color:#047857;margin-top:3px">✓ ${esc(me.upiNameAtBank)}</div>`:''}
-                </div>
-                <button class="mini-btn" onclick="showChangeUpi()">Change UPI</button>
-                <div id="changeUpiBox" style="display:none;margin-top:10px">
-                  <div class="upi-input"><input id="upiChangeInput" placeholder="new@upihandle"><button class="btn-solid" onclick="verifyAndSaveUpi()">Verify &amp; Save</button></div>
-                  <div id="upiVerifyResult" style="font-size:12px;margin-top:6px"></div>
-                </div>`
-              :`<div class="upi-input"><input id="upiInput" placeholder="yourname@upi or 9876543210@okaxis"><button class="btn-solid" onclick="verifyAndSaveUpi()">Verify &amp; Save</button></div>
-                <div id="upiVerifyResult" style="font-size:12px;margin-top:6px"></div>
-                <p style="font-size:11px;color:var(--muted2);margin-top:4px">Enter UPI ID and click Verify &amp; Save</p>`
-            }
-          </div>
-          <div id="bankTab" style="display:${me.payoutMode==='bank'?'block':'none'}">
-            ${me.bankVerified && me.bankAccount && me.bankAccount.accountNumber
-              ?`<div style="background:#EBF5EE;border:1.5px solid #A7F3C8;border-radius:9px;padding:14px;margin-bottom:12px">
-                  <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Saved bank account</div>
-                  <div style="font-weight:700;font-family:var(--mono);font-size:16px;margin-bottom:4px">
-                    •••• •••• •••• ${me.bankAccount.accountNumber.slice(-4)}
-                  </div>
-                  <div style="font-size:12.5px;color:var(--muted);margin-top:4px">
-                    <span style="font-family:var(--mono)">${esc(me.bankAccount.ifsc||'')}</span>
-                    ${me.bankAccount.accountHolder?' · '+esc(me.bankAccount.accountHolder):''}
-                  </div>
-                </div>
-                <button class="mini-btn" onclick="showBankForm()">Change account</button>
-                <div id="bankFormBox" style="display:none;margin-top:10px">${bankFormHtml()}</div>`
-              :bankFormHtml()
-            }
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-h">Withdrawal</div>
-          ${withdrawals.length?`<div style="margin-bottom:14px">${withdrawals.slice(0,5).map(w=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><div><div style="font-weight:600">₹${(w.amountPaise/100).toFixed(2)}</div><div style="font-size:11px;color:var(--muted2)">${new Date(w.requestedAt).toLocaleDateString('en-IN')}</div>${w.autoPaid?'<div style="font-size:11px;color:#047857">⚡ Auto-transferred via Cashfree</div>':''}</div><span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;background:${w.status==='approved'||w.status==='paid'?'#DCFCE7':w.status==='rejected'?'#FEE2E2':'#FEF3C7'};color:${w.status==='approved'||w.status==='paid'?'#047857':w.status==='rejected'?'#B91C1C':'#92400E'}">${w.status}</span></div>`).join('')}</div>`:''}
-          ${!ps.complete
-            ?'<div style="background:#FEF9EC;border:1px solid #FDE68A;border-radius:10px;padding:12px 14px;font-size:13px;color:#92400E">🔒 Complete your profile to unlock withdrawal</div>'
-            :hasPendingWithdrawal
-            ?'<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:12px 14px;font-size:13px;color:#92400E">⏳ Withdrawal pending — will be auto-processed via Cashfree once reviewed</div>'
-            :parseFloat(e.pendingRupees)<100
-            ?`<div style="text-align:center;padding:16px;font-size:13.5px;color:var(--muted)">Earn <b>₹${(100-parseFloat(e.pendingRupees)).toFixed(2)}</b> more to unlock (min ₹100)</div>`
-            :`<button class="btn-solid btn-payout" onclick="requestWithdrawal()">⚡ Auto-withdraw ₹${e.pendingRupees} via Cashfree</button><p style="font-size:11px;color:var(--muted2);text-align:center;margin-top:8px">Automatically transferred to your verified payout method</p>`
-          }
-        </div>
-
-        <div class="ref-box">
-          <h4>🤝 Your referral link</h4>
-          <p>Share and earn 10% of referrals' earnings.</p>
-          <div class="ref-link"><input value="${refLink}" readonly id="refInput"><button class="btn-solid" onclick="copyRef()">Copy</button></div>
         </div>
       </div>
-    </div>`;
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Account info</div></div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div><div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Account mode</div><div style="font-family:var(--mono);font-size:14px;font-weight:600;color:var(--sage);">email</div></div>
+            <div><div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Member since</div><div style="font-size:13px;">${me.createdAt?new Date(me.createdAt).toLocaleDateString('en-IN'):'—'}</div></div>
+            <div><div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">User ID</div><div style="font-family:var(--mono);font-size:11px;color:var(--muted);">${me.id.slice(0,20)}…</div></div>
+            <div><div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Role</div><span class="badge badge-green">EARNER</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Developer User ID</div></div>
+        <div class="panel-body">
+          <p style="font-size:13px;color:var(--muted);margin-bottom:10px;">Use this in VS Code to connect your account and start earning.</p>
+          <div class="copy-box"><div class="copy-box-val">${me.id}</div><button class="copy-btn" onclick="navigator.clipboard.writeText('${me.id}');toast('✓ Copied')">Copy</button></div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── PAYOUT ──
+function renderPayout(){
+  const pm=me.payoutMode;
+  document.getElementById('mainContent').innerHTML=`
+  <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:18px;">Payout method</h1>
+  <div style="max-width:560px;">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Choose payout method</div><span style="font-size:12px;color:var(--red);font-weight:600;">* Required</span></div>
+      <div class="panel-body">
+        <div class="payout-tabs">
+          <button class="payout-tab ${pm!=='bank'?'active':''}" id="tabUpi" onclick="switchPayoutTab('upi')"><div style="font-size:14px;font-weight:700;">💳 UPI ID</div><div style="font-size:11px;opacity:.65;margin-top:3px;">Instant transfer</div></button>
+          <button class="payout-tab ${pm==='bank'?'active':''}" id="tabBank" onclick="switchPayoutTab('bank')"><div style="font-size:14px;font-weight:700;">🏦 Bank Account</div><div style="font-size:11px;opacity:.65;margin-top:3px;">NEFT / IMPS</div></button>
+        </div>
+
+        <div id="upiTab" style="display:${pm!=='bank'?'block':'none'}">
+          ${me.upiId&&me.payoutVerified&&pm!=='bank'?`
+          <div style="background:var(--sage-soft);border:1.5px solid #A7F3C8;border-radius:9px;padding:14px;margin-bottom:12px;">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Verified UPI</div>
+            <div style="font-weight:700;font-family:var(--mono);font-size:16px;">${esc(me.upiId)}</div>
+            ${me.upiNameAtBank?`<div style="font-size:12px;color:var(--sage);margin-top:4px;">✓ Account holder: ${esc(me.upiNameAtBank)}</div>`:''}
+          </div>
+          <button class="btn-ghost" onclick="document.getElementById('changeUpiBox').style.display='block'">Change UPI ID</button>
+          <div id="changeUpiBox" style="display:none;margin-top:12px;">
+            <div class="field"><label>New UPI ID</label><div style="display:flex;gap:8px;"><input id="upiInput" placeholder="name@upi or 9876543210@okaxis"><button class="btn-solid" onclick="verifyAndSaveUpi()">Verify & Save</button></div></div>
+            <div id="upiResult" style="font-size:12px;margin-top:6px;"></div>
+          </div>`:`
+          <div class="field"><label>Your UPI ID</label><div style="display:flex;gap:8px;"><input id="upiInput" placeholder="name@upi or 9876543210@okaxis"><button class="btn-solid" onclick="verifyAndSaveUpi()">Verify & Save</button></div></div>
+          <div id="upiResult" style="font-size:12px;margin-top:6px;"></div>
+          <p style="font-size:12px;color:var(--muted2);margin-top:6px;">Example: rajamuddin@okaxis or 9876543210@ybl</p>`}
+        </div>
+
+        <div id="bankTab" style="display:${pm==='bank'?'block':'none'}">
+          ${me.bankVerified&&me.bankAccount&&me.bankAccount.accountNumber?`
+          <div style="background:var(--sage-soft);border:1.5px solid #A7F3C8;border-radius:9px;padding:14px;margin-bottom:12px;">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Verified bank account</div>
+            <div style="font-weight:700;font-family:var(--mono);font-size:16px;">•••• •••• •••• ${me.bankAccount.accountNumber.slice(-4)}</div>
+            <div style="font-size:12.5px;color:var(--muted);margin-top:4px;">${esc(me.bankAccount.ifsc||'')} · ${esc(me.bankAccount.accountHolder||'')}</div>
+          </div>
+          <button class="btn-ghost" onclick="document.getElementById('bankFormBox').style.display='block'">Change bank account</button>
+          <div id="bankFormBox" style="display:none;margin-top:12px;">${bankFormHtml()}</div>`
+          :bankFormHtml()}
+        </div>
+      </div>
+    </div>
+  </div>`;
 }
 
 function bankFormHtml(){
   return `<div>
-    <div style="margin-bottom:8px">
-      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Account Holder Name</div>
-      <input id="bankHolderInput" placeholder="Full name as per bank account" style="width:100%;background:var(--cream,#F8F5EE);border:1.5px solid var(--border,#D4D9CF);border-radius:9px;padding:10px 13px;font-family:var(--body);font-size:14px;outline:none;">
-    </div>
-    <div style="margin-bottom:8px">
-      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Account Number</div>
-      <input id="bankAccInput" placeholder="Enter account number" type="text" inputmode="numeric" style="width:100%;background:var(--cream,#F8F5EE);border:1.5px solid var(--border,#D4D9CF);border-radius:9px;padding:10px 13px;font-family:var(--mono);font-size:14px;outline:none;letter-spacing:1px;">
-    </div>
-    <div style="margin-bottom:8px">
-      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Re-enter Account Number</div>
-      <input id="bankAccConfirm" placeholder="Confirm account number" type="text" inputmode="numeric" style="width:100%;background:var(--cream,#F8F5EE);border:1.5px solid var(--border,#D4D9CF);border-radius:9px;padding:10px 13px;font-family:var(--mono);font-size:14px;outline:none;letter-spacing:1px;">
-    </div>
-    <div style="margin-bottom:14px">
-      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">IFSC Code</div>
-      <input id="bankIfscInput" placeholder="e.g. HDFC0001234" maxlength="11" oninput="this.value=this.value.toUpperCase()" style="width:100%;background:var(--cream,#F8F5EE);border:1.5px solid var(--border,#D4D9CF);border-radius:9px;padding:10px 13px;font-family:var(--mono);font-size:14px;outline:none;letter-spacing:1px;">
-    </div>
-    <button class="btn-solid" onclick="saveBank()" style="width:100%">Save bank account</button>
-    <div id="bankSaveResult" style="font-size:12px;margin-top:8px"></div>
+    <div class="field"><label>Account Holder Name</label><input id="bankHolderInput" placeholder="Full name as per bank account"></div>
+    <div class="field"><label>Account Number</label><input id="bankAccInput" placeholder="Enter account number" inputmode="numeric"></div>
+    <div class="field"><label>Re-enter Account Number</label><input id="bankAccConfirm" placeholder="Confirm account number" inputmode="numeric"></div>
+    <div class="field"><label>IFSC Code</label><input id="bankIfscInput" placeholder="e.g. HDFC0001234" maxlength="11" oninput="this.value=this.value.toUpperCase()"></div>
+    <button class="btn-solid full" onclick="saveBank()">Save bank account</button>
+    <div id="bankSaveResult" style="font-size:12px;margin-top:8px;"></div>
   </div>`;
 }
 
@@ -337,99 +602,152 @@ function switchPayoutTab(tab){
   document.getElementById('bankTab').style.display=tab==='bank'?'block':'none';
   document.getElementById('tabUpi').classList.toggle('active',tab==='upi');
   document.getElementById('tabBank').classList.toggle('active',tab==='bank');
-  // Keep local state so tab stays selected after any minor re-render
-  if(me) me._activePayoutTab = tab;
 }
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
+// ── WITHDRAW ──
+function renderWithdraw(){
+  const e=earnings||{};
+  const hasPending=withdrawals.some(w=>w.status==='pending');
+  const ps=me.profileStatus||{complete:false};
+  const available=parseFloat(e.pendingRupees||0);
+  document.getElementById('mainContent').innerHTML=`
+  <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:18px;">Withdraw earnings</h1>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Available balance</div></div>
+        <div class="panel-body">
+          <div style="font-family:var(--mono);font-size:40px;font-weight:600;color:var(--sage);margin-bottom:6px;">₹${e.pendingRupees||'0.00'}</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:18px;">Total earned: ₹${e.totalEarnedRupees||'0.00'} · Minimum withdrawal: ₹100</div>
+          ${!ps.complete?
+            '<div style="background:var(--gold-soft);border:1px solid #FDE68A;border-radius:9px;padding:12px 14px;font-size:13px;color:#92400E;">🔒 Complete your profile to unlock withdrawals</div>':
+            hasPending?
+            '<div style="background:var(--gold-soft);border:1px solid #FDE68A;border-radius:9px;padding:12px 14px;font-size:13px;color:#92400E;">⏳ Withdrawal pending — will be auto-processed via Cashfree</div>':
+            available<100?
+            `<div style="background:var(--cream2);border-radius:9px;padding:12px 14px;font-size:13px;color:var(--muted);">Earn ₹${(100-available).toFixed(2)} more to unlock withdrawal</div>`:
+            `<button class="btn-solid full" onclick="requestWithdrawal()">⚡ Withdraw ₹${e.pendingRupees} via Cashfree</button>
+             <p style="font-size:12px;color:var(--muted2);text-align:center;margin-top:8px;">Auto-transferred to your verified payout method</p>`
+          }
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Payout settings</div></div>
+        <div class="panel-body">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div><div style="font-size:13px;font-weight:600;">Payout method</div><div style="font-size:12px;color:var(--muted);">${me.upiId&&me.payoutMode!=='bank'?'UPI: '+esc(me.upiId):me.bankAccount?'Bank: ••••'+me.bankAccount.accountNumber?.slice(-4):'Not set'}</div></div>
+            <button class="btn-ghost" style="font-size:12px;" onclick="showTab('payout')">Change →</button>
+          </div>
+          <div style="font-size:12px;color:var(--muted2);">Payouts are processed via Cashfree · 2-3 business days</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Withdrawal history</div></div>
+        <div style="padding:0 18px;">
+          ${withdrawals.length?withdrawals.slice(0,8).map(w=>`
+          <div class="wd-row">
+            <div><div style="font-weight:600;font-size:13.5px;">₹${((w.amountPaise||0)/100).toFixed(2)}</div>
+            <div style="font-size:11.5px;color:var(--muted2);">${new Date(w.requestedAt).toLocaleDateString('en-IN')} · ${w.upiId||'Bank a/c'}
+            ${w.autoPaid?'<span style="color:#047857;"> · ⚡ Auto-paid</span>':''}</div></div>
+            <span class="badge ${w.status==='approved'||w.status==='paid'?'badge-green':w.status==='rejected'?'badge-red':'badge-gold'}">${w.status}</span>
+          </div>`).join(''):'<div style="text-align:center;padding:32px;color:var(--muted2);font-size:13px;">No withdrawal history yet</div>'}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── REFERRAL ──
+function renderReferral(){
+  const refLink=`https://waitjiai.in?ref=${me.id}`;
+  document.getElementById('mainContent').innerHTML=`
+  <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:18px;">Referral program</h1>
+  <div style="max-width:560px;">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Your referral link</div></div>
+      <div class="panel-body">
+        <p style="font-size:13.5px;color:var(--muted);margin-bottom:14px;">Share your link and earn <strong>10% of your referrals' earnings</strong> — for life. No cap.</p>
+        <div class="copy-box"><div class="copy-box-val">${refLink}</div><button class="copy-btn" onclick="navigator.clipboard.writeText('${refLink}');toast('✓ Referral link copied')">Copy</button></div>
+        <div style="margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="metric"><div class="metric-label">Referrals</div><div class="metric-val">0</div><div class="metric-sub">developers referred</div></div>
+          <div class="metric"><div class="metric-label">Referral earnings</div><div class="metric-val">₹0.00</div><div class="metric-sub">all time</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">How it works</div></div>
+      <div class="panel-body">
+        ${[['1','Share your referral link','Send it to fellow developers or post on Twitter/LinkedIn'],['2','They install and connect','When they sign up and install WaitJI AI using your link'],['3','You earn 10% forever','For every impression they earn, you get 10% on top — automatically']].map(([n,t,d])=>`
+        <div style="display:flex;gap:14px;margin-bottom:14px;">
+          <div style="width:28px;height:28px;border-radius:50%;background:var(--sage);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${n}</div>
+          <div><div style="font-size:14px;font-weight:600;margin-bottom:2px;">${t}</div><div style="font-size:12.5px;color:var(--muted);">${d}</div></div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── ACTIONS ──
 async function saveName(){
   const name=document.getElementById('nameInput').value.trim();
-  if(!name){ toast('⚠️ Enter your name'); return; }
+  if(!name){toast('⚠️ Enter your name');return;}
   await fetch(API+'/v1/customer/profile',{method:'PATCH',headers:H,body:JSON.stringify({name})});
-  toast('✓ Name saved'); load();
+  toast('✓ Name saved'); await load();
 }
-
 async function savePhone(){
   const phone=document.getElementById('phoneInput').value.trim().replace(/\D/g,'');
-  if(!phone||phone.length!==10||!/^[6-9]/.test(phone)){ toast('⚠️ Enter a valid 10-digit Indian mobile number'); return; }
+  if(!phone||phone.length!==10||!/^[6-9]/.test(phone)){toast('⚠️ Enter a valid 10-digit mobile number');return;}
   const r=await fetch(API+'/v1/customer/profile',{method:'PATCH',headers:H,body:JSON.stringify({phone})});
-  if((await r.json()).user){ toast('✓ Phone number saved'); load(); }
-  else toast('⚠️ Could not save phone');
+  toast((await r.json()).user?'✓ Phone saved':'⚠️ Could not save'); await load();
 }
-
+async function verifyAndSaveUpi(){
+  const input=document.getElementById('upiInput');
+  const upi=(input?.value||'').trim();
+  const result=document.getElementById('upiResult');
+  if(!upi||!upi.includes('@')){if(result)result.innerHTML='<span style="color:var(--red)">✗ Enter a valid UPI ID (e.g. name@upi)</span>';return;}
+  if(result)result.textContent='Verifying…';
+  const r=await fetch(API+'/v1/customer/verify-upi',{method:'POST',headers:H,body:JSON.stringify({upiId:upi})});
+  const d=await r.json();
+  if(r.ok&&d.valid){
+    if(result)result.innerHTML='<span style="color:#047857">'+d.message+'</span>';
+    toast('✓ UPI saved'); setTimeout(()=>load(),600);
+  } else {
+    if(result)result.innerHTML='<span style="color:var(--red)">✗ '+(d.error||'Verification failed')+'</span>';
+  }
+}
 async function saveBank(){
-  const ifsc=(document.getElementById('bankIfscInput')?.value||'').trim().toUpperCase();
+  const holder=(document.getElementById('bankHolderInput')?.value||'').trim();
   const acc=(document.getElementById('bankAccInput')?.value||'').trim();
   const accC=(document.getElementById('bankAccConfirm')?.value||'').trim();
-  const holder=(document.getElementById('bankHolderInput')?.value||'').trim();
-  const saveRes=document.getElementById('bankSaveResult');
-  if(!ifsc||ifsc.length!==11){ toast('⚠️ Enter a valid 11-character IFSC code'); return; }
-  if(!holder){ saveRes.innerHTML='<span style="color:#B91C1C">✗ Enter account holder name</span>'; return; }
-  if(!acc||acc.length<9){ toast('⚠️ Enter a valid account number (min 9 digits)'); return; }
-  if(acc!==accC){ saveRes.innerHTML='<span style="color:#B91C1C">✗ Account numbers do not match — please re-enter</span>'; return; }
-  saveRes.textContent='Verifying…'; saveRes.style.color='var(--muted)';
-  const r=await fetch(API+'/v1/customer/verify-bank',{method:'POST',headers:H,body:JSON.stringify({accountNumber:acc, ifsc, accountHolder:holder})});
+  const ifsc=(document.getElementById('bankIfscInput')?.value||'').trim().toUpperCase();
+  const res=document.getElementById('bankSaveResult');
+  if(!holder){if(res)res.innerHTML='<span style="color:var(--red)">✗ Enter account holder name</span>';return;}
+  if(!acc||acc.length<9){toast('⚠️ Enter a valid account number');return;}
+  if(acc!==accC){if(res)res.innerHTML='<span style="color:var(--red)">✗ Account numbers do not match</span>';return;}
+  if(!ifsc||ifsc.length!==11){toast('⚠️ Enter a valid 11-character IFSC');return;}
+  if(res)res.textContent='Saving…';
+  const r=await fetch(API+'/v1/customer/verify-bank',{method:'POST',headers:H,body:JSON.stringify({accountNumber:acc,ifsc,accountHolder:holder})});
   const d=await r.json();
   if(r.ok&&(d.success||d.valid)){
-    saveRes.innerHTML=`<span style="color:#047857">✓ ${d.message||'Bank account saved'}</span>`;
-    toast('✓ Bank account saved'); setTimeout(load,800);
+    if(res)res.innerHTML='<span style="color:#047857">✓ Bank account saved</span>';
+    toast('✓ Bank account saved'); setTimeout(()=>load(),800);
   } else {
-    saveRes.innerHTML=`<span style="color:#B91C1C">✗ ${d.error||'Could not save — check your details and try again'}</span>`;
+    if(res)res.innerHTML='<span style="color:var(--red)">✗ '+(d.error||'Could not save')+'</span>';
   }
 }
-
-function showBankForm(){
-  const box=document.getElementById('bankFormBox');
-  if(box) box.style.display=box.style.display==='none'?'block':'none';
-}
-function showChangeBank(){
-  const box=document.getElementById('changeBankBox');
-  if(box) box.style.display=box.style.display==='none'?'block':'none';
-}
-
-function showChangeUpi(){
-  const box=document.getElementById('changeUpiBox');
-  box.style.display=box.style.display==='none'?'block':'none';
-}
-
-async function verifyAndSaveUpi(){
-  const inputEl=document.getElementById('upiChangeInput')||document.getElementById('upiInput');
-  const upi=(inputEl?.value||'').trim();
-  const resultEl=document.getElementById('upiVerifyResult');
-  if(!upi){ toast('⚠️ Enter a UPI ID'); return; }
-  if(!upi.includes('@')){ resultEl.textContent='✗ UPI ID must contain @ (e.g. name@upi)'; resultEl.style.color='#B91C1C'; return; }
-  resultEl.textContent='Verifying…'; resultEl.style.color='var(--muted)';
-  try{
-    const r=await fetch(API+'/v1/customer/verify-upi',{method:'POST',headers:H,body:JSON.stringify({upiId:upi})});
-    const d=await r.json();
-    if(!r.ok||!d.valid){
-      resultEl.textContent='✗ '+(d.error||'UPI verification failed');
-      resultEl.style.color='#B91C1C';
-      return;
-    }
-    // Backend now saves UPI directly in verify-upi — just reload
-    resultEl.textContent=d.message||'✓ Verified and saved';
-    resultEl.style.color='#047857';
-    toast('✓ UPI ID verified and saved!');
-    setTimeout(()=>load(), 500);
-  }catch(e){
-    resultEl.textContent='✗ Network error — try again';
-    resultEl.style.color='#B91C1C';
-  }
-}
-
 async function requestWithdrawal(){
-  if(!confirm('Request withdrawal of your full available balance? Admin will review and credit to your UPI ID.')) return;
+  if(!confirm('Request withdrawal of your full available balance?'))return;
   const r=await fetch(API+'/v1/customer/request-withdrawal',{method:'POST',headers:H});
   const d=await r.json();
-  if(r.ok){ toast('✅ Withdrawal requested!','Admin will review in 1–2 business days'); load(); }
+  if(r.ok){toast('✅ Withdrawal requested — auto-processed via Cashfree');await load();}
   else toast('⚠️ '+(d.error||'Could not process'));
 }
-function copyRef(){ const i=document.getElementById('refInput'); i.select(); navigator.clipboard.writeText(i.value); toast('✓ Referral link copied'); }
-function copyUserId(){ const i=document.getElementById('userIdInput'); i.select(); navigator.clipboard.writeText(i.value); toast('✓ User ID copied — paste it in VS Code'); }
 
 load();
-setInterval(load,15000); // real-time refresh every 15s
+setInterval(load,15000);
 </script>
 </body>
 </html>
