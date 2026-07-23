@@ -204,9 +204,17 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
   .hero-stats{gap:28px;}
   .install-box code{font-size:10px;}
 }
+
+/* ── Currency switcher ── */
+.currency-bar{background:var(--ink);color:rgba(255,255,255,.7);padding:9px 40px;display:flex;align-items:center;justify-content:space-between;font-size:12.5px;font-family:var(--mono);}
+.currency-select{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:4px 10px;border-radius:6px;font-family:var(--mono);font-size:12px;outline:none;cursor:pointer;}
+.currency-select option{background:#1a1a1a;color:#fff;}
+.price-amount{font-weight:700;transition:.3s;}
+[data-price]{transition:opacity .2s;}
 </style>
 </head>
 <body>
+<div class="currency-bar" id="currencyBar" style="min-height:38px;"><span style="color:rgba(255,255,255,.4)">Detecting your location…</span></div>
 
 <!-- NAV -->
 <nav class="nav">
@@ -363,7 +371,7 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
     <h2 class="section-title">Simple, transparent pricing</h2>
     <p class="section-sub">No setup fee. No monthly minimum. Pay only for impressions served — with fraud protection built in.</p>
     <div class="pricing-grid">
-      <div class="price-card featured">
+      <div class="price-card featured" id="spotlightPriceCard">
         <div class="pc-badge featured">★ SPOTLIGHT</div>
         <h3>Premium placement</h3>
         <p class="price-card-sub">Inside the Claude Code thinking spinner — highest developer attention, clickable everywhere.</p>
@@ -374,7 +382,7 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
         <div class="price-row"><span class="price-role price-row-label">Content review</span><span class="price-row-val">Within 24h</span></div>
         <a href="advertiser.html" class="price-cta">Start Spotlight campaign →</a>
       </div>
-      <div class="price-card">
+      <div class="price-card" id="streamPriceCard">
         <div class="pc-badge stream">◎ STREAM</div>
         <h3>Standard placement</h3>
         <p class="price-card-sub">Terminal status line — massive volume at brand-friendly prices for developer awareness campaigns.</p>
@@ -425,6 +433,80 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
 
 <!-- FOOTER -->
 
+
+<!-- GLOBAL PRICING TABLE -->
+<section style="background:var(--surface,#fff);padding:72px 40px;border-top:1px solid var(--border,#D4D9CF);">
+  <div style="max-width:860px;margin:0 auto;">
+    <div style="font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--sage,#2A7A4F);margin-bottom:14px;text-align:center;">Global pricing · PPP adjusted</div>
+    <h2 style="font-family:var(--display);font-size:clamp(24px,3.5vw,38px);font-weight:800;text-align:center;letter-spacing:-1.5px;margin-bottom:10px;color:var(--ink);">Fair pricing — wherever you are</h2>
+    <p style="text-align:center;color:var(--muted);font-size:15px;margin-bottom:36px;max-width:560px;margin-left:auto;margin-right:auto;">Ad prices are adjusted per country using purchasing power parity and local exchange rates. Developers always earn 65% in their local equivalent.</p>
+    <div style="overflow-x:auto;border-radius:14px;border:1px solid var(--border,#D4D9CF);">
+      <table style="width:100%;border-collapse:collapse;font-size:13.5px;">
+        <thead>
+          <tr style="background:var(--cream,#F8F5EE);">
+            <th style="text-align:left;padding:12px 18px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Country</th>
+            <th style="text-align:right;padding:12px 18px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">★ Spotlight / 1K</th>
+            <th style="text-align:right;padding:12px 18px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">◎ Stream / 1K</th>
+            <th style="text-align:right;padding:12px 18px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Dev earns (65%)</th>
+            <th style="text-align:right;padding:12px 18px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Min budget</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background:var(--sage-soft,#EBF5EE);border-bottom:1px solid #D4D9CF;">
+            <td style="padding:13px 18px;font-weight:700;">🇮🇳 India</td>
+            <td style="padding:13px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:#F0B429;">₹800</td>
+            <td style="padding:13px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:#3B82F6;">₹300</td>
+            <td style="padding:13px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#2A7A4F;font-weight:600;">₹520 / ₹195</td>
+            <td style="padding:13px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">₹5,000</td>
+          </tr>
+          <tr style="border-bottom:1px solid #F3F4F6;">
+            <td style="padding:12px 18px;font-weight:600;">🇺🇸 USA</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">$12</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">$5</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#2A7A4F;">$7.80 / $3.25</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">$120</td>
+          </tr>
+          <tr style="border-bottom:1px solid #F3F4F6;">
+            <td style="padding:12px 18px;font-weight:600;">🇬🇧 UK</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">£10</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">£4.50</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#2A7A4F;">£6.50 / £2.90</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">£95</td>
+          </tr>
+          <tr style="border-bottom:1px solid #F3F4F6;">
+            <td style="padding:12px 18px;font-weight:600;">🇸🇬 Singapore</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">S$16</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">S$6.50</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#2A7A4F;">S$10.40 / S$4.20</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">S$150</td>
+          </tr>
+          <tr style="border-bottom:1px solid #F3F4F6;">
+            <td style="padding:12px 18px;font-weight:600;">🇦🇪 UAE</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">AED 40</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">AED 16</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#2A7A4F;">AED 26 / AED 10</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">AED 370</td>
+          </tr>
+          <tr style="border-bottom:1px solid #F3F4F6;">
+            <td style="padding:12px 18px;font-weight:600;">🇩🇪 Germany</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">€11</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">€4.50</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#2A7A4F;">€7.15 / €2.90</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">€100</td>
+          </tr>
+          <tr>
+            <td style="padding:12px 18px;font-weight:600;">🇯🇵 Japan</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">¥1,800</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">¥750</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#2A7A4F;">¥1,170 / ¥490</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">¥16,500</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="text-align:center;font-size:12px;color:var(--muted2);margin-top:14px;">All transactions processed in INR via Razorpay at current exchange rates. Prices update quarterly.</p>
+  </div>
+</section>
 <!-- PUBLIC LEADERBOARD -->
 <section style="background:var(--ink);padding:72px 40px;text-align:center;">
   <div style="max-width:780px;margin:0 auto;">
@@ -532,6 +614,129 @@ async function loadLeaderboard(){
 }
 loadLeaderboard();
 setInterval(loadLeaderboard, 300000);
+</script>
+
+<script>
+// ── WaitJI AI — Geo detection + currency switching ──────────────────────────
+const GEO_PRICING = {
+  IN:  {currency:'INR', symbol:'₹',    flag:'🇮🇳', name:'India',       rate:1,     spot:800,   stream:300,   minBudget:5000},
+  US:  {currency:'USD', symbol:'$',    flag:'🇺🇸', name:'USA',         rate:83.9,  spot:12,    stream:5,     minBudget:120},
+  GB:  {currency:'GBP', symbol:'£',    flag:'🇬🇧', name:'UK',          rate:106,   spot:10,    stream:4.5,   minBudget:95},
+  SG:  {currency:'SGD', symbol:'S$',   flag:'🇸🇬', name:'Singapore',   rate:62,    spot:16,    stream:6.5,   minBudget:150},
+  AU:  {currency:'AUD', symbol:'A$',   flag:'🇦🇺', name:'Australia',   rate:54.5,  spot:18,    stream:7.5,   minBudget:160},
+  CA:  {currency:'CAD', symbol:'C$',   flag:'🇨🇦', name:'Canada',      rate:61.5,  spot:16,    stream:6.5,   minBudget:150},
+  DE:  {currency:'EUR', symbol:'€',    flag:'🇩🇪', name:'Germany',     rate:90.5,  spot:11,    stream:4.5,   minBudget:100},
+  NL:  {currency:'EUR', symbol:'€',    flag:'🇳🇱', name:'Netherlands', rate:90.5,  spot:11,    stream:4.5,   minBudget:100},
+  FR:  {currency:'EUR', symbol:'€',    flag:'🇫🇷', name:'France',      rate:90.5,  spot:11,    stream:4.5,   minBudget:100},
+  AE:  {currency:'AED', symbol:'AED ', flag:'🇦🇪', name:'UAE',         rate:22.85, spot:40,    stream:16,    minBudget:370},
+  JP:  {currency:'JPY', symbol:'¥',    flag:'🇯🇵', name:'Japan',       rate:0.56,  spot:1800,  stream:750,   minBudget:16500},
+  PK:  {currency:'PKR', symbol:'Rs ',  flag:'🇵🇰', name:'Pakistan',    rate:0.3,   spot:2200,  stream:900,   minBudget:20000},
+  BD:  {currency:'BDT', symbol:'৳',    flag:'🇧🇩', name:'Bangladesh',  rate:0.76,  spot:900,   stream:350,   minBudget:8000},
+  LK:  {currency:'LKR', symbol:'Rs ',  flag:'🇱🇰', name:'Sri Lanka',   rate:0.28,  spot:2500,  stream:1000,  minBudget:22000},
+  NP:  {currency:'NPR', symbol:'Rs ',  flag:'🇳🇵', name:'Nepal',       rate:0.63,  spot:1100,  stream:430,   minBudget:9500},
+  ID:  {currency:'IDR', symbol:'Rp ',  flag:'🇮🇩', name:'Indonesia',   rate:0.0052,spot:170000,stream:70000, minBudget:1500000},
+  PH:  {currency:'PHP', symbol:'₱',    flag:'🇵🇭', name:'Philippines', rate:1.49,  spot:540,   stream:220,   minBudget:4800},
+  MY:  {currency:'MYR', symbol:'RM ',  flag:'🇲🇾', name:'Malaysia',    rate:18.5,  spot:52,    stream:21,    minBudget:480},
+  TH:  {currency:'THB', symbol:'฿',    flag:'🇹🇭', name:'Thailand',    rate:2.37,  spot:380,   stream:155,   minBudget:3400},
+  KR:  {currency:'KRW', symbol:'₩',    flag:'🇰🇷', name:'South Korea', rate:0.063, spot:15000, stream:6000,  minBudget:135000},
+};
+
+let detectedCountry = 'IN';
+let currentPricing = GEO_PRICING['IN'];
+
+async function detectCountry(){
+  // Check localStorage first
+  const saved = localStorage.getItem('waitji_country');
+  if(saved && GEO_PRICING[saved]){
+    applyPricing(saved);
+    return;
+  }
+  try{
+    // Try ipapi.co (free, no key, 1000 req/day)
+    const r = await fetch('https://ipapi.co/json/', {signal: AbortSignal.timeout(3000)});
+    const d = await r.json();
+    const country = d.country_code || 'IN';
+    applyPricing(country);
+  } catch(e){
+    try{
+      // Fallback: ip-api.com (free, no key, 45 req/min)
+      const r = await fetch('https://ip-api.com/json/?fields=countryCode', {signal: AbortSignal.timeout(3000)});
+      const d = await r.json();
+      applyPricing(d.countryCode || 'IN');
+    } catch(e2){
+      applyPricing('IN'); // Default to India
+    }
+  }
+}
+
+function applyPricing(countryCode){
+  detectedCountry = countryCode;
+  currentPricing = GEO_PRICING[countryCode] || GEO_PRICING['IN'];
+  localStorage.setItem('waitji_country', countryCode);
+
+  // Update currency bar
+  const bar = document.getElementById('currencyBar');
+  if(bar){
+    bar.innerHTML = `
+      <span>${currentPricing.flag} Prices shown in <b>${currentPricing.currency}</b> for ${currentPricing.name}</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span>Switch:</span>
+        <select class="currency-select" id="currencySelect" onchange="applyPricing(this.value)">
+          ${Object.entries(GEO_PRICING).map(([code,p])=>`<option value="${code}" ${code===countryCode?'selected':''}>${p.flag} ${p.name} (${p.currency})</option>`).join('')}
+        </select>
+      </div>`;
+  }
+
+  // Update all price elements
+  updatePriceElements();
+}
+
+function fmt(n, decimals=0){
+  return Number(n).toLocaleString(undefined, {minimumFractionDigits:decimals, maximumFractionDigits:decimals});
+}
+
+function updatePriceElements(){
+  const p = currentPricing;
+  const sym = p.symbol;
+
+  // Update all [data-price] elements
+  document.querySelectorAll('[data-price]').forEach(el=>{
+    const key = el.dataset.price;
+    let val = '';
+    if(key === 'spotlight_cpm')   val = sym + fmt(p.spot) + '/1K';
+    if(key === 'stream_cpm')      val = sym + fmt(p.stream) + '/1K';
+    if(key === 'dev_earn_spot')   val = sym + fmt(Math.round(p.spot*0.65)) + '/1K';
+    if(key === 'dev_earn_stream') val = sym + fmt(Math.round(p.stream*0.65)) + '/1K';
+    if(key === 'min_budget')      val = sym + fmt(p.minBudget);
+    if(key === 'click_rate_spot') val = sym + (p.spot/200).toFixed(2) + '/click';
+    if(key === 'click_rate_str')  val = sym + (p.stream/200).toFixed(2) + '/click';
+    if(val) el.textContent = val;
+  });
+
+  // Update pricing cards if they exist
+  const spotCard = document.getElementById('spotlightPriceCard');
+  const streamCard = document.getElementById('streamPriceCard');
+  if(spotCard) spotCard.innerHTML = buildPriceCard('spotlight');
+  if(streamCard) streamCard.innerHTML = buildPriceCard('stream');
+}
+
+function buildPriceCard(type){
+  const p = currentPricing;
+  const sym = p.symbol;
+  const isSpot = type === 'spotlight';
+  const cpm = isSpot ? p.spot : p.stream;
+  const devEarn = Math.round(cpm * 0.65);
+  return `
+    <div class="price-row"><span class="price-role price-row-label">CPM (per 1,000 views)</span><span class="price-row-val price-amount">${sym}${fmt(cpm)}</span></div>
+    <div class="price-row"><span class="price-role price-row-label">Developer earns (65%)</span><span class="price-row-val price-amount" style="color:#2A7A4F;">${sym}${fmt(devEarn)}</span></div>
+    <div class="price-row"><span class="price-role price-row-label">Click rate (50× CPM)</span><span class="price-row-val price-amount">${sym}${(cpm/20).toFixed(2)}/click</span></div>
+    <div class="price-row"><span class="price-role price-row-label">Min. campaign budget</span><span class="price-row-val price-amount">${sym}${fmt(p.minBudget)}</span></div>
+    <div class="price-row"><span class="price-role price-row-label">Content review</span><span class="price-row-val">Within 24h</span></div>
+    <div class="price-row"><span class="price-role price-row-label">Fraud protection</span><span class="price-row-val">✓ Included</span></div>`;
+}
+
+// Run on load
+detectCountry();
 </script>
 </body>
 </html>
