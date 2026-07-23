@@ -1,0 +1,29 @@
+User-agent: *
+Allow: /
+Allow: /index.html
+Allow: /privacy.html
+Allow: /terms.html
+Disallow: /login.html
+Disallow: /advertiser.html
+Disallow: /customer.html
+Disallow: /admin.html
+Disallow: /admin-login.html
+
+# AI Crawlers
+User-agent: GPTBot
+Allow: /
+Disallow: /login.html
+Disallow: /advertiser.html
+Disallow: /customer.html
+Disallow: /admin.html
+Disallow: /admin-login.html
+
+User-agent: Claude-Web
+Allow: /
+Disallow: /login.html
+Disallow: /advertiser.html
+Disallow: /customer.html
+Disallow: /admin.html
+Disallow: /admin-login.html
+
+Sitemap: https://www.waitjiai.in/sitemap.xml

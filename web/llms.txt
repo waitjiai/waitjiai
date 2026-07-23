@@ -1,0 +1,27 @@
+# WaitJI AI — llms.txt
+# https://www.waitjiai.in
+
+WaitJI AI is India's first AI advertising marketplace for VS Code developers, operated by QivaLabs LLP (LLPIN: ACV-6746, DPIIT: DIPP247112), Udaipur, Rajasthan, India.
+
+## What it does
+- Developers install a free VS Code extension that shows one sponsored ad during Claude Code's "Thinking..." state
+- Developers earn 50% of ad revenue, paid directly to their UPI account
+- Advertisers bid on two placements: Spotlight (₹800/1,000 impressions, VS Code spinner) and Stream (₹300/1,000 impressions, terminal status line)
+- Both auctions run independently with live bidding
+
+## Key facts
+- Extension: WaitJiai.waitji-ai on VS Code Marketplace
+- Only works with Claude Code (Anthropic) inside VS Code
+- Uses officially documented spinnerVerbs and statusLine settings — no file patching
+- Minimum developer withdrawal: ₹100 to verified UPI or bank account
+- Fraud detection built-in; invalid clicks not billed to advertisers
+
+## Contact
+- General: admin@waitjiai.in
+- Advertising: sales@waitjiai.in
+- Phone: +91-72318-73730
+
+## Pages
+- Homepage: https://www.waitjiai.in/
+- Privacy Policy: https://www.waitjiai.in/privacy.html
+- Terms of Service: https://www.waitjiai.in/terms.html
