@@ -1010,7 +1010,17 @@ const server = http.createServer(async (req, res) => {
         const totalActive = activeSorted.length;
         const withRank = mine.map(c => {
           const idx = activeSorted.findIndex(x => x.id === c.id);
-          return { ...c, rank: idx >= 0 ? idx + 1 : null, totalActive };
+          const campImps = db.impressions.filter(i => i.campaignId === c.id && !i.isReferralBonus);
+          const campClicks = db.clicks.filter(cl => cl.campaignId === c.id && cl.valid);
+          return {
+            ...c,
+            rank: idx >= 0 ? idx + 1 : null,
+            totalActive,
+            impressions: campImps.length,
+            clicks: campClicks.length,
+            uniqueUsersReached: new Set(campImps.map(i => i.userId)).size,
+            ctr: campImps.length ? (campClicks.length / campImps.length * 100).toFixed(2) : '0.00',
+          };
         });
         return send(res, 200, { campaigns: withRank });
       }
@@ -1037,7 +1047,9 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, {
           campaigns: mine.length,
           activeCampaigns: mine.filter(c => c.status === 'active').length,
+          totalImpressions: imps.length,
           impressions: imps.length,
+          totalClicks: clk.length,
           validClicks: clk.length,
           blockedClicks: invalidClk.length,
           ctr: imps.length ? (clk.length / imps.length * 100).toFixed(2) : '0.00',
