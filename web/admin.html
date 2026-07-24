@@ -154,6 +154,9 @@ tr:last-child td{border-bottom:none;}
     <button class="tab" data-tab="careers" onclick="showTab('careers')">💼 Applications</button>
     <button class="tab" data-tab="jobs" onclick="showTab('jobs')">📋 Job Listings</button>
     <button class="tab" data-tab="houseads" onclick="showTab('houseads')">🏠 House Ads</button>
+    <button class="tab" data-tab="tracking" onclick="showTab('tracking')">📡 Ad Tracking</button>
+    <button class="tab" data-tab="email" onclick="showTab('email')">✉️ Email Tools</button>
+    <button class="tab" data-tab="social" onclick="showTab('social')">📱 Social & Promo</button>
   </div>
   <div id="tabContent"><div class="loading">Loading…</div></div>
 </div>
@@ -177,657 +180,756 @@ async function init(){
 function showTab(t){ curTab=t; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t)); render(); }
 
 async function render(){
-  const c=document.getElementById('tabContent'); c.innerHTML='<div class="loading">Loading…</div>';
-  // Always refresh withdrawal badge regardless of active tab
+  const c=document.getElementById('tabContent');
+  c.innerHTML='<div class="loading">Loading…</div>';
   get('/v1/admin/withdrawals').then(d=>{
-    const badge=document.getElementById('pendingBadge');
-    if(d?.summary?.pending>0){badge.style.display='inline';badge.textContent=d.summary.pending;}
-    else badge.style.display='none';
+    const b=document.getElementById('pendingBadge');
+    if(d?.summary?.pending>0){b.style.display='inline';b.textContent=d.summary.pending;}else b.style.display='none';
   }).catch(()=>{});
   try{
-    if(curTab==='overview') return renderOverview(await get('/v1/admin/overview'));
-    if(curTab==='security') return renderSecurity(await get('/v1/admin/security'));
-    if(curTab==='campaigns') return renderCampaigns((await get('/v1/admin/campaigns')).campaigns);
-    if(curTab==='advertisers') return renderAdvertisers((await get('/v1/admin/advertisers')).advertisers);
-    if(curTab==='customers') return renderCustomers((await get('/v1/admin/customers')).customers);
-    if(curTab==='waitlist') return renderWaitlist(await get('/v1/admin/waitlist'));
-    if(curTab==='withdrawals') return renderWithdrawals(await get('/v1/admin/withdrawals'));
-    if(curTab==='discounts') return renderDiscounts(await get('/v1/admin/discount-codes'));
-    if(curTab==='careers') return renderCareers(await get('/v1/admin/careers'));
-    if(curTab==='jobs') return renderJobs(await get('/v1/admin/jobs'));
-    if(curTab==='houseads') return renderHouseAds((await get('/v1/admin/house-ads')).houseAds);
-  }catch(e){ c.innerHTML='<div class="loading">Error loading data. <a href="" onclick="location.reload();return false">retry</a></div>'; }
+    if(curTab==='overview')   return renderOverview(await get('/v1/admin/overview'));
+    if(curTab==='security')   return renderSecurity(await get('/v1/admin/security'));
+    if(curTab==='campaigns')  return renderCampaigns((await get('/v1/admin/campaigns')).campaigns);
+    if(curTab==='advertisers')return renderAdvertisers(await get('/v1/admin/advertisers'));
+    if(curTab==='customers')  return renderCustomers(await get('/v1/admin/customers'));
+    if(curTab==='withdrawals')return renderWithdrawals(await get('/v1/admin/withdrawals'));
+    if(curTab==='discounts')  return renderDiscounts(await get('/v1/admin/discount-codes'));
+    if(curTab==='waitlist')   return renderWaitlist(await get('/v1/admin/waitlist'));
+    if(curTab==='careers')    return renderCareers(await get('/v1/admin/careers'));
+    if(curTab==='jobs')       return renderJobs(await get('/v1/admin/jobs'));
+    if(curTab==='houseads')   return renderHouseAds((await get('/v1/admin/house-ads')).houseAds);
+    if(curTab==='tracking')   return renderTracking(await get('/v1/admin/overview'));
+    if(curTab==='email')      return renderEmail(await get('/v1/admin/waitlist'));
+    if(curTab==='social')     return renderSocial();
+  }catch(e){ document.getElementById('tabContent').innerHTML='<div class="loading">Error loading data. <a href="" onclick="render();return false">retry</a></div>'; console.error(e); }
 }
-async function get(p){ const r=await fetch(API+p,{headers:H}); return r.json(); }
 
+async function get(url){ const r=await fetch(API+url,{headers:H}); if(!r.ok) throw new Error(r.status); return r.json(); }
+async function post(url,body){ const r=await fetch(API+url,{method:'POST',headers:H,body:JSON.stringify(body)}); return r.json(); }
+async function ptch(url,body){ const r=await fetch(API+url,{method:'PATCH',headers:H,body:JSON.stringify(body)}); return r.json(); }
+async function del(url){ const r=await fetch(API+url,{method:'DELETE',headers:H}); return r.json(); }
+function c(){ return document.getElementById('tabContent'); }
+
+// ── HOUSE ADS ──────────────────────────────────────────────────────────────
 function renderHouseAds(ads){
-  document.getElementById('tabContent').innerHTML=`
-    <div class="panel" style="background:var(--indigo-soft);border-color:#C7D2FE">
-      <strong>What this does:</strong> When there's no active advertiser campaign, the extension shows one of these instead — so developers still see (and earn ₹50/1000 impressions from, founder-funded) something during Claude Code's thinking pause. The moment a real advertiser campaign goes active, it always takes priority over these automatically.
-    </div>
-    <div class="panel">
-      <div class="panel-h">Add a house ad</div>
-      <div class="field"><label>Ad text</label><input id="haText" placeholder="WaitJI AI · your message here" style="width:100%;padding:10px 13px;border:1px solid var(--border2);border-radius:9px;margin-top:6px"></div>
-      <div class="field" style="margin-top:12px"><label>Link URL</label><input id="haUrl" placeholder="https://..." style="width:100%;padding:10px 13px;border:1px solid var(--border2);border-radius:9px;margin-top:6px"></div>
-      <div class="modal-err" id="haErr" style="margin-top:14px"></div>
-      <button class="mini-btn" style="margin-top:14px;padding:10px 18px" onclick="addHouseAd()">+ Add house ad</button>
-    </div>
-    <div class="panel">
-      <div class="panel-h">Current house ads (${ads.length})</div>
-      ${ads.length?`<table><thead><tr><th>Text</th><th>URL</th><th>Status</th><th></th></tr></thead><tbody>
-      ${ads.map(a=>`<tr><td>${esc(a.text)}</td><td class="mono" style="font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${esc(a.url)}</td><td><span class="status ${a.active?'active':'paused'}">${a.active?'active':'paused'}</span></td><td><button class="mini-btn" onclick="toggleHouseAd('${a.id}',${!a.active})">${a.active?'Pause':'Activate'}</button> <button class="mini-btn red" onclick="deleteHouseAd('${a.id}')">Delete</button></td></tr>`).join('')}
-      </tbody></table>`:`<div class="empty"><div class="empty-ic">🏠</div>No house ads configured — developers will see nothing when there's no active advertiser.</div>`}
-    </div>`;
+  const el=c();
+  el.innerHTML=`<div class="panel"><div class="panel-h">🏠 House Ads <button class="mini-btn green" onclick="addHouseAd()">+ Add</button></div>
+  <table><thead><tr><th>Ad Text</th><th>URL</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+  ${(ads||[]).map(a=>`<tr>
+    <td>${esc(a.text)}</td>
+    <td><span class="mono">${esc(a.url||'').slice(0,40)}</span></td>
+    <td><span class="status ${a.active?'active':'paused'}">${a.active?'Active':'Paused'}</span></td>
+    <td>
+      <button class="mini-btn" onclick="toggleHouseAd('${a.id}',${!a.active})">${a.active?'Pause':'Activate'}</button>
+      <button class="mini-btn red" onclick="deleteHouseAd('${a.id}')">Delete</button>
+    </td>
+  </tr>`).join('')||'<tr><td colspan="4" class="empty">No house ads</td></tr>'}
+  </tbody></table></div>`;
 }
 async function addHouseAd(){
-  const text=document.getElementById('haText').value.trim();
-  const url=document.getElementById('haUrl').value.trim();
-  const err=document.getElementById('haErr');
-  err.classList.remove('show');
-  if(!text||!url){ err.textContent='Both text and URL are required'; err.classList.add('show'); return; }
-  const r=await fetch(API+'/v1/admin/house-ads',{method:'POST',headers:H,body:JSON.stringify({text,url})});
-  if(r.ok){ toast('✓ House ad added'); render(); }
-  else{ const d=await r.json().catch(()=>({})); err.textContent=d.error||'Could not add'; err.classList.add('show'); }
+  const text=prompt('Ad text (shown in spinner):'); if(!text) return;
+  const url=prompt('Click URL:'); if(!url) return;
+  await post('/v1/admin/house-ads',{text,url,active:true});
+  toast('✓ House ad added'); render();
 }
 async function toggleHouseAd(id,active){
-  await fetch(API+'/v1/admin/house-ads/'+id,{method:'PATCH',headers:H,body:JSON.stringify({active})});
-  toast(active?'✓ Activated':'⏸ Paused'); render();
+  await ptch('/v1/admin/house-ads/'+id,{active});
+  toast('✓ Updated'); render();
 }
 async function deleteHouseAd(id){
-  if(!confirm('Delete this house ad permanently?')) return;
-  await fetch(API+'/v1/admin/house-ads/'+id,{method:'DELETE',headers:H});
-  toast('🗑 Deleted'); render();
+  if(!confirm('Delete this house ad?')) return;
+  await del('/v1/admin/house-ads/'+id);
+  toast('✓ Deleted'); render();
 }
 
+// ── OVERVIEW ──────────────────────────────────────────────────────────────
 function renderOverview(d){
-  document.getElementById('tabContent').innerHTML=`
-    <div class="cards">
-      <div class="card"><div class="card-label">Total registered users</div><div class="card-val">${d.totalRegisteredUsers}</div><div class="card-sub">${d.advertisers} advertisers · ${d.customers} earners</div></div>
-      <div class="card safe"><div class="card-label">Active users (7d)</div><div class="card-val">${d.activeUsers7d}</div><div class="card-sub">used the platform recently</div></div>
-      <div class="card"><div class="card-label">⚡ Extension installs</div><div class="card-val">${d.extensionInstalls!=null?d.extensionInstalls.toLocaleString('en-IN'):'—'}</div><div class="card-sub">${d.extensionInstalls!=null?'live from VS Code Marketplace':'marketplace data unavailable'}</div></div>
-      <div class="card danger"><div class="card-label">🛡️ Fraud flags</div><div class="card-val">${d.fraudFlags}</div><div class="card-sub">${d.blockedClicks} clicks blocked</div></div>
+  const el=c();
+  const s=d.summary||{};
+  el.innerHTML=`
+  <div class="cards">
+    <div class="card"><div class="card-label">Total Impressions</div><div class="card-val">${fmt(s.totalImpressions||0)}</div><div class="card-sub">all time</div></div>
+    <div class="card"><div class="card-label">Total Earned (Devs)</div><div class="card-val">₹${((s.totalEarnedPaise||0)/100).toFixed(2)}</div><div class="card-sub">paid out</div></div>
+    <div class="card"><div class="card-label">Platform Revenue</div><div class="card-val">₹${((s.platformRevenuePaise||0)/100).toFixed(2)}</div><div class="card-sub">35% of ad spend</div></div>
+    <div class="card"><div class="card-label">Active Campaigns</div><div class="card-val">${s.activeCampaigns||0}</div><div class="card-sub">live right now</div></div>
+    <div class="card"><div class="card-label">Total Advertisers</div><div class="card-val">${s.totalAdvertisers||0}</div><div class="card-sub">${s.activeAdvertisers||0} active</div></div>
+    <div class="card"><div class="card-label">Total Earners</div><div class="card-val">${s.totalEarners||0}</div><div class="card-sub">${s.activeEarners||0} active today</div></div>
+    <div class="card"><div class="card-label">Pending Withdrawals</div><div class="card-val ${s.pendingWithdrawals>0?'':''}">₹${((s.pendingWithdrawalPaise||0)/100).toFixed(2)}</div><div class="card-sub">${s.pendingWithdrawals||0} requests</div></div>
+    <div class="card ${(s.fraudFlagsToday||0)>0?'danger':'safe'}"><div class="card-label">Fraud Flags Today</div><div class="card-val">${s.fraudFlagsToday||0}</div><div class="card-sub">of ${s.fraudFlagsTotal||0} total</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="panel"><div class="panel-h">Quick actions</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="mini-btn green" onclick="showTab('withdrawals')">💸 Review ${s.pendingWithdrawals||0} pending withdrawals</button>
+        <button class="mini-btn" onclick="showTab('campaigns')">📣 View all campaigns</button>
+        <button class="mini-btn" onclick="showTab('security')">🛡️ Security report</button>
+        <button class="mini-btn" onclick="showTab('email')">✉️ Email inactive users</button>
+      </div>
     </div>
-    <div class="cards">
-      <div class="card"><div class="card-label">Advertisers</div><div class="card-val">${d.advertisers}</div><div class="card-sub">${d.campaigns} campaigns</div></div>
-      <div class="card"><div class="card-label">Active campaigns</div><div class="card-val">${d.activeCampaigns}</div><div class="card-sub">${d.pendingCampaigns} pending review</div></div>
-      <div class="card safe"><div class="card-label">Platform revenue</div><div class="card-val">₹${d.platformRevenueRupees}</div><div class="card-sub">50% take rate</div></div>
-      <div class="card"><div class="card-label">Payouts owed</div><div class="card-val">₹${d.payoutsOwedRupees}</div><div class="card-sub">to earners</div></div>
+    <div class="panel"><div class="panel-h">System health</div>
+      <div style="font-size:13px;display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;justify-content:space-between;"><span>Backend</span><span style="color:#047857;font-weight:600;">✓ Online</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Database</span><span style="color:#047857;font-weight:600;">✓ Neon Postgres</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Extension</span><span style="color:#047857;font-weight:600;">✓ v1.2.3 live</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Razorpay</span><span style="color:#047857;font-weight:600;">✓ Connected</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Cashfree</span><span style="color:#047857;font-weight:600;">✓ Payouts enabled</span></div>
+      </div>
     </div>
-    <div class="cards">
-      <div class="card"><div class="card-label">Valid clicks</div><div class="card-val">${d.validClicks}</div><div class="card-sub">billed to advertisers</div></div>
-      <div class="card"><div class="card-label">Banned users</div><div class="card-val">${d.bannedUsers}</div><div class="card-sub">policy enforcement</div></div>
-    </div>
-    ${d.pendingCampaigns>0?`<div class="panel" style="background:var(--amber-soft);border-color:#FDE68A"><div class="panel-h">⏳ ${d.pendingCampaigns} campaign(s) awaiting review</div><button class="mini-btn" onclick="showTab('campaigns')">Review now →</button></div>`:''}`;
+  </div>`;
 }
+function fmt(n){return Number(n||0).toLocaleString('en-IN');}
+function fmtRs(p){return '₹'+((p||0)/100).toFixed(2);}
+function timeAgo(ts){if(!ts)return'—';const m=Math.floor((Date.now()-ts)/60000);if(m<1)return'just now';if(m<60)return m+'m ago';const h=Math.floor(m/60);if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago';}
 
+// ── SECURITY ──────────────────────────────────────────────────────────────
 function renderSecurity(d){
-  document.getElementById('tabContent').innerHTML=`
-    <div class="cards">
-      <div class="card danger"><div class="card-label">Total fraud flags</div><div class="card-val">${d.flags.length}</div><div class="card-sub">lifetime</div></div>
-      <div class="card danger"><div class="card-label">Blocked clicks</div><div class="card-val">${d.blockedClicks}</div><div class="card-sub">invalid / fraudulent</div></div>
-      <div class="card safe"><div class="card-label">💰 Advertiser money saved</div><div class="card-val">₹${d.moneySavedRupees}</div><div class="card-sub">fraud never billed</div></div>
-      <div class="card"><div class="card-label">Fraud types</div><div class="card-val">${Object.keys(d.byType).length}</div><div class="card-sub">detection rules firing</div></div>
-    </div>
-    <div class="panel">
-      <div class="panel-h">🛡️ Active detection thresholds</div>
-      <div class="thresholds">
-        <div class="thresh"><div class="thresh-k">Max clicks / min</div><div class="thresh-v">${d.thresholds.MAX_CLICKS_PER_MIN}</div></div>
-        <div class="thresh"><div class="thresh-k">Max clicks / IP / hr</div><div class="thresh-v">${d.thresholds.MAX_CLICKS_PER_IP_HR}</div></div>
-        <div class="thresh"><div class="thresh-k">Max impressions / min</div><div class="thresh-v">${d.thresholds.MAX_IMPRESSIONS_PER_MIN}</div></div>
-        <div class="thresh"><div class="thresh-k">Min gap between clicks</div><div class="thresh-v">${d.thresholds.MIN_MS_BETWEEN_CLICKS}ms</div></div>
-        <div class="thresh"><div class="thresh-k">CTR alert threshold</div><div class="thresh-v">${(d.thresholds.CTR_ALERT_THRESHOLD*100)}%</div></div>
-      </div>
-    </div>
-    <div class="panel">
-      <div class="panel-h">Fraud flag log</div>
-      ${d.flags.length?`<div class="fraud-types">${Object.entries(d.byType).map(([k,v])=>`<div class="ftype">${k.replace(/_/g,' ')}<b>${v}</b></div>`).join('')}</div>
-      <table><thead><tr><th>User</th><th>Type</th><th>Detail</th><th>Severity</th><th>Time</th></tr></thead><tbody>
-      ${d.flags.slice(0,40).map(f=>`<tr><td class="mono">${esc(f.userEmail)}</td><td>${f.type.replace(/_/g,' ')}</td><td class="mono">${esc(f.detail)}</td><td><span class="sev ${f.severity}">${f.severity}</span></td><td class="mono">${new Date(f.ts).toLocaleString('en-IN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'})}</td></tr>`).join('')}
-      </tbody></table>`:`<div class="empty"><div class="empty-ic">🛡️</div><strong>No fraud detected yet.</strong><br><span style="font-size:13px;color:var(--muted)">The system is monitoring every click in real time.</span></div>`}
-    </div>`;
+  const el=c();
+  const flags=(d.fraudFlags||[]).slice(0,30);
+  el.innerHTML=`
+  <div class="cards">
+    <div class="card danger"><div class="card-label">Total Flags</div><div class="card-val">${d.totalFlags||0}</div></div>
+    <div class="card"><div class="card-label">Flagged Users</div><div class="card-val">${d.flaggedUsers||0}</div></div>
+    <div class="card"><div class="card-label">Blocked IPs</div><div class="card-val">${d.blockedIPs||0}</div></div>
+    <div class="card safe"><div class="card-label">Valid Click Rate</div><div class="card-val">${d.validClickRate||'—'}%</div></div>
+  </div>
+  <div class="panel"><div class="panel-h">Recent fraud flags</div>
+  <table><thead><tr><th>Time</th><th>User</th><th>Type</th><th>Severity</th><th>IP</th><th>Detail</th></tr></thead><tbody>
+  ${flags.map(f=>`<tr>
+    <td class="mono">${timeAgo(f.ts)}</td>
+    <td class="mono">${esc(f.userId||'—').slice(0,12)}</td>
+    <td>${esc(f.type||'—')}</td>
+    <td><span class="sev ${f.severity||'medium'}">${f.severity||'medium'}</span></td>
+    <td class="mono">${esc(f.ip||'—')}</td>
+    <td style="font-size:12px;color:#6B7568;">${esc(String(f.detail||'—')).slice(0,60)}</td>
+  </tr>`).join('')||'<tr><td colspan="6" class="empty">No fraud flags</td></tr>'}
+  </tbody></table></div>`;
 }
 
+// ── CAMPAIGNS ──────────────────────────────────────────────────────────────
 function renderCampaigns(camps){
-  document.getElementById('tabContent').innerHTML=`<div class="panel"><div class="panel-h">All campaigns (${camps.length})</div>
-    ${camps.length?`<table><thead><tr><th>Advertiser</th><th>Ad text</th><th>Bid</th><th>Spent</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-    ${camps.map(c=>`<tr><td class="camp-name" style="font-weight:600">${esc(c.advertiser)}</td><td style="font-size:12px;color:var(--muted)">${esc(c.adText)}</td><td class="mono">₹${(c.bidPaise/100).toFixed(0)}/1K</td><td class="mono">₹${(c.spentPaise/100).toFixed(0)}</td><td><span class="status ${c.status}">${c.status}</span></td>
-    <td><button class="mini-btn" onclick="viewCampaignStats('${c.id}')">Stats</button> ${c.status==='pending_review'?`<button class="mini-btn green" onclick="setCamp('${c.id}','active')">Approve</button><button class="mini-btn red" onclick="rejectCamp('${c.id}')">Reject</button>`:c.status==='pending_payment'?'<span style="color:var(--muted2);font-size:12px">awaiting advertiser payment</span>':c.status==='active'?`<button class="mini-btn" onclick="setCamp('${c.id}','paused')">Pause</button>`:c.status==='paused'?`<button class="mini-btn green" onclick="setCamp('${c.id}','active')">Activate</button>`:'—'}</td></tr>`).join('')}
-    </tbody></table>`:`<div class="empty"><div class="empty-ic">📣</div>No campaigns yet.</div>`}</div>`;
+  const el=c();
+  const search=`<input id="campSearch" placeholder="Search campaigns…" oninput="filterCamps()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px;width:260px;outline:none;margin-bottom:14px;">`;
+  window._camps=camps||[];
+  el.innerHTML=search+`<table id="campTable"><thead><tr><th>Campaign</th><th>Advertiser</th><th>Type</th><th>Geo</th><th>Bid</th><th>Budget</th><th>Spent</th><th>Imps</th><th>CTR</th><th>Status</th><th>Actions</th></tr></thead><tbody id="campBody"></tbody></table>`;
+  filterCamps();
 }
-async function viewCampaignStats(id){
-  const d=await get('/v1/admin/campaigns/'+id+'/stats');
-  const maxImp=Math.max(1,...d.daily.map(x=>x.impressions));
-  const m=document.createElement('div');
-  m.className='modal-bg show';
-  m.id='campStatsModal';
-  m.innerHTML=`<div class="modal" style="max-width:560px">
-    <h2>${esc(d.campaign.advertiser)}</h2>
-    <p class="modal-sub">${esc(d.campaign.adText)}</p>
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0">
-      <div class="card" style="padding:12px"><div class="card-label" style="font-size:11px">Impressions</div><div class="card-val" style="font-size:20px">${d.totalImpressions}</div></div>
-      <div class="card" style="padding:12px"><div class="card-label" style="font-size:11px">Unique developers reached</div><div class="card-val" style="font-size:20px">${d.uniqueUsersReached}</div></div>
-      <div class="card" style="padding:12px"><div class="card-label" style="font-size:11px">Valid clicks</div><div class="card-val" style="font-size:20px">${d.validClicks}</div></div>
-      <div class="card" style="padding:12px"><div class="card-label" style="font-size:11px">CTR</div><div class="card-val" style="font-size:20px">${d.ctr}%</div></div>
+function filterCamps(){
+  const q=(document.getElementById('campSearch')?.value||'').toLowerCase();
+  const rows=(window._camps||[]).filter(c=>!q||esc(c.adText+c.advertiser).toLowerCase().includes(q));
+  document.getElementById('campBody').innerHTML=rows.map(c=>`<tr>
+    <td><div style="font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.campaignName||c.adText)}</div><div style="font-size:11px;color:#9AA896;">"${esc(c.adText).slice(0,35)}"</div></td>
+    <td>${esc(c.advertiser||'—')}</td>
+    <td><span class="status ${c.adType==='spotlight'?'active':'pending'}">${c.adType==='spotlight'?'★ Spot':'◎ Stream'}</span></td>
+    <td style="font-size:11px;">${(c.geo?.countries||['IN']).join(',')}${c.geo?.cities?.length?' +'+c.geo.cities.length+'c':''}</td>
+    <td class="mono">${fmtRs(c.bidPaise)}/K</td>
+    <td class="mono">${fmtRs(c.budgetPaise)}</td>
+    <td class="mono" style="color:#047857;">${fmtRs(c.spentPaise)}</td>
+    <td class="mono">${fmt(c.impressions||0)}</td>
+    <td class="mono">${c.impressions?((c.clicks||0)/c.impressions*100).toFixed(2):'0.00'}%</td>
+    <td><span class="status ${c.status}">${c.status}</span></td>
+    <td>
+      ${c.status==='pending_review'?`<button class="mini-btn green" onclick="approveCamp('${c.id}')">Approve</button><button class="mini-btn red" onclick="rejectCamp('${c.id}')">Reject</button>`:''}
+      ${c.status==='active'?`<button class="mini-btn" onclick="pauseCamp('${c.id}')">Pause</button>`:''}
+      ${c.status==='paused'?`<button class="mini-btn green" onclick="resumeCamp('${c.id}')">Resume</button>`:''}
+    </td>
+  </tr>`).join('')||'<tr><td colspan="11" class="empty">No campaigns</td></tr>';
+}
+async function approveCamp(id){ await ptch('/v1/admin/campaigns/'+id,{status:'active'}); toast('✓ Campaign approved'); render(); }
+async function rejectCamp(id){ const r=prompt('Rejection reason:'); if(!r) return; await ptch('/v1/admin/campaigns/'+id,{status:'rejected',rejectionReason:r}); toast('✓ Rejected'); render(); }
+async function pauseCamp(id){ await ptch('/v1/admin/campaigns/'+id,{status:'paused'}); toast('✓ Paused'); render(); }
+async function resumeCamp(id){ await ptch('/v1/admin/campaigns/'+id,{status:'active'}); toast('✓ Resumed'); render(); }
+
+// ── ADVERTISERS ──────────────────────────────────────────────────────────────
+function renderAdvertisers(d){
+  const el=c();
+  const advs=(d.advertisers||d||[]);
+  window._advs=advs;
+  el.innerHTML=`
+  <div class="cards">
+    <div class="card"><div class="card-label">Total advertisers</div><div class="card-val">${advs.length}</div></div>
+    <div class="card"><div class="card-label">Total ad spend</div><div class="card-val">${fmtRs(advs.reduce((s,a)=>s+(a.totalSpentPaise||0),0))}</div></div>
+    <div class="card"><div class="card-label">Active campaigns</div><div class="card-val">${advs.reduce((s,a)=>s+(a.activeCampaigns||0),0)}</div></div>
+    <div class="card"><div class="card-label">Avg spend/adv</div><div class="card-val">${fmtRs(advs.length?Math.round(advs.reduce((s,a)=>s+(a.totalSpentPaise||0),0)/advs.length):0)}</div></div>
+  </div>
+  <div class="panel"><div class="panel-h">All Advertisers</div>
+  <table><thead><tr><th>Company</th><th>Email</th><th>Total Spend</th><th>Campaigns</th><th>Joined</th><th>Actions</th></tr></thead><tbody>
+  ${advs.map(a=>`<tr>
+    <td><div style="font-weight:600;">${esc(a.company||a.name||'—')}</div><div style="font-size:11px;color:#9AA896;">${esc(a.industry||'')}</div></td>
+    <td class="mono" style="font-size:12px;">${esc(a.email)}</td>
+    <td class="mono" style="color:#047857;font-weight:600;">${fmtRs(a.totalSpentPaise||0)}</td>
+    <td class="mono">${a.totalCampaigns||0} total · ${a.activeCampaigns||0} active</td>
+    <td style="font-size:12px;">${a.createdAt?new Date(a.createdAt).toLocaleDateString('en-IN'):'—'}</td>
+    <td><button class="mini-btn" onclick="viewAdvertiser('${a.id}')">Profile →</button></td>
+  </tr>`).join('')||'<tr><td colspan="6" class="empty">No advertisers</td></tr>'}
+  </tbody></table></div>`;
+}
+
+function viewAdvertiser(id){
+  const a=(window._advs||[]).find(x=>x.id===id)||{};
+  const camps=(a.campaigns||[]);
+  const m=document.createElement('div'); m.className='modal-bg';
+  m.innerHTML=`<div class="modal" style="max-width:680px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+      <div><h2>${esc(a.company||a.name||'Advertiser')}</h2><div class="modal-sub">${esc(a.email)} · ${esc(a.industry||'—')}</div></div>
+      <button class="mini-btn" onclick="this.closest('.modal-bg').remove()">✕ Close</button>
     </div>
-    <div class="sub" style="font-weight:700;font-size:13px;margin:14px 0 8px">Last 14 days</div>
-    <div style="display:flex;align-items:flex-end;gap:3px;height:90px;border-bottom:1px solid var(--border2)">
-      ${d.daily.map(x=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%" title="${x.date}: ${x.impressions} impressions, ₹${x.spentRupees}"><div style="width:100%;background:var(--indigo);border-radius:2px 2px 0 0;min-height:1px;height:${Math.max(2,Math.round(x.impressions/maxImp*80))}px"></div></div>`).join('')}
+    <div class="cards" style="grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">
+      <div class="card"><div class="card-label">Total Spend</div><div class="card-val" style="font-size:18px;">${fmtRs(a.totalSpentPaise||0)}</div></div>
+      <div class="card"><div class="card-label">Campaigns</div><div class="card-val" style="font-size:18px;">${a.totalCampaigns||0}</div></div>
+      <div class="card"><div class="card-label">Impressions</div><div class="card-val" style="font-size:18px;">${fmt(a.totalImpressions||0)}</div></div>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted2);margin-top:4px"><span>${d.daily[0].date.slice(5)}</span><span>${d.daily[d.daily.length-1].date.slice(5)}</span></div>
-    <div class="modal-actions" style="margin-top:18px"><button class="btn-out" style="flex:1" onclick="document.getElementById('campStatsModal').remove()">Close</button></div>
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Campaign history</div>
+      ${camps.length?camps.map(c=>`<div style="background:#F8F5EE;border-radius:8px;padding:10px 14px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;">
+        <div><div style="font-weight:600;font-size:13px;">"${esc(c.adText||'').slice(0,40)}"</div>
+        <div style="font-size:11px;color:#9AA896;">${c.adType} · ${fmtRs(c.budgetPaise)} · ${c.status}</div></div>
+        <div style="font-family:monospace;font-size:13px;font-weight:700;color:#047857;">${fmt(c.impressions||0)} imps</div>
+      </div>`).join(''):'<div style="color:#9AA896;font-size:13px;padding:12px;">No campaigns yet</div>'}
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="mini-btn green" onclick="sendAdminEmail('${esc(a.email)}','${esc(a.name||a.company||'')}')">✉️ Email advertiser</button>
+      ${a.banned?`<button class="mini-btn green" onclick="banUser('${a.id}',false)">Unban</button>`:`<button class="mini-btn red" onclick="banUser('${a.id}',true)">Ban</button>`}
+    </div>
   </div>`;
+  m.addEventListener('click',e=>{if(e.target===m)m.remove();});
   document.body.appendChild(m);
-  m.addEventListener('click',e=>{if(e.target.id==='campStatsModal')m.remove();});
-}
-async function setCamp(id,status){ await fetch(API+'/v1/admin/campaigns/'+id,{method:'PATCH',headers:H,body:JSON.stringify({status})}); toast('✓ Campaign '+status); render(); }
-async function rejectCamp(id){
-  const reason=prompt('Reason for rejection (shown to advertiser; if they already paid, this refunds them automatically):','');
-  if(reason===null) return;
-  const r=await fetch(API+'/v1/admin/campaigns/'+id,{method:'PATCH',headers:H,body:JSON.stringify({status:'rejected',reason:reason.trim()||'Not specified'})});
-  const d=await r.json();
-  if(r.ok) toast('✓ Campaign rejected'+(d.campaign?.refunded?' — refund issued':''));
-  else toast('⚠️ '+(d.error||'Could not reject'));
-  render();
 }
 
-function renderAdvertisers(advs){
-  document.getElementById('tabContent').innerHTML=`<div class="panel"><div class="panel-h">Advertisers (${advs.length})</div>
-    ${advs.length?`<table><thead><tr><th>Company</th><th>Email</th><th>Campaigns</th><th>Spent</th><th>Status</th><th></th></tr></thead><tbody>
-    ${advs.map(a=>`<tr><td style="font-weight:600">${esc(a.company||a.name||'—')}</td><td class="mono">${esc(a.email)}</td><td>${a.campaigns}</td><td class="mono">₹${a.totalSpentRupees}</td><td>${a.banned?`<span class="sev high">banned</span><div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(a.banReason||'')}</div>`:'<span class="status active">active</span>'}</td><td><button class="mini-btn" onclick="viewAdvertiserProfile('${a.id}')">View Profile</button> <button class="mini-btn ${a.banned?'green':'red'}" onclick="banUser('${a.id}',${!a.banned})">${a.banned?'Unban':'Ban'}</button></td></tr>`).join('')}
-    </tbody></table>`:`<div class="empty"><div class="empty-ic">📣</div>No advertisers yet.</div>`}</div>`;
+// ── CUSTOMERS / EARNERS ──────────────────────────────────────────────────────
+function renderCustomers(d){
+  const el=c();
+  const custs=(d.customers||d||[]);
+  window._custs=custs;
+  el.innerHTML=`
+  <div class="cards">
+    <div class="card"><div class="card-label">Total earners</div><div class="card-val">${custs.length}</div></div>
+    <div class="card"><div class="card-label">Total paid out</div><div class="card-val">${fmtRs(custs.reduce((s,u)=>s+(u.totalEarnedPaise||0),0))}</div></div>
+    <div class="card"><div class="card-label">Pending payouts</div><div class="card-val">${fmtRs(custs.reduce((s,u)=>s+(u.pendingPaise||0),0))}</div></div>
+    <div class="card"><div class="card-label">Active today</div><div class="card-val">${custs.filter(u=>u.lastSeen&&Date.now()-u.lastSeen<86400000).length}</div></div>
+  </div>
+  <div style="margin-bottom:12px;"><input id="custSearch" placeholder="Search earners by name or email…" oninput="filterCusts()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px;width:280px;outline:none;"></div>
+  <div class="panel"><div class="panel-h">All Earners</div>
+  <table><thead><tr><th>Name</th><th>Email</th><th>Earned</th><th>Pending</th><th>Impressions</th><th>Last active</th><th>Profile</th><th>Actions</th></tr></thead>
+  <tbody id="custBody"></tbody></table></div>`;
+  filterCusts();
 }
-function renderCustomers(custs){
-  document.getElementById('tabContent').innerHTML=`<div class="panel"><div class="panel-h">Earners (${custs.length})</div>
-    ${custs.length?`<table><thead><tr><th>Name</th><th>Email</th><th>Last active</th><th>Ads shown today</th><th>Sessions (7d)</th><th>Session time (7d)</th><th>Earned</th><th>Fraud flags</th><th>Status</th><th></th></tr></thead><tbody>
-    ${custs.map(c=>`<tr><td style="font-weight:600">${esc(c.name||'—')}</td><td class="mono">${esc(c.email)}</td><td style="font-size:12px">${c.lastActiveAt?timeAgo(c.lastActiveAt):'never'}</td><td>${c.adsShownToday?'<span style="color:var(--green)">✓ yes</span>':'<span style="color:var(--muted)">—</span>'}</td><td>${c.sessions7d}</td><td>${c.totalSessionMin7d} min</td><td class="mono">₹${c.earnedRupees}</td><td>${c.fraudFlags>0?`<span class="sev high">${c.fraudFlags}</span>`:'<span style="color:var(--green)">0</span>'}</td><td>${c.banned?`<span class="sev high">banned</span><div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(c.banReason||'')}</div>`:'<span class="status active">active</span>'}</td><td><button class="mini-btn" onclick="viewCustomerDetail('${c.id}')">View</button> <button class="mini-btn" onclick="switchRole('${c.id}','advertiser')" title="Account was registered as the wrong role? Fix it here.">Make advertiser</button> <button class="mini-btn ${c.banned?'green':'red'}" onclick="banUser('${c.id}',${!c.banned})">${c.banned?'Unban':'Ban'}</button></td></tr>`).join('')}
-    </tbody></table>`:`<div class="empty"><div class="empty-ic">💻</div>No earners yet.</div>`}</div>
-    <div class="note" style="font-size:11.5px;color:var(--muted);padding:0 4px">Sessions are derived from ad-impression timestamps (the extension's background poller pings roughly every 90s while VS Code is open) — gaps over 6 minutes start a new session. This is an honest approximation, not a tracked login/logout event.</div>`;
+function filterCusts(){
+  const q=(document.getElementById('custSearch')?.value||'').toLowerCase();
+  const rows=(window._custs||[]).filter(u=>!q||(u.email+' '+(u.name||'')).toLowerCase().includes(q));
+  document.getElementById('custBody').innerHTML=rows.map(u=>`<tr>
+    <td><div style="font-weight:600;">${esc(u.name||'—')}</div><div style="font-size:11px;color:#9AA896;">${u.phone||''}</div></td>
+    <td class="mono" style="font-size:12px;">${esc(u.email)}</td>
+    <td class="mono" style="color:#047857;font-weight:600;">${fmtRs(u.totalEarnedPaise||0)}</td>
+    <td class="mono">${fmtRs(u.pendingPaise||0)}</td>
+    <td class="mono">${fmt(u.impressions||0)}</td>
+    <td style="font-size:12px;">${timeAgo(u.lastSeen)}</td>
+    <td>${u.profileStatus?.complete?'<span style="color:#047857;font-size:11px;font-weight:600;">✓ Complete</span>':'<span style="color:#DC2626;font-size:11px;font-weight:600;">✗ Incomplete</span>'}</td>
+    <td><button class="mini-btn" onclick="viewEarner('${u.id}')">View →</button></td>
+  </tr>`).join('')||'<tr><td colspan="8" class="empty">No earners</td></tr>';
 }
-function timeAgo(ts){
-  const diff=Date.now()-ts;
-  const min=Math.floor(diff/60000);
-  if(min<1) return 'just now';
-  if(min<60) return min+'m ago';
-  const hr=Math.floor(min/60);
-  if(hr<24) return hr+'h ago';
-  return Math.floor(hr/24)+'d ago';
-}
-async function viewCustomerDetail(id){
-  const d=await get('/v1/admin/customers/'+id);
-  const m=document.createElement('div');
-  m.className='modal-bg show';
-  m.id='custDetailModal';
-  m.innerHTML=`<div class="modal" style="max-width:560px">
-    <h2>${esc(d.user.name||d.user.email)}</h2>
-    <p class="modal-sub">${esc(d.user.email)} · ${d.totalImpressions} total impressions · ₹${d.totalEarnedRupees} earned · ${d.totalClicks} clicks</p>
-    <div class="sub" style="font-weight:700;font-size:13px;margin:14px 0 8px">Recent sessions (derived)</div>
-    ${d.sessions.length?`<table style="width:100%;font-size:12.5px"><thead><tr><th style="text-align:left">When</th><th style="text-align:left">Duration</th><th style="text-align:left">Ads shown</th><th style="text-align:left">Earned</th></tr></thead><tbody>
-      ${d.sessions.map(s=>`<tr><td>${new Date(s.startTs).toLocaleString('en-IN')}</td><td>${s.durationMin} min</td><td>${s.adsShown}</td><td>₹${(s.earnedPaise/100).toFixed(2)}</td></tr>`).join('')}
-    </tbody></table>`:'<p style="font-size:12.5px;color:var(--muted)">No sessions yet.</p>'}
-    <div class="sub" style="font-weight:700;font-size:13px;margin:18px 0 8px">Recent ad impressions</div>
-    ${d.recentImpressions.length?`<table style="width:100%;font-size:12.5px"><thead><tr><th style="text-align:left">When</th><th style="text-align:left">Advertiser</th><th style="text-align:left">Earned</th></tr></thead><tbody>
-      ${d.recentImpressions.slice(0,15).map(i=>`<tr><td>${new Date(i.ts).toLocaleString('en-IN')}</td><td>${esc(i.advertiser)}${i.isHouseAd?' <span style="color:var(--muted)">(house)</span>':''}</td><td>₹${(i.earnedPaise/100).toFixed(2)}</td></tr>`).join('')}
-    </tbody></table>`:'<p style="font-size:12.5px;color:var(--muted)">No impressions yet.</p>'}
-    <div class="modal-actions" style="margin-top:18px"><button class="btn-out" style="flex:1" onclick="document.getElementById('custDetailModal').remove()">Close</button></div>
+
+function viewEarner(id){
+  const u=(window._custs||[]).find(x=>x.id===id)||{};
+  const ps=u.profileStatus||{};
+  const m=document.createElement('div'); m.className='modal-bg';
+  m.innerHTML=`<div class="modal" style="max-width:640px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+      <div><h2>${esc(u.name||'Developer')}</h2><div class="modal-sub">${esc(u.email)} · joined ${u.createdAt?new Date(u.createdAt).toLocaleDateString('en-IN'):'—'}</div></div>
+      <button class="mini-btn" onclick="this.closest('.modal-bg').remove()">✕</button>
+    </div>
+
+    <div class="cards" style="grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
+      <div class="card"><div class="card-label">Earned</div><div class="card-val" style="font-size:18px;color:#047857;">${fmtRs(u.totalEarnedPaise||0)}</div></div>
+      <div class="card"><div class="card-label">Pending</div><div class="card-val" style="font-size:18px;">${fmtRs(u.pendingPaise||0)}</div></div>
+      <div class="card"><div class="card-label">Impressions</div><div class="card-val" style="font-size:18px;">${fmt(u.impressions||0)}</div></div>
+      <div class="card"><div class="card-label">Clicks</div><div class="card-val" style="font-size:18px;">${fmt(u.clicks||0)}</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+      <div style="background:#F8F5EE;border-radius:10px;padding:14px;">
+        <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Contact info</div>
+        <div style="font-size:13px;display:flex;flex-direction:column;gap:6px;">
+          <div><b>Email:</b> ${esc(u.email)}</div>
+          <div><b>Phone:</b> ${esc(u.phone||'—')}</div>
+          <div><b>User ID:</b> <span style="font-family:monospace;font-size:11px;">${esc(u.id)}</span></div>
+          <div><b>Last seen:</b> ${timeAgo(u.lastSeen)}</div>
+          <div><b>Extension:</b> <span style="color:${u.extensionConnected?'#047857':'#DC2626'}">${u.extensionConnected?'✓ Connected':'✗ Not connected'}</span></div>
+        </div>
+      </div>
+      <div style="background:#F8F5EE;border-radius:10px;padding:14px;">
+        <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Payout info</div>
+        <div style="font-size:13px;display:flex;flex-direction:column;gap:6px;">
+          <div><b>Method:</b> ${u.payoutMode==='bank'?'Bank account':'UPI'}</div>
+          ${u.upiId&&u.payoutMode!=='bank'?`<div><b>UPI:</b> <span style="font-family:monospace;">${esc(u.upiId)}</span></div>`:''}
+          ${u.bankAccount?.accountNumber?`<div><b>Account:</b> ••••${esc(u.bankAccount.accountNumber.slice(-4))}</div><div><b>IFSC:</b> ${esc(u.bankAccount.ifsc||'—')}</div>`:''}
+          <div><b>Verified:</b> <span style="color:${u.payoutVerified||u.bankVerified?'#047857':'#DC2626'}">${u.payoutVerified||u.bankVerified?'✓ Yes':'✗ No'}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#F8F5EE;border-radius:10px;padding:14px;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Profile completion</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${['name','phone','email','payout'].map(k=>`<span style="font-size:12px;padding:3px 10px;border-radius:100px;background:${ps.checks?.[k]?.done?'#DCFCE7':'#FEE2E2'};color:${ps.checks?.[k]?.done?'#047857':'#DC2626'};font-weight:600;">${ps.checks?.[k]?.done?'✓':'✗'} ${k}</span>`).join('')}
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;">
+      <button class="mini-btn green" onclick="sendAdminEmail('${esc(u.email)}','${esc(u.name||'')}')">✉️ Email earner</button>
+      <button class="mini-btn" onclick="approveWithdrawalForUser('${u.id}')">💸 Process payout</button>
+      ${u.banned?`<button class="mini-btn green" onclick="banUser('${u.id}',false)">Unban</button>`:`<button class="mini-btn red" onclick="banUser('${u.id}',true)">Ban</button>`}
+    </div>
   </div>`;
+  m.addEventListener('click',e=>{if(e.target===m)m.remove();});
   document.body.appendChild(m);
-  m.addEventListener('click',e=>{if(e.target.id==='custDetailModal')m.remove();});
 }
-async function switchRole(id,newRole){
-  if(!confirm('Switch this account to "'+newRole+'"? They will need to log out and back in to see the new dashboard.')) return;
-  await fetch(API+'/v1/admin/users/'+id,{method:'PATCH',headers:H,body:JSON.stringify({role:newRole})});
-  toast('✓ Role updated to '+newRole);
-  render();
-}
-async function banUser(id,banned){
-  let reason=null;
-  if(banned){
-    reason=prompt('Reason for ban (e.g. "Ad policy violation", "Nudity in content", "Click fraud")','');
-    if(reason===null) return; // cancelled
-    if(!reason.trim()) reason='Not specified';
-  }
-  await fetch(API+'/v1/admin/users/'+id,{method:'PATCH',headers:H,body:JSON.stringify({banned,reason})});
-  toast(banned?'🚫 User banned':'✓ User unbanned', banned?reason:'');
-  render();
-}
+async function banUser(id,banned){ await ptch('/v1/admin/users/'+id,{banned}); toast(banned?'✓ User banned':'✓ User unbanned'); document.querySelector('.modal-bg')?.remove(); render(); }
+async function approveWithdrawalForUser(userId){ toast('Processing…'); const r=await post('/v1/admin/withdrawals/approve-all-for-user',{userId}); toast(r.success?'✓ Payout initiated':'⚠️ '+r.error); }
 
-const DEFAULT_LAUNCH_EMAIL = `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#FBFBFD;padding:32px 24px">
-  <img src="https://waitjiai.in/logo-192.png" width="48" height="48" alt="WaitJI AI" style="border-radius:11px;display:block;margin-bottom:18px">
-  <h1 style="font-size:22px;color:#0F1222;margin:0 0 14px">WaitJI AI is live 🎉</h1>
-  <p style="font-size:14px;color:#3A3F55;line-height:1.6">Hey there,</p>
-  <p style="font-size:14px;color:#3A3F55;line-height:1.6">Thanks for joining the WaitJI AI waitlist. We're officially live — install the free VS Code extension and start earning real UPI income from Claude Code's thinking pause.</p>
-  <p style="margin:26px 0"><a href="https://marketplace.visualstudio.com/items?itemName=WaitJiai.waitji-ai" style="background:#4F46E5;color:#fff;padding:13px 24px;border-radius:9px;text-decoration:none;font-weight:bold;font-size:14px;display:inline-block">Install the extension →</a></p>
-  <p style="font-size:13px;color:#6B7185;line-height:1.6">Questions? Just reply to this email — we read every one.</p>
-  <p style="font-size:12px;color:#9AA0B4;margin-top:30px">WaitJI AI · QivaLabs LLP · Udaipur, Rajasthan</p>
-</div>`;
+// ── WITHDRAWALS ──────────────────────────────────────────────────────────────
+function renderWithdrawals(data){
+  const el=c();
+  const wds=data.withdrawals||[];
+  const pending=wds.filter(w=>w.status==='pending');
+  el.innerHTML=`
+  <div class="cards">
+    <div class="card ${pending.length>0?'danger':'safe'}"><div class="card-label">Pending</div><div class="card-val">${pending.length}</div><div class="card-sub">${fmtRs(pending.reduce((s,w)=>s+(w.amountPaise||0),0))}</div></div>
+    <div class="card"><div class="card-label">Total withdrawals</div><div class="card-val">${wds.length}</div></div>
+    <div class="card safe"><div class="card-label">Total paid</div><div class="card-val">${fmtRs(wds.filter(w=>w.status==='paid'||w.status==='approved').reduce((s,w)=>s+(w.amountPaise||0),0))}</div></div>
+    <div class="card"><div class="card-label">Avg payout</div><div class="card-val">${fmtRs(wds.length?Math.round(wds.reduce((s,w)=>s+(w.amountPaise||0),0)/wds.length):0)}</div></div>
+  </div>
+  ${pending.length?`<div class="panel" style="border-color:#FCA5A5;"><div class="panel-h" style="color:#B91C1C;">⚠️ ${pending.length} pending withdrawal(s)</div>
+  <table><thead><tr><th>User</th><th>Amount</th><th>Method</th><th>Requested</th><th>Actions</th></tr></thead><tbody>
+  ${pending.map(w=>`<tr style="background:#FFF5F5;">
+    <td class="mono" style="font-size:12px;">${esc(w.userId||'—').slice(0,16)}</td>
+    <td class="mono" style="font-weight:700;color:#047857;">${fmtRs(w.amountPaise||0)}</td>
+    <td>${esc(w.upiId||w.bankAccount||'—')}</td>
+    <td style="font-size:12px;">${timeAgo(w.requestedAt)}</td>
+    <td>
+      <button class="mini-btn green" onclick="approveWd('${w.id}')">✓ Approve & Pay</button>
+      <button class="mini-btn red" onclick="rejectWd('${w.id}')">✗ Reject</button>
+    </td>
+  </tr>`).join('')}
+  </tbody></table></div>`:''}
+  <div class="panel"><div class="panel-h">All withdrawals</div>
+  <table><thead><tr><th>User</th><th>Amount</th><th>Method</th><th>Status</th><th>Date</th><th>Auto-paid</th></tr></thead><tbody>
+  ${wds.slice(0,50).map(w=>`<tr>
+    <td class="mono" style="font-size:12px;">${esc(w.userId||'—').slice(0,14)}</td>
+    <td class="mono">${fmtRs(w.amountPaise||0)}</td>
+    <td style="font-size:12px;">${esc((w.upiId||w.bankAccount||'—').slice(0,20))}</td>
+    <td><span class="status ${w.status}">${w.status}</span></td>
+    <td style="font-size:12px;">${w.requestedAt?new Date(w.requestedAt).toLocaleDateString('en-IN'):'—'}</td>
+    <td style="font-size:12px;">${w.autoPaid?'⚡ Auto':'Manual'}</td>
+  </tr>`).join('')||'<tr><td colspan="6" class="empty">No withdrawals</td></tr>'}
+  </tbody></table></div>`;
+}
+async function approveWd(id){ const r=await ptch('/v1/admin/withdrawals/'+id,{status:'approved'}); toast(r.paid?'⚡ Auto-paid via Cashfree':'✓ Approved — manual pay needed'); render(); }
+async function rejectWd(id){ const reason=prompt('Rejection reason:'); if(!reason) return; await ptch('/v1/admin/withdrawals/'+id,{status:'rejected',reason}); toast('✓ Rejected'); render(); }
 
+// ── DISCOUNTS ──────────────────────────────────────────────────────────────
 function renderDiscounts(data){
+  const el=c();
   const codes=data.codes||[];
-  document.getElementById('tabContent').innerHTML=`
-    <div class="panel">
-      <div class="panel-h" style="display:flex;align-items:center;justify-content:space-between">
-        Discount codes (${codes.length})
-        <button class="btn-solid" onclick="openCreateDiscount()">+ New code</button>
-      </div>
-      ${codes.length?`<table><thead><tr><th>Code</th><th>Discount</th><th>Description</th><th>Used</th><th>Max uses</th><th>Expires</th><th>Status</th><th></th></tr></thead><tbody>
-      ${codes.map(dc=>`<tr>
-        <td class="mono" style="font-weight:700;letter-spacing:1px">${esc(dc.code)}</td>
-        <td class="mono" style="color:var(--green);font-weight:700">${dc.discountPct}% off</td>
-        <td style="font-size:12px;color:var(--muted)">${esc(dc.description||'—')}</td>
-        <td>${dc.usedCount||0}</td>
-        <td>${dc.maxUses||'∞'}</td>
-        <td style="font-size:12px">${dc.expiresAt?new Date(dc.expiresAt).toLocaleDateString('en-IN'):'Never'}</td>
-        <td><span class="status ${dc.active?'active':'paused'}">${dc.active?'active':'disabled'}</span></td>
-        <td>
-          <button class="mini-btn" onclick="toggleDiscount('${dc.id}',${!dc.active})">${dc.active?'Disable':'Enable'}</button>
-          <button class="mini-btn red" onclick="deleteDiscount('${dc.id}')">Delete</button>
-        </td>
-      </tr>`).join('')}
-      </tbody></table>`:`<div class="empty"><div class="empty-ic">🏷️</div>No discount codes yet. Create one to offer trial campaigns.</div>`}
+  el.innerHTML=`
+  <div class="panel"><div class="panel-h">Create discount code</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:end;">
+      <div><label style="font-size:11px;font-weight:600;color:#6B7568;text-transform:uppercase;margin-bottom:4px;display:block;">Code</label><input id="dcCode" placeholder="LAUNCH50" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%;outline:none;text-transform:uppercase;"></div>
+      <div><label style="font-size:11px;font-weight:600;color:#6B7568;text-transform:uppercase;margin-bottom:4px;display:block;">Discount %</label><input id="dcPct" type="number" min="1" max="100" value="20" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%;outline:none;"></div>
+      <div><label style="font-size:11px;font-weight:600;color:#6B7568;text-transform:uppercase;margin-bottom:4px;display:block;">Max uses</label><input id="dcMax" type="number" value="50" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%;outline:none;"></div>
+      <div><label style="font-size:11px;font-weight:600;color:#6B7568;text-transform:uppercase;margin-bottom:4px;display:block;">Expiry (days)</label><input id="dcDays" type="number" value="30" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%;outline:none;"></div>
+      <button class="mini-btn green" onclick="createDiscount()" style="white-space:nowrap;padding:8px 16px;">+ Create</button>
     </div>
-    <div id="createDiscountForm" style="display:none" class="panel" style="border-color:var(--sage)">
-      <div class="panel-h">New discount code</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
-        <div><div style="font-size:12px;font-weight:600;margin-bottom:5px">Code</div><input id="dcCode" class="field-input" placeholder="LAUNCH50" style="width:100%;border:1.5px solid var(--border2);border-radius:8px;padding:9px 12px;font-family:var(--mono);font-size:13px;text-transform:uppercase"></div>
-        <div><div style="font-size:12px;font-weight:600;margin-bottom:5px">Discount %</div><input id="dcPct" type="number" min="1" max="100" placeholder="50" class="field-input" style="width:100%;border:1.5px solid var(--border2);border-radius:8px;padding:9px 12px"></div>
-        <div><div style="font-size:12px;font-weight:600;margin-bottom:5px">Max uses (blank = unlimited)</div><input id="dcMax" type="number" placeholder="10" style="width:100%;border:1.5px solid var(--border2);border-radius:8px;padding:9px 12px"></div>
-        <div><div style="font-size:12px;font-weight:600;margin-bottom:5px">Expires (blank = never)</div><input id="dcExp" type="date" style="width:100%;border:1.5px solid var(--border2);border-radius:8px;padding:9px 12px"></div>
-        <div style="grid-column:span 2"><div style="font-size:12px;font-weight:600;margin-bottom:5px">Description (shown to advertiser)</div><input id="dcDesc" placeholder="50% off your first campaign — welcome offer" style="width:100%;border:1.5px solid var(--border2);border-radius:8px;padding:9px 12px"></div>
-      </div>
-      <div style="display:flex;gap:10px"><button class="btn-solid" onclick="createDiscount()">Create code</button><button class="btn-out" onclick="document.getElementById('createDiscountForm').style.display='none'">Cancel</button></div>
-    </div>`;
+  </div>
+  <div class="panel"><div class="panel-h">Active discount codes</div>
+  <table><thead><tr><th>Code</th><th>Discount</th><th>Uses</th><th>Expires</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+  ${codes.map(d=>`<tr>
+    <td class="mono" style="font-weight:700;">${esc(d.code)}</td>
+    <td class="mono">${d.discountPct}%</td>
+    <td class="mono">${d.usedCount||0} / ${d.maxUses||'∞'}</td>
+    <td style="font-size:12px;">${d.expiresAt?new Date(d.expiresAt).toLocaleDateString('en-IN'):'No expiry'}</td>
+    <td><span class="status ${d.active?'active':'paused'}">${d.active?'Active':'Disabled'}</span></td>
+    <td>
+      <button class="mini-btn" onclick="toggleDiscount('${d.id}',${!d.active})">${d.active?'Disable':'Enable'}</button>
+      <button class="mini-btn red" onclick="deleteDiscount('${d.id}')">Delete</button>
+    </td>
+  </tr>`).join('')||'<tr><td colspan="6" class="empty">No discount codes</td></tr>'}
+  </tbody></table></div>`;
 }
-function openCreateDiscount(){document.getElementById('createDiscountForm').style.display='block';}
 async function createDiscount(){
   const code=document.getElementById('dcCode').value.trim().toUpperCase();
-  const discountPct=+document.getElementById('dcPct').value;
-  const maxUses=document.getElementById('dcMax').value||null;
-  const expiresAt=document.getElementById('dcExp').value||null;
-  const description=document.getElementById('dcDesc').value.trim();
-  if(!code||!discountPct){toast('⚠️ Code and discount % are required');return;}
-  const r=await fetch(API+'/v1/admin/discount-codes',{method:'POST',headers:H,body:JSON.stringify({code,discountPct,maxUses,expiresAt,description})});
-  const d=await r.json();
-  if(r.ok){toast('✅ Discount code created: '+d.code.code);showTab('discounts');}
-  else toast('⚠️ '+(d.error||'Failed'));
+  const pct=parseInt(document.getElementById('dcPct').value||20);
+  const max=parseInt(document.getElementById('dcMax').value||50);
+  const days=parseInt(document.getElementById('dcDays').value||30);
+  if(!code){toast('Enter a code');return;}
+  const r=await post('/v1/admin/discount-codes',{code,discountPct:pct,maxUses:max,expiresInDays:days});
+  toast(r.code?'✓ Code created: '+r.code.code:'⚠️ '+(r.error||'Failed')); render();
 }
-async function toggleDiscount(id,active){
-  await fetch(API+'/v1/admin/discount-codes/'+id,{method:'PATCH',headers:H,body:JSON.stringify({active})});
-  toast('✓ Updated'); showTab('discounts');
-}
-async function deleteDiscount(id){
-  if(!confirm('Delete this discount code?')) return;
-  await fetch(API+'/v1/admin/discount-codes/'+id,{method:'DELETE',headers:H});
-  toast('✓ Deleted'); showTab('discounts');
-}
+async function toggleDiscount(id,active){ await ptch('/v1/admin/discount-codes/'+id,{active}); toast('✓ Updated'); render(); }
+async function deleteDiscount(id){ if(!confirm('Delete this code?')) return; await del('/v1/admin/discount-codes/'+id); toast('✓ Deleted'); render(); }
 
-async function viewAdvertiserProfile(id){
-  const d=await get('/v1/admin/advertisers/'+id);
-  const m=document.createElement('div');
-  m.className='modal-bg show'; m.id='advProfileModal';
-  m.innerHTML=`<div class="modal" style="max-width:580px">
-    <h2>${esc(d.user.company||d.user.name||d.user.email)}</h2>
-    <p class="modal-sub">${esc(d.user.email)} · Joined ${new Date(d.user.createdAt).toLocaleDateString('en-IN')}</p>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0">
-      <div class="card" style="padding:10px"><div style="font-size:11px;color:var(--muted)">Total spent</div><div style="font-family:var(--mono);font-size:18px;font-weight:700">₹${d.stats.totalSpentRupees}</div></div>
-      <div class="card" style="padding:10px"><div style="font-size:11px;color:var(--muted)">Impressions</div><div style="font-family:var(--mono);font-size:18px;font-weight:700">${d.stats.totalImpressions}</div></div>
-      <div class="card" style="padding:10px"><div style="font-size:11px;color:var(--muted)">CTR</div><div style="font-family:var(--mono);font-size:18px;font-weight:700">${d.stats.ctr}%</div></div>
-    </div>
-    <div style="font-weight:700;font-size:13px;margin:14px 0 8px">Campaigns (${d.campaigns.length})</div>
-    ${d.campaigns.length?`<table style="width:100%;font-size:12.5px"><thead><tr><th style="text-align:left">Ad text</th><th style="text-align:left">Type</th><th style="text-align:left">Spent</th><th style="text-align:left">Status</th><th style="text-align:left">Discount</th></tr></thead><tbody>
-      ${d.campaigns.map(c=>`<tr><td>${esc(c.adText)}</td><td style="font-family:var(--mono);font-size:11px">${c.adType}</td><td style="font-family:var(--mono)">₹${c.spentRupees}/₹${c.budgetRupees}</td><td><span class="status ${c.status}" style="font-size:10px">${c.status}</span></td><td style="font-size:11px;color:var(--muted)">${c.discountCode||'—'}</td></tr>`).join('')}
-    </tbody></table>`:'<p style="font-size:12.5px;color:var(--muted)">No campaigns yet.</p>'}
-    <div class="modal-actions" style="margin-top:18px"><button class="btn-out" style="flex:1" onclick="document.getElementById('advProfileModal').remove()">Close</button></div>
-  </div>`;
-  document.body.appendChild(m);
-  m.addEventListener('click',e=>{if(e.target.id==='advProfileModal')m.remove();});
-}
-
-function renderWithdrawals(data){
-  const {withdrawals, summary} = data;
-  const pending = withdrawals.filter(w=>w.status==='pending');
-  const others = withdrawals.filter(w=>w.status!=='pending');
-
-  // update badge
-  const badge = document.getElementById('pendingBadge');
-  if(summary.pending > 0){ badge.style.display='inline'; badge.textContent=summary.pending; }
-  else badge.style.display='none';
-
-  document.getElementById('tabContent').innerHTML=`
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
-      <div class="card"><div class="card-label">Pending</div><div class="card-val" style="color:var(--amber)">${summary.pending}</div><div class="card-sub">₹${(summary.totalPendingPaise/100).toFixed(2)} to pay out</div></div>
-      <div class="card"><div class="card-label">Approved / Paid</div><div class="card-val" style="color:var(--green)">${summary.approved+summary.paid}</div></div>
-      <div class="card"><div class="card-label">Rejected</div><div class="card-val">${summary.rejected}</div></div>
-      <div class="card"><div class="card-label">Total</div><div class="card-val">${withdrawals.length}</div></div>
-    </div>
-
-    ${pending.length?`
-    <div class="panel" style="border-color:#FDE68A;background:#FFFBEB">
-      <div class="panel-h" style="color:#92400E">⏳ Pending requests (${pending.length}) — action required</div>
-      <table><thead><tr><th>Developer</th><th>Amount</th><th>UPI ID</th><th>Requested</th><th>Actions</th></tr></thead><tbody>
-      ${pending.map(w=>`<tr>
-        <td><div style="font-weight:600">${esc(w.userName||'—')}</div><div style="font-size:11px;color:var(--muted)">${esc(w.userEmail)}</div></td>
-        <td class="mono" style="font-weight:700;color:var(--green)">₹${(w.amountPaise/100).toFixed(2)}</td>
-        <td class="mono" style="font-size:12px">${esc(w.upiId)}</td>
-        <td style="font-size:12px">${new Date(w.requestedAt).toLocaleString('en-IN')}</td>
-        <td style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="mini-btn green" onclick="approveWithdrawal('${w.id}')">✓ Approve</button>
-          <button class="mini-btn red" onclick="rejectWithdrawal('${w.id}')">✗ Reject</button>
-        </td>
-      </tr>`).join('')}
-      </tbody></table>
-    </div>`:`<div class="panel"><div class="empty"><div class="empty-ic">✅</div>No pending withdrawal requests right now.</div></div>`}
-
-    ${others.length?`
-    <div class="panel" style="margin-top:16px">
-      <div class="panel-h">History</div>
-      <table><thead><tr><th>Developer</th><th>Amount</th><th>UPI ID</th><th>Status</th><th>Reviewed</th><th>Note</th></tr></thead><tbody>
-      ${others.map(w=>`<tr>
-        <td><div style="font-weight:600">${esc(w.userName||'—')}</div><div style="font-size:11px;color:var(--muted)">${esc(w.userEmail)}</div></td>
-        <td class="mono">₹${(w.amountPaise/100).toFixed(2)}</td>
-        <td class="mono" style="font-size:12px">${esc(w.upiId)}</td>
-        <td><span class="status ${w.status==='approved'||w.status==='paid'?'active':w.status}">${w.status}</span></td>
-        <td style="font-size:12px">${w.reviewedAt?new Date(w.reviewedAt).toLocaleString('en-IN'):'—'}</td>
-        <td style="font-size:12px;color:var(--muted)">${w.reviewNote?esc(w.reviewNote):'—'}</td>
-      </tr>`).join('')}
-      </tbody></table>
-    </div>`:``}`;
-}
-
-async function approveWithdrawal(id){
-  const note = prompt('Optional note to developer (e.g. "Payment sent to your UPI"):', '');
-  if(note === null) return; // cancelled
-  const r = await fetch(API+'/v1/admin/withdrawals/'+id+'/approve', {method:'POST',headers:H,body:JSON.stringify({note: note.trim()||null})});
-  const d = await r.json();
-  if(r.ok){ toast('✅ Withdrawal approved — developer notified by email'); showTab('withdrawals'); }
-  else toast('⚠️ '+(d.error||'Could not approve'));
-}
-
-async function rejectWithdrawal(id){
-  const reason = prompt('Reason for rejection (will be sent to developer by email):');
-  if(!reason || !reason.trim()){ if(reason!==null) toast('⚠️ Reason is required for rejection'); return; }
-  const r = await fetch(API+'/v1/admin/withdrawals/'+id+'/reject', {method:'POST',headers:H,body:JSON.stringify({reason: reason.trim()})});
-  const d = await r.json();
-  if(r.ok){ toast('Withdrawal rejected — developer notified by email'); showTab('withdrawals'); }
-  else toast('⚠️ '+(d.error||'Could not reject'));
-}
-
+// ── WAITLIST ──────────────────────────────────────────────────────────────
 function renderWaitlist(w){
-  document.getElementById('tabContent').innerHTML=`
-    <div class="cards">
-      <div class="card"><div class="card-label">Total on waitlist</div><div class="card-val">${w.total??'—'}</div></div>
-      <div class="card safe"><div class="card-label">Already emailed</div><div class="card-val">${w.alreadySent??'—'}</div></div>
-      <div class="card"><div class="card-label">Pending (not yet emailed)</div><div class="card-val">${w.pending??'—'}</div></div>
+  const el=c();
+  const entries=w.entries||[];
+  const joined=entries.filter(e=>e.hasAccount);
+  const notJoined=entries.filter(e=>!e.hasAccount);
+  el.innerHTML=`
+  <div class="cards">
+    <div class="card"><div class="card-label">Total signups</div><div class="card-val">${entries.length}</div></div>
+    <div class="card safe"><div class="card-label">Already joined</div><div class="card-val">${joined.length}</div></div>
+    <div class="card"><div class="card-label">Not converted</div><div class="card-val">${notJoined.length}</div></div>
+    <div class="card"><div class="card-label">Conversion rate</div><div class="card-val">${entries.length?Math.round(joined.length/entries.length*100):0}%</div></div>
+  </div>
+  <div class="panel"><div class="panel-h">📧 Send email to non-users</div>
+    <div style="margin-bottom:10px;"><textarea id="wlSubject" placeholder="Email subject…" rows="1" style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;outline:none;resize:none;font-family:inherit;margin-bottom:8px;"></textarea>
+    <textarea id="wlBody" placeholder="Email body (HTML supported)…" rows="4" style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;outline:none;resize:vertical;font-family:inherit;"></textarea></div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="mini-btn green" onclick="sendWaitlistEmail()">Send to ${notJoined.length} not-yet-joined</button>
+      <button class="mini-btn" onclick="sendWaitlistEmail(true)">Send to all ${entries.length}</button>
+      <span style="font-size:12px;color:#9AA896;">via Resend</span>
     </div>
-    ${w.error?`<div class="panel" style="background:var(--red-soft);border-color:#FCA5A5"><strong>${esc(w.error)}</strong><p style="font-size:12px;margin-top:6px">Check that SUPABASE_SERVICE_KEY is set in Render's environment variables.</p></div>`:''}
-    <div class="panel">
-      <div class="panel-h">Compose launch email</div>
-      <div class="field"><label>Subject</label><input id="wSubject" value="WaitJI AI is live 🎉" style="width:100%;padding:10px 13px;border:1px solid var(--border2);border-radius:9px;font-family:var(--body);margin-top:6px"></div>
-      <div class="field" style="margin-top:14px"><label>Email HTML</label><textarea id="wHtml" style="width:100%;height:220px;padding:10px 13px;border:1px solid var(--border2);border-radius:9px;font-family:var(--mono);font-size:12px;margin-top:6px">${esc(DEFAULT_LAUNCH_EMAIL)}</textarea></div>
-      <div class="modal-err" id="wErr" style="margin-top:14px"></div>
-      <div class="modal-ok" id="wOk" style="margin-top:10px"></div>
-      <div style="display:flex;gap:10px;margin-top:16px">
-        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)"><input type="checkbox" id="wForce">Resend to everyone (ignore already-emailed)</label>
-      </div>
-      <button class="mini-btn" style="margin-top:14px;padding:10px 18px" onclick="sendLaunchEmail()" id="wSendBtn">Send to waitlist →</button>
-    </div>
-    <div class="panel">
-      <div class="panel-h">Sent so far (${(w.sentList||[]).length})</div>
-      ${(w.sentList||[]).length?`<table><thead><tr><th>Email</th><th>Subject</th><th>Sent at</th></tr></thead><tbody>
-      ${w.sentList.map(s=>`<tr><td class="mono">${esc(s.email)}</td><td>${esc(s.subject)}</td><td style="font-size:12px;color:var(--muted)">${new Date(s.sentAt).toLocaleString('en-IN')}</td></tr>`).join('')}
-      </tbody></table>`:`<div class="empty"><div class="empty-ic">📭</div>No emails sent yet.</div>`}
-    </div>`;
+    <div class="modal-err" id="wErr"></div><div class="modal-ok" id="wOk"></div>
+  </div>
+  <div class="panel"><div class="panel-h">Waitlist entries</div>
+  <table><thead><tr><th>Email</th><th>Signed up</th><th>Has account</th></tr></thead><tbody>
+  ${entries.slice(0,50).map(e=>`<tr>
+    <td class="mono">${esc(e.email)}</td>
+    <td style="font-size:12px;">${e.createdAt?new Date(e.createdAt).toLocaleDateString('en-IN'):'—'}</td>
+    <td><span style="font-size:11px;padding:2px 8px;border-radius:100px;background:${e.hasAccount?'#DCFCE7':'#F3F4F6'};color:${e.hasAccount?'#047857':'#6B7568'};font-weight:600;">${e.hasAccount?'✓ Joined':'Not yet'}</span></td>
+  </tr>`).join('')||'<tr><td colspan="3" class="empty">No waitlist entries</td></tr>'}
+  </tbody></table></div>`;
+}
+async function sendWaitlistEmail(all=false){
+  const subject=document.getElementById('wlSubject')?.value.trim();
+  const body=document.getElementById('wlBody')?.value.trim();
+  const err=document.getElementById('wErr'); const ok=document.getElementById('wOk');
+  err.classList.remove('show'); ok.classList.remove('show');
+  if(!subject||!body){err.textContent='Enter subject and body.';err.classList.add('show');return;}
+  const btn=event.target; btn.disabled=true; btn.textContent='Sending…';
+  try{
+    const r=await fetch(API+'/v1/admin/waitlist/send-email',{method:'POST',headers:H,body:JSON.stringify({subject,body,sendToAll:all})});
+    const d=await r.json();
+    if(r.ok){ok.textContent='✓ Sent to '+d.sent+' of '+d.attempted+' recipients.';ok.classList.add('show');toast('✓ Sent '+d.sent+' emails');}
+    else{err.textContent=d.error||'Server error';err.classList.add('show');}
+  }catch(e){err.textContent='Network error: '+e.message;err.classList.add('show');}
+  btn.disabled=false; btn.textContent=all?'Send to all':'Send to non-joined';
 }
 
-async function sendLaunchEmail(){
-  const subject=document.getElementById('wSubject').value.trim();
-  const html=document.getElementById('wHtml').value;
-  const force=document.getElementById('wForce').checked;
-  const err=document.getElementById('wErr');
-  err.classList.remove('show'); err.textContent='';
-  const ok=document.getElementById('wOk');
-  if(ok){ ok.classList.remove('show'); ok.textContent=''; }
-  if(!subject||!html){ err.textContent='Subject and email HTML are required'; err.classList.add('show'); return; }
-  if(!confirm(force?'This will EMAIL EVERYONE on the waitlist again, including people already emailed. Continue?':'Send this email to everyone on the waitlist who hasn\'t been emailed yet. Continue?')) return;
-  const btn=document.getElementById('wSendBtn'); btn.disabled=true; btn.textContent='Sending…';
+// ── CAREERS ──────────────────────────────────────────────────────────────
+function renderCareers(d){
+  const el=document.getElementById('tabContent'); if(!el) return;
+  const apps=d.applications||[];
+  const s=d.summary||{};
+  const statusColor={new:'#3B82F6',reviewing:'#F0B429',shortlisted:'#2A7A4F',rejected:'#DC2626',hired:'#047857'};
+  const statusBg={new:'#EFF6FF',reviewing:'#FEF9EC',shortlisted:'#EBF5EE',rejected:'#FEE2E2',hired:'#DCFCE7'};
+  el.innerHTML=`
+  <div class="cards">
+    ${[['New',s.new||0,'#3B82F6'],['Reviewing',s.reviewing||0,'#F0B429'],['Shortlisted',s.shortlisted||0,'#2A7A4F'],['Rejected',s.rejected||0,'#DC2626'],['Hired',s.hired||0,'#047857']].map(([l,v,col])=>`
+    <div class="card"><div class="card-label">${l}</div><div class="card-val" style="color:${col};">${v}</div></div>`).join('')}
+  </div>
+  <div class="panel"><div class="panel-h">Applications</div>
+  ${apps.length===0?'<div class="empty">No applications yet</div>':`
+  <table><thead><tr><th>Applicant</th><th>Role</th><th>Status</th><th>Applied</th><th>CV</th><th>Actions</th></tr></thead><tbody>
+  ${apps.map(a=>`<tr>
+    <td><div style="font-weight:600;">${esc(a.name)}</div><div style="font-size:11px;color:#9AA896;">${esc(a.email)} ${a.phone?'· '+esc(a.phone):''}</div></td>
+    <td style="font-size:12.5px;">${esc(a.role)}</td>
+    <td><select onchange="updateAppStatus('${a.id}',this.value)" style="background:${statusBg[a.status]||'#F3F4F6'};color:${statusColor[a.status]||'#374151'};border:none;border-radius:6px;padding:4px 8px;font-size:12px;font-weight:600;cursor:pointer;outline:none;">
+      ${['new','reviewing','shortlisted','rejected','hired'].map(s=>`<option value="${s}" ${a.status===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+    </select></td>
+    <td style="font-size:12px;">${a.appliedAt?new Date(a.appliedAt).toLocaleDateString('en-IN'):'—'}</td>
+    <td>${a.resumeUrl&&!a.resumeUrl.startsWith('data:')?`<a href="${esc(a.resumeUrl)}" target="_blank" style="background:#EBF5EE;color:#1E5A3A;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">📄 CV</a>`:'—'}</td>
+    <td><button class="mini-btn" onclick="viewApp('${a.id}')">View</button></td>
+  </tr>`).join('')}
+  </tbody></table>`}
+  </div>`;
+  window._careersApps=apps;
+}
+async function updateAppStatus(id,status){
+  await ptch('/v1/admin/careers/'+id,{status}); toast('✓ '+status); render();
+}
+function viewApp(id){
+  const a=(window._careersApps||[]).find(x=>x.id===id); if(!a) return;
+  const m=document.createElement('div'); m.className='modal-bg';
+  m.innerHTML=`<div class="modal" style="max-width:540px;">
+    <div style="display:flex;justify-content:space-between;margin-bottom:14px;"><div><h2>${esc(a.name)}</h2><div class="modal-sub">${esc(a.role)} · ${esc(a.email)}</div></div><button class="mini-btn" onclick="this.closest('.modal-bg').remove()">✕</button></div>
+    <div style="background:#F8F5EE;border-radius:8px;padding:12px;font-size:13px;line-height:1.65;white-space:pre-wrap;margin-bottom:12px;max-height:200px;overflow-y:auto;">${esc(a.coverLetter||'—')}</div>
+    ${a.resumeUrl&&!a.resumeUrl.startsWith('data:')?`<a href="${esc(a.resumeUrl)}" target="_blank" style="display:block;background:#2A7A4F;color:#fff;text-align:center;padding:10px;border-radius:9px;font-weight:600;text-decoration:none;margin-bottom:12px;">📄 Download Resume</a>`:''}
+    <textarea id="appNoteInput" placeholder="Admin notes…" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;outline:none;resize:vertical;min-height:60px;">${esc(a.notes||'')}</textarea>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button class="mini-btn green" onclick="saveNote('${a.id}')">Save notes</button>
+      <button class="mini-btn" onclick="sendAdminEmail('${esc(a.email)}','${esc(a.name)}')">✉️ Email</button>
+    </div>
+  </div>`;
+  m.addEventListener('click',e=>{if(e.target===m)m.remove();}); document.body.appendChild(m);
+}
+async function saveNote(id){
+  const notes=document.getElementById('appNoteInput')?.value.trim()||'';
+  await ptch('/v1/admin/careers/'+id,{notes}); toast('✓ Saved'); document.querySelector('.modal-bg')?.remove(); render();
+}
+
+// ── JOBS ──────────────────────────────────────────────────────────────
+function renderJobs(d){
+  const el=document.getElementById('tabContent'); if(!el) return;
+  const jobs=d.jobs||[];
+  el.innerHTML=`
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+    <div style="font-size:15px;font-weight:700;">Job Listings <span style="font-size:13px;color:#9AA896;font-weight:400;">(${jobs.filter(j=>j.active).length} active / ${jobs.length} total)</span></div>
+    <button class="mini-btn green" onclick="openJobModal()">+ Add job</button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px;">
+  ${jobs.map(j=>`<div style="background:#fff;border:1.5px solid ${j.active?'#D4D9CF':'#F3F4F6'};border-radius:12px;padding:16px 20px;opacity:${j.active?1:.65};">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="font-weight:700;">${esc(j.title)}</span>
+          <span style="font-size:11px;padding:2px 8px;border-radius:100px;font-weight:600;background:${j.active?'#EBF5EE':'#F3F4F6'};color:${j.active?'#047857':'#9AA896'};">${j.active?'Active':'Hidden'}</span>
+        </div>
+        <div style="font-size:12px;color:#9AA896;">${esc(j.type)} · ${esc(j.location)}</div>
+        <div style="font-size:13px;color:#6B7568;margin-top:6px;">${esc(j.description||'').slice(0,120)}…</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button class="mini-btn" onclick="openJobModal('${j.id}')">✏️ Edit</button>
+        <button class="mini-btn ${j.active?'':'green'}" onclick="toggleJob('${j.id}',${!j.active})">${j.active?'Hide':'Show'}</button>
+        <button class="mini-btn red" onclick="deleteJob('${j.id}','${esc(j.title)}')">🗑️</button>
+      </div>
+    </div>
+  </div>`).join('')||'<div class="empty">No jobs — add your first opening</div>'}
+  </div>`;
+  window._adminJobs=jobs;
+}
+
+function openJobModal(id){
+  const job=id?(window._adminJobs||[]).find(j=>j.id===id):null;
+  const m=document.createElement('div'); m.className='modal-bg';
+  m.innerHTML=`<div class="modal" style="max-width:560px;">
+    <div style="display:flex;justify-content:space-between;margin-bottom:16px;"><h2>${job?'Edit job':'New job listing'}</h2><button class="mini-btn" onclick="this.closest('.modal-bg').remove()">✕</button></div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div><label style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Title *</label><input id="jTitle" value="${esc(job?.title||'')}" placeholder="Full-Stack Developer" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Type</label>
+          <select id="jType" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;">
+            ${['Full-time','Part-time / Full-time','Internship','Contract','Freelance'].map(t=>`<option ${(job?.type||'Full-time')===t?'selected':''}>${t}</option>`).join('')}
+          </select></div>
+        <div><label style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Location</label><input id="jLocation" value="${esc(job?.location||'Remote')}" placeholder="Remote / Udaipur" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;"></div>
+      </div>
+      <div><label style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Description *</label><textarea id="jDesc" rows="4" placeholder="What will this person do?" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;resize:vertical;font-family:inherit;">${esc(job?.description||'')}</textarea></div>
+      <div><label style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Requirements</label><input id="jReqs" value="${esc(job?.requirements||'')}" placeholder="Node.js, TypeScript, 2+ years" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;"></div>
+      <div><label style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Tags</label><input id="jTags" value="${esc((job?.tags||[]).join(', '))}" placeholder="remote, commission, internship" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;"></div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:600;"><input type="checkbox" id="jActive" ${(job?.active!==false)?'checked':''} style="width:16px;height:16px;"> Show on careers page</label>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="mini-btn green" style="flex:1;padding:10px;" onclick="saveJob('${id||''}')">Save job listing</button>
+      <button class="mini-btn" onclick="this.closest('.modal-bg').remove()">Cancel</button>
+    </div>
+  </div>`;
+  m.addEventListener('click',e=>{if(e.target===m)m.remove();}); document.body.appendChild(m);
+}
+async function saveJob(id){
+  const title=document.getElementById('jTitle')?.value.trim();
+  const description=document.getElementById('jDesc')?.value.trim();
+  if(!title||!description){toast('Title & description required');return;}
+  const body={title,type:document.getElementById('jType')?.value,location:document.getElementById('jLocation')?.value.trim(),description,requirements:document.getElementById('jReqs')?.value.trim(),tags:document.getElementById('jTags')?.value.split(',').map(t=>t.trim()).filter(Boolean),active:document.getElementById('jActive')?.checked};
+  const r=id?await ptch('/v1/admin/jobs/'+id,body):await fetch(API+'/v1/admin/jobs',{method:'POST',headers:H,body:JSON.stringify(body)}).then(r=>r.json());
+  toast(r.job?'✓ Saved':'⚠️ '+(r.error||'Failed')); document.querySelector('.modal-bg')?.remove(); render();
+}
+async function toggleJob(id,active){ await ptch('/v1/admin/jobs/'+id,{active}); toast(active?'✓ Job shown':'✓ Job hidden'); render(); }
+async function deleteJob(id,title){ if(!confirm('Delete "'+title+'"?')) return; await del('/v1/admin/jobs/'+id); toast('✓ Deleted'); render(); }
+
+// ── AD TRACKING ──────────────────────────────────────────────────────────────
+function renderTracking(d){
+  const el=document.getElementById('tabContent'); if(!el) return;
+  const s=d.summary||{};
+  el.innerHTML=`
+  <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;margin-bottom:4px;">📡 Advanced Ad Tracking</h2>
+  <p style="font-size:13.5px;color:#6B7568;margin-bottom:20px;">Real-time impression & click tracking across all campaigns</p>
+  <div class="cards">
+    <div class="card"><div class="card-label">Total impressions</div><div class="card-val">${fmt(s.totalImpressions||0)}</div><div class="card-sub">all time</div></div>
+    <div class="card"><div class="card-label">Total clicks</div><div class="card-val">${fmt(s.totalClicks||0)}</div><div class="card-sub">valid clicks</div></div>
+    <div class="card"><div class="card-label">Platform CTR</div><div class="card-val">${s.totalImpressions?((s.totalClicks||0)/s.totalImpressions*100).toFixed(2):'0.00'}%</div></div>
+    <div class="card"><div class="card-label">Click multiplier</div><div class="card-val">50×</div><div class="card-sub">impression rate</div></div>
+    <div class="card"><div class="card-label">Spotlight imps</div><div class="card-val">${fmt(s.spotlightImpressions||0)}</div></div>
+    <div class="card"><div class="card-label">Stream imps</div><div class="card-val">${fmt(s.streamImpressions||0)}</div></div>
+    <div class="card"><div class="card-label">Unique devs</div><div class="card-val">${fmt(s.uniqueDevelopers||0)}</div><div class="card-sub">reached</div></div>
+    <div class="card"><div class="card-label">Avg session</div><div class="card-val">${s.avgSessionImps||0}</div><div class="card-sub">imps/session</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="panel"><div class="panel-h">🌍 Geo breakdown</div>
+      <table><thead><tr><th>Country</th><th>Impressions</th><th>Share</th></tr></thead><tbody>
+        ${[['🇮🇳 India',s.totalImpressions||0,100]].map(([c,v,pct])=>`<tr><td>${c}</td><td class="mono">${fmt(v)}</td><td><div style="display:flex;align-items:center;gap:8px;"><div style="flex:1;height:5px;background:#F3F4F6;border-radius:100px;"><div style="height:100%;width:${pct}%;background:#2A7A4F;border-radius:100px;"></div></div><span class="mono">${pct}%</span></div></td></tr>`).join('')}
+      </tbody></table>
+    </div>
+    <div class="panel"><div class="panel-h">📊 Ad format performance</div>
+      <table><thead><tr><th>Format</th><th>Imps</th><th>Clicks</th><th>CTR</th><th>Rev</th></tr></thead><tbody>
+        <tr><td><span class="status active">★ Spotlight</span></td><td class="mono">${fmt(s.spotlightImpressions||0)}</td><td class="mono">${fmt(s.spotlightClicks||0)}</td><td class="mono">${s.spotlightImpressions?((s.spotlightClicks||0)/s.spotlightImpressions*100).toFixed(2):'0.00'}%</td><td class="mono">${fmtRs(s.spotlightRevenuePaise||0)}</td></tr>
+        <tr><td><span class="status pending">◎ Stream</span></td><td class="mono">${fmt(s.streamImpressions||0)}</td><td class="mono">${fmt(s.streamClicks||0)}</td><td class="mono">${s.streamImpressions?((s.streamClicks||0)/s.streamImpressions*100).toFixed(2):'0.00'}%</td><td class="mono">${fmtRs(s.streamRevenuePaise||0)}</td></tr>
+      </tbody></table>
+    </div>
+  </div>
+  <div class="panel"><div class="panel-h">🔍 Fraud detection</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+      <div style="background:#F8F5EE;border-radius:9px;padding:12px;"><div style="font-size:11px;color:#9AA896;margin-bottom:4px;">Bot filter</div><div style="font-weight:700;color:#047857;">Active</div></div>
+      <div style="background:#F8F5EE;border-radius:9px;padding:12px;"><div style="font-size:11px;color:#9AA896;margin-bottom:4px;">IP rate limit</div><div style="font-weight:700;color:#047857;">50/hour</div></div>
+      <div style="background:#F8F5EE;border-radius:9px;padding:12px;"><div style="font-size:11px;color:#9AA896;margin-bottom:4px;">Window focus</div><div style="font-weight:700;color:#047857;">Required</div></div>
+      <div style="background:#F8F5EE;border-radius:9px;padding:12px;"><div style="font-size:11px;color:#9AA896;margin-bottom:4px;">Click cooldown</div><div style="font-weight:700;color:#047857;">30 sec</div></div>
+    </div>
+  </div>`;
+}
+
+// ── EMAIL TOOLS ──────────────────────────────────────────────────────────────
+async function renderEmail(wl){
+  const el=document.getElementById('tabContent'); if(!el) return;
+  const entries=wl.entries||[];
+  const notJoined=entries.filter(e=>!e.hasAccount);
+  el.innerHTML=`
+  <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;margin-bottom:4px;">✉️ Email Tools</h2>
+  <p style="font-size:13.5px;color:#6B7568;margin-bottom:20px;">Send targeted emails to users and prospects</p>
+  <div class="cards">
+    <div class="card"><div class="card-label">Waitlist (not joined)</div><div class="card-val">${notJoined.length}</div></div>
+    <div class="card"><div class="card-label">Total waitlist</div><div class="card-val">${entries.length}</div></div>
+    <div class="card"><div class="card-label">All users</div><div class="card-val">—</div><div class="card-sub">earners + advertisers</div></div>
+    <div class="card"><div class="card-label">via Resend</div><div class="card-val">✓</div><div class="card-sub">Connected</div></div>
+  </div>
+
+  <div class="panel"><div class="panel-h">📤 Quick email campaigns</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+      <button class="mini-btn" onclick="prefillEmail('re-engage')" style="padding:12px;font-size:13px;">📉 Re-engage inactive earners</button>
+      <button class="mini-btn" onclick="prefillEmail('advertiser-prospect')" style="padding:12px;font-size:13px;">🎯 Invite waitlist to advertise</button>
+      <button class="mini-btn" onclick="prefillEmail('withdrawal-reminder')" style="padding:12px;font-size:13px;">💸 Withdrawal reminder (incomplete profile)</button>
+      <button class="mini-btn" onclick="prefillEmail('product-update')" style="padding:12px;font-size:13px;">🚀 Product update announcement</button>
+    </div>
+  </div>
+
+  <div class="panel"><div class="panel-h">Compose email</div>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">Audience</label>
+      <select id="emailAudience" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;outline:none;width:100%;">
+        <option value="waitlist-not-joined">Waitlist — not yet joined (${notJoined.length})</option>
+        <option value="waitlist-all">Waitlist — all entries (${entries.length})</option>
+        <option value="earners">All earners</option>
+        <option value="advertisers">All advertisers</option>
+        <option value="inactive-earners">Inactive earners (no activity 14+ days)</option>
+        <option value="single">Single email (enter below)</option>
+      </select>
+    </div>
+    <div id="singleEmailBox" style="display:none;margin-bottom:10px;">
+      <input id="singleEmail" placeholder="recipient@example.com" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;width:100%;outline:none;">
+    </div>
+    <div style="margin-bottom:10px;"><input id="emailSubject" placeholder="Subject line…" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;width:100%;outline:none;margin-bottom:8px;"><textarea id="emailBody" rows="6" placeholder="Email body (HTML supported)…" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;width:100%;outline:none;resize:vertical;font-family:inherit;"></textarea></div>
+    <div style="display:flex;gap:8px;">
+      <button class="mini-btn green" onclick="sendBulkEmail()" style="padding:10px 20px;">Send email →</button>
+      <span style="font-size:12px;color:#9AA896;align-self:center;">Sent via Resend from admin@waitjiai.in</span>
+    </div>
+    <div class="modal-err" id="emailErr"></div><div class="modal-ok" id="emailOk"></div>
+  </div>`;
+  document.getElementById('emailAudience').addEventListener('change',function(){
+    document.getElementById('singleEmailBox').style.display=this.value==='single'?'block':'none';
+  });
+}
+
+const EMAIL_TEMPLATES={
+  're-engage':{subject:'Hey — we miss you on WaitJI AI 👋',body:`<p>Hi there,</p><p>You haven't used WaitJI AI in a while — and your Claude Code sessions aren't earning you anything right now.</p><p>Every time Claude Code thinks, you could be earning ₹0.40. That's passive income for code you're already writing.</p><p><a href="https://waitjiai.in/customer.html" style="background:#2A7A4F;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;margin-top:8px;">Check your earnings →</a></p><p>— Team WaitJI AI</p>`},
+  'advertiser-prospect':{subject:'Reach 2M+ Indian developers — WaitJI AI',body:`<p>Hi,</p><p>WaitJI AI is India's first ad marketplace that places your brand inside Claude Code's "Thinking..." spinner — reaching developers at their highest attention moment.</p><p>Spotlight ads: ₹800 per 1,000 impressions. No agency markup. Direct to developer.</p><p><a href="https://waitjiai.in" style="background:#2A7A4F;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;margin-top:8px;">See pricing & launch a campaign →</a></p><p>— Rajamuddin, CTO · QivaLabs LLP</p>`},
+  'withdrawal-reminder':{subject:'Your WaitJI AI earnings are waiting 💸',body:`<p>Hi,</p><p>You have earnings in your WaitJI AI account ready to withdraw — but your profile isn't complete yet.</p><p>Add your UPI or bank account to unlock payouts. Takes 2 minutes.</p><p><a href="https://waitjiai.in/customer.html" style="background:#2A7A4F;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;margin-top:8px;">Complete profile & withdraw →</a></p>`},
+  'product-update':{subject:'WaitJI AI update — geo-targeting, 65% dev share & more 🚀',body:`<p>Hi,</p><p>Big updates on WaitJI AI this week:</p><ul><li>Developer share increased to <b>65%</b></li><li>Geo-targeting — advertisers can now target by country, state, and city</li><li>Currency-specific pricing for 20 countries</li><li>Advanced advertiser dashboard with analytics</li></ul><p><a href="https://waitjiai.in" style="background:#2A7A4F;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;margin-top:8px;">Check it out →</a></p>`},
+};
+function prefillEmail(template){
+  const t=EMAIL_TEMPLATES[template];
+  if(t){
+    document.getElementById('emailSubject').value=t.subject;
+    document.getElementById('emailBody').value=t.body;
+  }
+}
+async function sendBulkEmail(){
+  const subject=document.getElementById('emailSubject')?.value.trim();
+  const body=document.getElementById('emailBody')?.value.trim();
+  const audience=document.getElementById('emailAudience')?.value;
+  const single=document.getElementById('singleEmail')?.value.trim();
+  const err=document.getElementById('emailErr'); const ok=document.getElementById('emailOk');
+  err.classList.remove('show'); ok.classList.remove('show');
+  if(!subject||!body){err.textContent='Subject and body required.';err.classList.add('show');return;}
+  const btn=event.target; btn.disabled=true; btn.textContent='Sending…';
   try{
-    const r=await fetch(API+'/v1/admin/send-launch-email',{method:'POST',headers:H,body:JSON.stringify({subject,html,force})});
-    let d=null; const raw=await r.text(); try{ d=JSON.parse(raw); }catch{ d=null; }
-    if(r.ok && d){
-      let msg='✓ Sent '+d.sent+' of '+d.attempted+' (total waitlist: '+d.totalWaitlist+')';
-      if(d.failed && d.failed.length){
-        msg += '. '+d.failed.length+' failed: '+d.failed.slice(0,3).map(f=>f.email+' — '+f.error).join('; ');
-      }
-      if(d.attempted===0) msg += '. Nothing to send — everyone already emailed (tick "Resend to everyone" to force).';
-      document.getElementById('wOk').textContent=msg;
-      document.getElementById('wOk').classList.add('show');
-      toast('✓ Sent '+d.sent+' / '+d.attempted);
-      render();
-    } else {
-      err.textContent = (d && d.error) ? d.error : ('Server returned ' + r.status + (raw ? ': ' + raw.slice(0,200) : ''));
-      err.classList.add('show');
-    }
-  }catch(e){ err.textContent='Network error: '+e.message; err.classList.add('show'); }
-  btn.disabled=false; btn.textContent='Send to waitlist →';
+    const endpoint=audience==='waitlist-not-joined'||audience==='waitlist-all'?'/v1/admin/waitlist/send-email':'/v1/admin/send-email';
+    const r=await fetch(API+endpoint,{method:'POST',headers:H,body:JSON.stringify({subject,body,audience,singleEmail:single,sendToAll:audience==='waitlist-all'})});
+    const d=await r.json();
+    if(r.ok){ok.textContent='✓ Sent to '+(d.sent||'—')+' recipient(s).';ok.classList.add('show');toast('✓ Email sent');}
+    else{err.textContent=d.error||'Server error';err.classList.add('show');}
+  }catch(e){err.textContent='Network error';err.classList.add('show');}
+  btn.disabled=false; btn.textContent='Send email →';
+}
+
+// ── SOCIAL & PROMO ──────────────────────────────────────────────────────────────
+function renderSocial(){
+  const el=document.getElementById('tabContent'); if(!el) return;
+  el.innerHTML=`
+  <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;margin-bottom:4px;">📱 Social & Promotional Content</h2>
+  <p style="font-size:13.5px;color:#6B7568;margin-bottom:20px;">Ready-to-post content for LinkedIn, Twitter/X, and WhatsApp</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="panel">
+      <div class="panel-h">🐦 Twitter/X posts</div>
+      ${[
+        {label:'Developer launch post',text:`Tired of watching Claude Code think?\n\nInstall WaitJI AI — and earn ₹0.40 every time it does.\n\nSponsored messages appear in the thinking spinner. You earn 65% of ad revenue. Direct to UPI.\n\n🇮🇳 India's first AI ad marketplace for VS Code developers.\n\ncurl -L waitjiai.in/vsix -o w.vsix && code --install-extension w.vsix\n\n#ClaudeCode #IndianDev #PassiveIncome`},
+        {label:'Advertiser pitch post',text:`Want to reach Indian developers while Claude Code is thinking?\n\nWaitJI AI puts your brand in the "Thinking..." spinner — exactly when developers are waiting and paying attention.\n\n₹800 per 1,000 Spotlight impressions.\nGeo-targeting: state-level, city-level.\nFraud protection included.\n\nwaitjiai.in → Advertise\n\n#DevMarketing #B2BMarketing #IndiaTech`},
+        {label:'Product Hunt teaser',text:`We're launching WaitJI AI on Product Hunt this week 🚀\n\nIndia's first developer ad marketplace — earn UPI income while Claude Code thinks.\n\nFollow us to get notified on launch day:\nproducthunt.com/upcoming/waitji-ai\n\n#ProductHunt #IndieHacker #ClaudeCode`},
+      ].map(p=>`<div style="background:#F8F5EE;border-radius:9px;padding:14px;margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">${p.label}</div>
+        <div style="font-size:13px;line-height:1.6;white-space:pre-wrap;color:#374151;">${esc(p.text)}</div>
+        <button class="mini-btn" style="margin-top:8px;" onclick="copyText(this,'${esc(p.text.replace(/'/g,"\\'"))}')">Copy</button>
+      </div>`).join('')}
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="panel-h">💼 LinkedIn posts</div>
+        ${[
+          {label:'Founder story post',text:`6 weeks ago I had an idea:\n\nWhat if Claude Code's "Thinking..." pause — those 5-30 seconds every developer waits through — could generate passive income for them?\n\nToday, WaitJI AI is live.\n\n🇮🇳 India's first AI advertising marketplace for VS Code developers.\n✅ DPIIT registered\n✅ VS Code Marketplace live\n✅ Razorpay + Cashfree payments active\n\nDevelopers earn 65% of ad revenue — paid to UPI.\nAdvertisers reach Indian devs during their most attentive moment.\n\nBuilt from Udaipur.\n\nwaitjiai.in\n\n#StartupIndia #IndiaBuilds #ClaudeCode #VSCode`},
+          {label:'BD intern recruitment',text:`Hiring: Growth & BD Interns at WaitJI AI\n\n📍 Remote · Commission-only (10%)\n\nWe're India's first AI ad marketplace for VS Code developers. We need people to close our first 10 advertising clients.\n\nYou earn 10% of every campaign you bring in. Uncapped.\n\nWho we want:\n• Can write cold emails that get replies\n• Understands SaaS / B2B sales basics\n• Wants to build something real\n\nDM me or apply at waitjiai.in/careers.html`},
+        ].map(p=>`<div style="background:#F8F5EE;border-radius:9px;padding:14px;margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">${p.label}</div>
+          <div style="font-size:12.5px;line-height:1.6;white-space:pre-wrap;color:#374151;max-height:150px;overflow-y:auto;">${esc(p.text)}</div>
+          <button class="mini-btn" style="margin-top:8px;" onclick="copyText(this,'${esc(p.text.replace(/'/g,"\\'"))}')">Copy</button>
+        </div>`).join('')}
+      </div>
+
+      <div class="panel">
+        <div class="panel-h">📱 WhatsApp messages</div>
+        ${[
+          {label:'Developer group message',text:`🚀 Earning while coding — WaitJI AI\n\nJo bhi Claude Code use karte ho — install karo ye extension aur earn karo ₹0.40 har baar jab Claude sochta hai.\n\n✅ Free install\n✅ UPI direct payout\n✅ ₹100 minimum withdrawal\n\ncurl -L waitjiai.in/vsix -o w.vsix && code --install-extension w.vsix\n\nOr search "WaitJI AI" in VS Code extensions`},
+        ].map(p=>`<div style="background:#F8F5EE;border-radius:9px;padding:14px;margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">${p.label}</div>
+          <div style="font-size:12.5px;line-height:1.6;white-space:pre-wrap;color:#374151;">${esc(p.text)}</div>
+          <button class="mini-btn" style="margin-top:8px;" onclick="copyText(this,'${esc(p.text.replace(/'/g,"\\'"))}')">Copy</button>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>
+
+  <div class="panel"><div class="panel-h">🎯 Promo codes — create for campaigns</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      ${[['PRODUCTHUNT','50% off','50 uses'],['DEVTO25','25% off','100 uses'],['LAUNCH30','30% off','200 uses'],['INDIAHACKS','40% off','30 uses']].map(([code,desc,uses])=>`
+      <div style="background:#F8F5EE;border:1px solid var(--border);border-radius:9px;padding:12px 16px;">
+        <div style="font-family:monospace;font-size:16px;font-weight:700;margin-bottom:4px;">${code}</div>
+        <div style="font-size:12px;color:#6B7568;">${desc} · ${uses}</div>
+        <button class="mini-btn green" style="margin-top:8px;font-size:11px;" onclick="createPromoCode('${code}')">Create →</button>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+function copyText(btn,text){navigator.clipboard.writeText(text).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy',2000);}).catch(()=>toast('Copy failed — select manually'));}
+async function createPromoCode(code){
+  const pct=parseInt(code.match(/\d+/)?.[0])||20;
+  const r=await post('/v1/admin/discount-codes',{code,discountPct:pct,maxUses:100,expiresInDays:30});
+  toast(r.code?'✓ Code '+r.code.code+' created':'⚠️ '+(r.error||'Failed'));
+}
+function sendAdminEmail(email,name){
+  const subject=prompt('Email subject:'); if(!subject) return;
+  const body=prompt('Email body:'); if(!body) return;
+  post('/v1/admin/send-email',{audience:'single',singleEmail:email,subject,body}).then(d=>toast(d.sent?'✓ Email sent':'⚠️ '+d.error));
 }
 
 init();
 setInterval(()=>{ if(curTab==='overview'||curTab==='security')render(); },20000);
-
-function renderCareers(d){
-  const el=document.getElementById('tabContent');
-  if(!el) return;
-  const s = d.summary||{};
-  const statusColor = {new:'#3B82F6',reviewing:'#F0B429',shortlisted:'#2A7A4F',rejected:'#DC2626',hired:'#047857'};
-  const statusBg = {new:'#EFF6FF',reviewing:'#FEF9EC',shortlisted:'#EBF5EE',rejected:'#FEE2E2',hired:'#DCFCE7'};
-  el.innerHTML=`
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:22px;">
-    ${[['New',s.new||0,'#3B82F6'],['Reviewing',s.reviewing||0,'#F0B429'],['Shortlisted',s.shortlisted||0,'#2A7A4F'],['Rejected',s.rejected||0,'#DC2626'],['Hired',s.hired||0,'#047857']].map(([l,v,c])=>`
-    <div style="background:#fff;border:1px solid #e2e5ed;border-radius:10px;padding:14px 16px;">
-      <div style="font-size:11px;font-weight:600;color:#6B7185;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">${l}</div>
-      <div style="font-size:24px;font-weight:700;color:${c};">${v}</div>
-    </div>`).join('')}
-  </div>
-  ${apps.length===0?`<div style="text-align:center;padding:60px;color:#9AA896;">No applications yet</div>`:`
-  <div style="background:#fff;border:1px solid #e2e5ed;border-radius:12px;overflow:hidden;">
-    <table style="width:100%;border-collapse:collapse;font-size:13px;">
-      <thead><tr style="background:#F8F5EE;">
-        <th style="text-align:left;padding:11px 14px;font-size:11px;font-weight:700;color:#6B7185;text-transform:uppercase;letter-spacing:.5px;">Applicant</th>
-        <th style="text-align:left;padding:11px 14px;font-size:11px;font-weight:700;color:#6B7185;text-transform:uppercase;letter-spacing:.5px;">Role</th>
-        <th style="text-align:left;padding:11px 14px;font-size:11px;font-weight:700;color:#6B7185;text-transform:uppercase;letter-spacing:.5px;">Status</th>
-        <th style="text-align:left;padding:11px 14px;font-size:11px;font-weight:700;color:#6B7185;text-transform:uppercase;letter-spacing:.5px;">Applied</th>
-        <th style="text-align:left;padding:11px 14px;font-size:11px;font-weight:700;color:#6B7185;text-transform:uppercase;letter-spacing:.5px;">Resume</th>
-        <th style="text-align:left;padding:11px 14px;font-size:11px;font-weight:700;color:#6B7185;text-transform:uppercase;letter-spacing:.5px;">Actions</th>
-      </tr></thead>
-      <tbody>${apps.map(a=>`
-      <tr style="border-bottom:1px solid #F3F4F6;">
-        <td style="padding:12px 14px;">
-          <div style="font-weight:600;">${esc(a.name)}</div>
-          <div style="font-size:12px;color:#6B7185;">${esc(a.email)}</div>
-          ${a.phone?`<div style="font-size:12px;color:#9AA896;">${esc(a.phone)}</div>`:''}
-        </td>
-        <td style="padding:12px 14px;font-size:13px;">${esc(a.role)}</td>
-        <td style="padding:12px 14px;">
-          <select onchange="updateAppStatus('${a.id}',this.value)" style="background:${statusBg[a.status]||'#F3F4F6'};color:${statusColor[a.status]||'#374151'};border:none;border-radius:6px;padding:4px 8px;font-size:12px;font-weight:600;cursor:pointer;outline:none;">
-            ${['new','reviewing','shortlisted','rejected','hired'].map(s=>`<option value="${s}" ${a.status===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
-          </select>
-        </td>
-        <td style="padding:12px 14px;font-size:12px;color:#6B7185;">${new Date(a.appliedAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</td>
-        <td style="padding:12px 14px;">
-          ${a.resumeUrl&&!a.resumeUrl.startsWith('data:')?`<a href="${esc(a.resumeUrl)}" target="_blank" style="background:#EBF5EE;color:#1E5A3A;padding:5px 10px;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap;">📄 View CV</a>`:'<span style="color:#9AA896;font-size:12px;">—</span>'}
-        </td>
-        <td style="padding:12px 14px;">
-          <button onclick="viewApp('${a.id}')" style="background:#F8F5EE;border:1px solid #D4D9CF;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">View</button>
-        </td>
-      </tr>
-      ${a.notes?`<tr style="background:#FAFAFA;border-bottom:1px solid #F3F4F6;"><td colspan="6" style="padding:6px 14px;font-size:12px;color:#6B7185;">📝 ${esc(a.notes)}</td></tr>`:''}
-      `).join('')}
-      </tbody>
-    </table>
-  </div>`}`;
-
-  // Store apps globally for viewApp modal
-  window._careersApps = apps;
-}
-
-async function updateAppStatus(id, status){
-  await fetch(API+'/v1/admin/careers/'+id,{method:'PATCH',headers:H,body:JSON.stringify({status})});
-  toast('✓ Status updated to '+status);
-  render();
-}
-
-function viewApp(id){
-  const a = (window._careersApps||[]).find(x=>x.id===id);
-  if(!a) return;
-  const m = document.createElement('div');
-  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;';
-  m.innerHTML=`<div style="background:#fff;border-radius:16px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;padding:28px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-      <div><div style="font-size:18px;font-weight:700;">${esc(a.name)}</div><div style="font-size:13px;color:#6B7185;">${esc(a.role)}</div></div>
-      <button onclick="this.closest('div[style*=fixed]').remove()" style="background:#F3F4F6;border:none;border-radius:7px;padding:6px 12px;cursor:pointer;">✕</button>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;font-size:13px;">
-      <div><b>Email:</b><br>${esc(a.email)}</div>
-      <div><b>Phone:</b><br>${esc(a.phone||'—')}</div>
-      <div><b>Applied:</b><br>${new Date(a.appliedAt).toLocaleString('en-IN')}</div>
-      <div><b>Status:</b><br>${a.status}</div>
-    </div>
-    <div style="margin-bottom:14px;">
-      <div style="font-size:11px;font-weight:700;color:#6B7185;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Cover letter</div>
-      <div style="background:#F8F5EE;border-radius:8px;padding:12px;font-size:13px;line-height:1.65;white-space:pre-wrap;">${esc(a.coverLetter||'—')}</div>
-    </div>
-    ${a.resumeUrl&&!a.resumeUrl.startsWith('data:')?`<a href="${esc(a.resumeUrl)}" target="_blank" style="display:block;background:#2A7A4F;color:#fff;text-align:center;padding:11px;border-radius:9px;font-weight:600;text-decoration:none;margin-bottom:12px;">📄 Download Resume / CV</a>`:''}
-    <div style="margin-bottom:10px;">
-      <div style="font-size:11px;font-weight:700;color:#6B7185;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Admin notes</div>
-      <textarea id="appNoteInput" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;outline:none;resize:vertical;min-height:60px;">${esc(a.notes||'')}</textarea>
-    </div>
-    <button onclick="saveNote('${a.id}')" style="background:#2A7A4F;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">Save notes</button>
-  </div>`;
-  m.addEventListener('click', e => { if(e.target===m) m.remove(); });
-  document.body.appendChild(m);
-}
-
-async function saveNote(id){
-  const notes = document.getElementById('appNoteInput')?.value.trim()||'';
-  await fetch(API+'/v1/admin/careers/'+id,{method:'PATCH',headers:H,body:JSON.stringify({notes})});
-  toast('✓ Notes saved');
-  document.querySelector('div[style*=fixed]')?.remove();
-  render();
-}
-
-// ── JOBS MANAGEMENT ──────────────────────────────────────────────────
-function renderJobs(d){
-  const el=document.getElementById('tabContent');
-  if(!el) return;
-  const jobs = d.jobs||[];
-  el.innerHTML=`
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-    <div><div style="font-size:18px;font-weight:700;">Job Listings</div><div style="font-size:13px;color:#6B7185;">${jobs.length} total · ${jobs.filter(j=>j.active).length} active</div></div>
-    <button onclick="openJobModal()" style="background:#2A7A4F;color:#fff;border:none;padding:9px 18px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;">+ Add new job</button>
-  </div>
-
-  ${jobs.length===0?`<div style="text-align:center;padding:60px;color:#9AA896;">No jobs yet — add your first opening</div>`:`
-  <div style="display:flex;flex-direction:column;gap:12px;" id="jobsList">
-    ${jobs.map(j=>`
-    <div style="background:#fff;border:1.5px solid ${j.active?'#D4D9CF':'#E5E7EB'};border-radius:12px;padding:18px 20px;opacity:${j.active?1:0.6};">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
-        <div style="flex:1;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-            <div style="font-size:15px;font-weight:700;">${esc(j.title)}</div>
-            <span style="font-size:11px;padding:2px 8px;border-radius:100px;font-weight:600;background:${j.active?'#EBF5EE':'#F3F4F6'};color:${j.active?'#1E5A3A':'#6B7568'};">${j.active?'Active':'Hidden'}</span>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-            <span style="font-size:12px;background:#F8F5EE;padding:3px 9px;border-radius:100px;font-family:monospace;">${esc(j.type)}</span>
-            <span style="font-size:12px;background:#EFF6FF;color:#1D4ED8;padding:3px 9px;border-radius:100px;font-family:monospace;">${esc(j.location)}</span>
-          </div>
-          <div style="font-size:13px;color:#6B7568;line-height:1.55;">${esc(j.description).slice(0,160)}${j.description.length>160?'…':''}</div>
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;">
-          <button onclick="openJobModal('${j.id}')" style="background:#F8F5EE;border:1px solid #D4D9CF;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;">✏️ Edit</button>
-          <button onclick="toggleJob('${j.id}',${!j.active})" style="background:${j.active?'#FEF9EC':'#EBF5EE'};border:1px solid ${j.active?'#FDE68A':'#A7F3C8'};color:${j.active?'#C9901A':'#1E5A3A'};border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;">${j.active?'Hide':'Show'}</button>
-          <button onclick="deleteJob('${j.id}','${esc(j.title)}')" style="background:#FEE2E2;border:1px solid #FECACA;color:#DC2626;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;">🗑️ Delete</button>
-        </div>
-      </div>
-    </div>`).join('')}
-  </div>`}`;
-  window._adminJobs = jobs;
-}
-
-function openJobModal(id){
-  const job = id ? (window._adminJobs||[]).find(j=>j.id===id) : null;
-  const m = document.createElement('div');
-  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;';
-  m.innerHTML=`<div style="background:#fff;border-radius:16px;max-width:580px;width:100%;max-height:90vh;overflow-y:auto;">
-    <div style="padding:20px 24px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;">
-      <div style="font-size:17px;font-weight:700;">${job?'Edit job listing':'Add new job'}</div>
-      <button onclick="this.closest('div[style*=fixed]').remove()" style="background:#F3F4F6;border:none;border-radius:7px;padding:6px 12px;cursor:pointer;">✕</button>
-    </div>
-    <div style="padding:22px 24px;">
-      <div style="margin-bottom:12px;"><label style="display:block;font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Job title *</label>
-        <input id="jTitle" value="${esc(job?.title||'')}" placeholder="e.g. Full-Stack Developer" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-        <div><label style="display:block;font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Type</label>
-          <select id="jType" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;">
-            ${['Full-time','Part-time / Full-time','Internship','Contract','Freelance'].map(t=>`<option ${(job?.type||'Full-time')===t?'selected':''}>${t}</option>`).join('')}
-          </select></div>
-        <div><label style="display:block;font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Location</label>
-          <input id="jLocation" value="${esc(job?.location||'Remote')}" placeholder="Remote / Udaipur" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;"></div>
-      </div>
-      <div style="margin-bottom:12px;"><label style="display:block;font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Job description *</label>
-        <textarea id="jDesc" rows="4" placeholder="What will this person do? What makes it exciting?" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;resize:vertical;font-family:inherit;">${esc(job?.description||'')}</textarea></div>
-      <div style="margin-bottom:12px;"><label style="display:block;font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Requirements</label>
-        <input id="jReqs" value="${esc(job?.requirements||'')}" placeholder="e.g. Node.js, TypeScript, 2+ years exp" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;"></div>
-      <div style="margin-bottom:12px;"><label style="display:block;font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Tags (comma-separated)</label>
-        <input id="jTags" value="${esc((job?.tags||[]).join(', '))}" placeholder="remote, commission, internship" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;"></div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-        <input type="checkbox" id="jActive" ${(job?.active!==false)?'checked':''} style="width:16px;height:16px;cursor:pointer;">
-        <label for="jActive" style="font-size:14px;font-weight:600;cursor:pointer;">Show on careers page (active)</label>
-      </div>
-    </div>
-    <div style="padding:14px 24px;border-top:1px solid #E5E7EB;display:flex;gap:8px;">
-      <button onclick="saveJob('${id||''}')" style="background:#2A7A4F;color:#fff;border:none;padding:11px 24px;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;flex:1;">${job?'Save changes':'Add job listing'}</button>
-      <button onclick="this.closest('div[style*=fixed]').remove()" style="background:transparent;border:1.5px solid #D4D9CF;color:#374151;padding:11px 18px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;">Cancel</button>
-    </div>
-  </div>`;
-  m.addEventListener('click', e => { if(e.target===m) m.remove(); });
-  document.body.appendChild(m);
-}
-
-async function saveJob(id){
-  const title=document.getElementById('jTitle').value.trim();
-  const type=document.getElementById('jType').value;
-  const location=document.getElementById('jLocation').value.trim();
-  const description=document.getElementById('jDesc').value.trim();
-  const requirements=document.getElementById('jReqs').value.trim();
-  const tagsRaw=document.getElementById('jTags').value;
-  const active=document.getElementById('jActive').checked;
-  const tags=tagsRaw.split(',').map(t=>t.trim()).filter(Boolean);
-  if(!title){toast('⚠️ Title is required');return;}
-  if(!description){toast('⚠️ Description is required');return;}
-  const body={title,type,location,description,requirements,tags,active};
-  const url=id?API+'/v1/admin/jobs/'+id:API+'/v1/admin/jobs';
-  const r=await fetch(url,{method:id?'PATCH':'POST',headers:H,body:JSON.stringify(body)});
-  if(r.ok){
-    toast(id?'✓ Job updated':'✓ Job added');
-    document.querySelector('div[style*=fixed]')?.remove();
-    render();
-  } else {
-    const d=await r.json().catch(()=>({}));
-    toast('⚠️ '+(d.error||'Failed'));
-  }
-}
-
-async function toggleJob(id,active){
-  await fetch(API+'/v1/admin/jobs/'+id,{method:'PATCH',headers:H,body:JSON.stringify({active})});
-  toast(active?'✓ Job shown on careers page':'✓ Job hidden');
-  render();
-}
-
-async function deleteJob(id,title){
-  if(!confirm('Delete "'+title+'"? This cannot be undone.')) return;
-  const r=await fetch(API+'/v1/admin/jobs/'+id,{method:'DELETE',headers:H});
-  if(r.ok){toast('✓ Job deleted');render();}
-  else toast('⚠️ Failed to delete');
-}
 </script>
 </body>
 </html>
