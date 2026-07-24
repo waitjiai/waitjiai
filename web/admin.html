@@ -798,41 +798,6 @@ function renderTracking(d){
     </div>
   </div>`;
 }
-  el.innerHTML=`
-  <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;margin-bottom:4px;">📡 Advanced Ad Tracking</h2>
-  <p style="font-size:13.5px;color:#6B7568;margin-bottom:20px;">Real-time impression & click tracking across all campaigns</p>
-  <div class="cards">
-    <div class="card"><div class="card-label">Total impressions</div><div class="card-val">${fmt(s.totalImpressions||0)}</div><div class="card-sub">all time</div></div>
-    <div class="card"><div class="card-label">Total clicks</div><div class="card-val">${fmt(s.totalClicks||0)}</div><div class="card-sub">valid clicks</div></div>
-    <div class="card"><div class="card-label">Platform CTR</div><div class="card-val">${s.totalImpressions?((s.totalClicks||0)/s.totalImpressions*100).toFixed(2):'0.00'}%</div></div>
-    <div class="card"><div class="card-label">Click multiplier</div><div class="card-val">50×</div><div class="card-sub">impression rate</div></div>
-    <div class="card"><div class="card-label">Spotlight imps</div><div class="card-val">${fmt(s.spotlightImpressions||0)}</div></div>
-    <div class="card"><div class="card-label">Stream imps</div><div class="card-val">${fmt(s.streamImpressions||0)}</div></div>
-    <div class="card"><div class="card-label">Unique devs</div><div class="card-val">${fmt(s.uniqueDevelopers||0)}</div><div class="card-sub">reached</div></div>
-    <div class="card"><div class="card-label">Avg session</div><div class="card-val">${s.avgSessionImps||0}</div><div class="card-sub">imps/session</div></div>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-    <div class="panel"><div class="panel-h">🌍 Geo breakdown</div>
-      <table><thead><tr><th>Country</th><th>Impressions</th><th>Share</th></tr></thead><tbody>
-        ${[['🇮🇳 India',s.totalImpressions||0,100]].map(([c,v,pct])=>`<tr><td>${c}</td><td class="mono">${fmt(v)}</td><td><div style="display:flex;align-items:center;gap:8px;"><div style="flex:1;height:5px;background:#F3F4F6;border-radius:100px;"><div style="height:100%;width:${pct}%;background:#2A7A4F;border-radius:100px;"></div></div><span class="mono">${pct}%</span></div></td></tr>`).join('')}
-      </tbody></table>
-    </div>
-    <div class="panel"><div class="panel-h">📊 Ad format performance</div>
-      <table><thead><tr><th>Format</th><th>Imps</th><th>Clicks</th><th>CTR</th><th>Rev</th></tr></thead><tbody>
-        <tr><td><span class="status active">★ Spotlight</span></td><td class="mono">${fmt(s.spotlightImpressions||0)}</td><td class="mono">${fmt(s.spotlightClicks||0)}</td><td class="mono">${s.spotlightImpressions?((s.spotlightClicks||0)/s.spotlightImpressions*100).toFixed(2):'0.00'}%</td><td class="mono">${fmtRs(s.spotlightRevenuePaise||0)}</td></tr>
-        <tr><td><span class="status pending">◎ Stream</span></td><td class="mono">${fmt(s.streamImpressions||0)}</td><td class="mono">${fmt(s.streamClicks||0)}</td><td class="mono">${s.streamImpressions?((s.streamClicks||0)/s.streamImpressions*100).toFixed(2):'0.00'}%</td><td class="mono">${fmtRs(s.streamRevenuePaise||0)}</td></tr>
-      </tbody></table>
-    </div>
-  </div>
-  <div class="panel"><div class="panel-h">🔍 Fraud detection</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
-      <div style="background:#F8F5EE;border-radius:9px;padding:12px;"><div style="font-size:11px;color:#9AA896;margin-bottom:4px;">Bot filter</div><div style="font-weight:700;color:#047857;">Active</div></div>
-      <div style="background:#F8F5EE;border-radius:9px;padding:12px;"><div style="font-size:11px;color:#9AA896;margin-bottom:4px;">IP rate limit</div><div style="font-weight:700;color:#047857;">50/hour</div></div>
-      <div style="background:#F8F5EE;border-radius:9px;padding:12px;"><div style="font-size:11px;color:#9AA896;margin-bottom:4px;">Window focus</div><div style="font-weight:700;color:#047857;">Required</div></div>
-      <div style="background:#F8F5EE;border-radius:9px;padding:12px;"><div style="font-size:11px;color:#9AA896;margin-bottom:4px;">Click cooldown</div><div style="font-weight:700;color:#047857;">30 sec</div></div>
-    </div>
-  </div>`;
-}
 
 // ── EMAIL TOOLS ──────────────────────────────────────────────────────────────
 async function renderEmail(wl){
