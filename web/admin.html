@@ -444,10 +444,10 @@ async function viewEarner(id){
     </div>
 
     <div class="cards" style="grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
-      <div class="card"><div class="card-label">Earned</div><div class="card-val" style="font-size:18px;color:#047857;">${fmtRs(u.totalEarnedPaise||0)}</div></div>
-      <div class="card"><div class="card-label">Pending</div><div class="card-val" style="font-size:18px;">${fmtRs(u.pendingPaise||0)}</div></div>
-      <div class="card"><div class="card-label">Impressions</div><div class="card-val" style="font-size:18px;">${fmt(u.impressions||0)}</div></div>
-      <div class="card"><div class="card-label">Clicks</div><div class="card-val" style="font-size:18px;">${fmt(u.clicks||0)}</div></div>
+      <div class="card"><div class="card-label">Earned</div><div class="card-val" style="font-size:18px;color:#047857;">₹${summary.totalEarnedPaise?(summary.totalEarnedPaise/100).toFixed(2):(u.earnedRupees||'0.00')}</div></div>
+      <div class="card"><div class="card-label">Impressions</div><div class="card-val" style="font-size:18px;">${fmt(summary.totalImpressions||u.impressions||0)}</div></div>
+      <div class="card"><div class="card-label">Clicks</div><div class="card-val" style="font-size:18px;">${fmt(summary.totalClicks||u.clicks||0)}</div></div>
+      <div class="card"><div class="card-label">Spotlight / Stream</div><div class="card-val" style="font-size:14px;">${summary.spotlight||0} / ${summary.stream||0}</div></div>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
