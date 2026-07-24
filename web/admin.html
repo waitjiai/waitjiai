@@ -131,8 +131,7 @@ tr:last-child td{border-bottom:none;}
     gtag('config', 'G-LGNX0BPWPJ');
   </script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-LGNX0BPWPJ"></script>
-<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-LGNX0BPWPJ');</script>
+
 </head>
 <body>
 <div class="topbar">
@@ -206,7 +205,7 @@ async function render(){
   }catch(e){ document.getElementById('tabContent').innerHTML='<div class="loading">Error loading data. <a href="" onclick="render();return false">retry</a></div>'; console.error(e); }
 }
 
-async function get(url){ const r=await fetch(API+url,{headers:H}); if(!r.ok) throw new Error(r.status); return r.json(); }
+async function get(url){ const ac=new AbortController(); const t=setTimeout(()=>ac.abort(),10000); try{ const r=await fetch(API+url,{headers:H,signal:ac.signal}); clearTimeout(t); if(!r.ok) throw new Error(r.status); return r.json(); } catch(e){ clearTimeout(t); throw e; } }
 async function post(url,body){ const r=await fetch(API+url,{method:'POST',headers:H,body:JSON.stringify(body)}); return r.json(); }
 async function ptch(url,body){ const r=await fetch(API+url,{method:'PATCH',headers:H,body:JSON.stringify(body)}); return r.json(); }
 async function del(url){ const r=await fetch(API+url,{method:'DELETE',headers:H}); return r.json(); }
@@ -637,7 +636,8 @@ async function sendWaitlistEmail(all=false){
   const err=document.getElementById('wErr'); const ok=document.getElementById('wOk');
   err.classList.remove('show'); ok.classList.remove('show');
   if(!subject||!body){err.textContent='Enter subject and body.';err.classList.add('show');return;}
-  const btn=event.target; btn.disabled=true; btn.textContent='Sending…';
+  const _sendBtn1=document.activeElement||document.querySelector('[onclick*="sendWaitlistEmail"]');
+  if(_sendBtn1){_sendBtn1.disabled=true; _sendBtn1.textContent='Sending…';}
   try{
     const r=await fetch(API+'/v1/admin/waitlist/send-email',{method:'POST',headers:H,body:JSON.stringify({subject,body,sendToAll:all})});
     const d=await r.json();
@@ -934,7 +934,8 @@ async function sendBulkEmail(){
   const err=document.getElementById('emailErr'); const ok=document.getElementById('emailOk');
   err.classList.remove('show'); ok.classList.remove('show');
   if(!subject||!body){err.textContent='Subject and body required.';err.classList.add('show');return;}
-  const btn=event.target; btn.disabled=true; btn.textContent='Sending…';
+  const _sendBtn2=document.activeElement||document.querySelector('[onclick*="sendBulkEmail"]');
+  if(_sendBtn2){_sendBtn2.disabled=true; _sendBtn2.textContent='Sending…';}
   try{
     const endpoint=audience==='waitlist-not-joined'||audience==='waitlist-all'?'/v1/admin/waitlist/send-email':'/v1/admin/send-email';
     const r=await fetch(API+endpoint,{method:'POST',headers:H,body:JSON.stringify({subject,body,audience,singleEmail:single,sendToAll:audience==='waitlist-all'})});
@@ -942,7 +943,7 @@ async function sendBulkEmail(){
     if(r.ok){ok.textContent='✓ Sent to '+(d.sent||'—')+' recipient(s).';ok.classList.add('show');toast('✓ Email sent');}
     else{err.textContent=d.error||'Server error';err.classList.add('show');}
   }catch(e){err.textContent='Network error';err.classList.add('show');}
-  btn.disabled=false; btn.textContent='Send email →';
+  if(_sendBtn2){_sendBtn2.disabled=false; _sendBtn2.textContent='Send email →';}
 }
 
 // ── SOCIAL & PROMO ──────────────────────────────────────────────────────────────
@@ -1016,7 +1017,7 @@ function sendAdminEmail(email,name){
 }
 
 init();
-setInterval(()=>{ if(curTab==='overview'||curTab==='security')render(); },20000);
+window._adminRefresh=setInterval(()=>{ if(curTab==='overview'||curTab==='security')render(); },20000);
 </script>
 </body>
 </html>
