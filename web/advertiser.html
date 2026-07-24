@@ -259,11 +259,13 @@ let adType='spotlight';
 
 async function load(){
   try{
+    const _ac=new AbortController(); const _to=setTimeout(()=>_ac.abort(),10000);
     const [meR,cR,aR]=await Promise.all([
-      fetch(API+'/v1/auth/me',{headers:H}),
-      fetch(API+'/v1/advertiser/campaigns',{headers:H}),
-      fetch(API+'/v1/advertiser/analytics',{headers:H}),
+      fetch(API+'/v1/auth/me',{headers:H,signal:_ac.signal}),
+      fetch(API+'/v1/advertiser/campaigns',{headers:H,signal:_ac.signal}),
+      fetch(API+'/v1/advertiser/analytics',{headers:H,signal:_ac.signal}),
     ]);
+    clearTimeout(_to);
     if(!meR.ok){logout();return;}
     me=(await meR.json()).user;
     camps=(await cR.json()).campaigns||[];
@@ -370,11 +372,11 @@ function renderOverview(){
     const labels=Array.from({length:14},(_,i)=>{const d=new Date;d.setDate(d.getDate()-13+i);return d.toLocaleDateString('en-IN',{month:'short',day:'numeric'});});
     const daily=analytics.daily||[];
     const ctx=document.getElementById('spendChart');
-    if(ctx) new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Spend (₹)',data:Array(14).fill(0).map((_,i)=>i===13?parseFloat(analytics.totalSpentRupees||analytics.spentRupees||0)/14:0),backgroundColor:'rgba(42,122,79,.7)',borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{ticks:{callback:v=>'₹'+v,font:{size:10}}}}}});
+    if(ctx){const _ac=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Spend (₹)',data:Array(14).fill(0).map((_,i)=>i===13?parseFloat(analytics.totalSpentRupees||analytics.spentRupees||0)/14:0),backgroundColor:'rgba(42,122,79,.7)',borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{ticks:{callback:v=>'₹'+v,font:{size:10}}}}}});(window._advCharts=window._advCharts||[]).push(_ac);}
     const spotCount=camps.filter(c=>c.adType==='spotlight').length;
     const streamCount=camps.filter(c=>c.adType==='stream').length;
     const ctx2=document.getElementById('mixChart');
-    if(ctx2) new Chart(ctx2,{type:'doughnut',data:{labels:['★ Spotlight','◎ Stream'],datasets:[{data:[spotCount||1,streamCount||0],backgroundColor:['#F0B429','#3B82F6'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:10}}}}});
+    if(ctx2){const _ac2=new Chart(ctx2,{type:'doughnut',data:{labels:['★ Spotlight','◎ Stream'],datasets:[{data:[spotCount||1,streamCount||0],backgroundColor:['#F0B429','#3B82F6'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:10}}}}});(window._advCharts=window._advCharts||[]).push(_ac2);}
   },80);
 }
 
@@ -475,7 +477,7 @@ function renderCreate(){
           <div class="field">
             <label>Developer experience level</label>
             <div class="target-grid">
-              ${[['all','All levels','No filter'],['junior','Junior','0–2 years exp'],['mid','Mid-level','2–5 years'],['senior','Senior','5+ years']].map(([v,t,s])=>`<div class="target-opt ${targetForm.devExperience===v?'sel':''}" onclick="setTarget('devExperience','${v}')"><div class="target-opt-title">${t}</div><div class="target-opt-sub">${s}</div></div>`).join('')}
+              ${[['all','All levels','No filter'],['junior','Junior','0–2 years exp'],['mid','Mid-level','2–5 years'],['senior','Senior','5+ years']].map(([v,t,s])=>`<div class="target-opt ${targetForm.devExperience===v?'sel':''}" onclick="setTarget('devExperience','${v}',this)"><div class="target-opt-title">${t}</div><div class="target-opt-sub">${s}</div></div>`).join('')}
             </div>
           </div>
           <div class="field">
@@ -487,7 +489,7 @@ function renderCreate(){
           <div class="field">
             <label>Time of day (IST)</label>
             <div class="target-grid">
-              ${[['all','All day','24 hours'],['morning','Morning','9 AM – 12 PM'],['afternoon','Afternoon','12 PM – 6 PM'],['evening','Evening','6 PM – 11 PM']].map(([v,t,s])=>`<div class="target-opt ${targetForm.timeOfDay===v?'sel':''}" onclick="setTarget('timeOfDay','${v}')"><div class="target-opt-title">${t}</div><div class="target-opt-sub">${s}</div></div>`).join('')}
+              ${[['all','All day','24 hours'],['morning','Morning','9 AM – 12 PM'],['afternoon','Afternoon','12 PM – 6 PM'],['evening','Evening','6 PM – 11 PM']].map(([v,t,s])=>`<div class="target-opt ${targetForm.timeOfDay===v?'sel':''}" onclick="setTarget('timeOfDay','${v}',this)"><div class="target-opt-title">${t}</div><div class="target-opt-sub">${s}</div></div>`).join('')}
             </div>
           </div>
         </div>
@@ -579,10 +581,13 @@ function toggleGeo(type,val){
   updateGeoSummary();
   updatePricingForGeo();
 }
-function setTarget(key,val){
+function setTarget(key,val,el){
   targetForm[key]=val;
-  document.querySelectorAll(`[onclick^="setTarget('${key}'"]`).forEach(el=>el.classList.remove('sel'));
-  event.target.closest('.target-opt')?.classList.add('sel');
+  if(el){
+    const parent=el.closest('[data-target-group]')||el.parentElement;
+    parent?.querySelectorAll('.target-opt').forEach(e=>e.classList.remove('sel'));
+    el.classList.add('sel');
+  }
 }
 function toggleTarget(key,val){
   const arr=targetForm[key];
@@ -837,6 +842,7 @@ async function viewStats(id){
 
 // ── ANALYTICS ──
 function renderAnalytics(){
+  (window._advCharts||[]).forEach(c=>{try{c.destroy();}catch(e){}});window._advCharts=[];
   const a=analytics;
   document.getElementById('mainContent').innerHTML=`
   <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:22px;">Analytics</h1>
@@ -874,7 +880,7 @@ function renderAnalytics(){
   setTimeout(()=>{
     const labels=Array.from({length:14},(_,i)=>{const d=new Date;d.setDate(d.getDate()-13+i);return d.toLocaleDateString('en-IN',{month:'short',day:'numeric'});});
     const ctx=document.getElementById('impChart');
-    if(ctx) new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'Impressions',data:Array(14).fill(0).map((_,i)=>i===13?a.totalImpressions||0:0),borderColor:'#2A7A4F',backgroundColor:'rgba(42,122,79,.1)',fill:true,tension:.4,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{grid:{color:'#F3F4F6'},ticks:{font:{size:10}}}}}});
+    if(ctx){const _ac=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'Impressions',data:Array(14).fill(0).map((_,i)=>i===13?a.totalImpressions||0:0),borderColor:'#2A7A4F',backgroundColor:'rgba(42,122,79,.1)',fill:true,tension:.4,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{grid:{color:'#F3F4F6'},ticks:{font:{size:10}}}}}});(window._advCharts=window._advCharts||[]).push(_ac);}
   },80);
 }
 
