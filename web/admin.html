@@ -403,7 +403,7 @@ function renderCustomers(d){
   el.innerHTML=`
   <div class="cards">
     <div class="card"><div class="card-label">Total earners</div><div class="card-val">${custs.length}</div></div>
-    <div class="card"><div class="card-label">Total paid out</div><div class="card-val">${fmtRs(custs.reduce((s,u)=>s+(u.totalEarnedPaise||0),0))}</div></div>
+    <div class="card"><div class="card-label">Total paid out</div><div class="card-val">${'₹'+(custs.reduce((s,u)=>s+parseFloat(u.earnedRupees||0),0)).toFixed(2)}</div></div>
     <div class="card"><div class="card-label">Pending payouts</div><div class="card-val">${fmtRs(custs.reduce((s,u)=>s+(u.pendingPaise||0),0))}</div></div>
     <div class="card"><div class="card-label">Active today</div><div class="card-val">${custs.filter(u=>u.lastSeen&&Date.now()-u.lastSeen<86400000).length}</div></div>
   </div>
@@ -419,8 +419,8 @@ function filterCusts(){
   document.getElementById('custBody').innerHTML=rows.map(u=>`<tr>
     <td><div style="font-weight:600;">${esc(u.name||'—')}</div><div style="font-size:11px;color:#9AA896;">${u.phone||''}</div></td>
     <td class="mono" style="font-size:12px;">${esc(u.email)}</td>
-    <td class="mono" style="color:#047857;font-weight:600;">${fmtRs(u.totalEarnedPaise||0)}</td>
-    <td class="mono">${fmtRs(u.pendingPaise||0)}</td>
+    <td class="mono" style="color:#047857;font-weight:600;">₹${u.earnedRupees||'0.00'}</td>
+    <td class="mono">${u.pendingPaise?'₹'+((u.pendingPaise||0)/100).toFixed(2):'₹0.00'}</td>
     <td class="mono">${fmt(u.impressions||0)}</td>
     <td style="font-size:12px;">${timeAgo(u.lastSeen)}</td>
     <td>${u.profileStatus?.complete?'<span style="color:#047857;font-size:11px;font-weight:600;">✓ Complete</span>':'<span style="color:#DC2626;font-size:11px;font-weight:600;">✗ Incomplete</span>'}</td>
