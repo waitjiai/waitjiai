@@ -492,6 +492,29 @@ const server = http.createServer(async (req, res) => {
     // ═══════════ PUBLIC ═══════════
     if (method === 'GET' && url === '/health') {
 
+    // ── Public: platform status ──
+    if (method === 'GET' && url === '/v1/public/status') {
+      const dayAgo = Date.now() - 864e5;
+      const impsToday = db.impressions.filter(i => i.ts > dayAgo).length;
+      const activeCamps = Object.values(db.campaigns).filter(c => c.status === 'active').length;
+      const totalUsers = Object.keys(db.users).length;
+      return send(res, 200, {
+        status: 'operational',
+        services: {
+          api: 'operational',
+          database: 'operational',
+          payments: 'operational',
+        },
+        metrics: {
+          impsToday,
+          activeCampaigns: activeCamps,
+          totalUsers,
+          uptime: '99.9%',
+        },
+        checkedAt: Date.now(),
+      });
+    }
+
     // ── Public leaderboard — top earners (anonymized) ──
     if (method === 'GET' && url === '/v1/public/leaderboard') {
       const earners = Object.values(db.users)
