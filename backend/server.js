@@ -1017,6 +1017,10 @@ const server = http.createServer(async (req, res) => {
       }
 
       // update advertiser profile (company / name)
+      // ── Advertiser: get + update profile ────────────────────────────
+      if (method === 'GET' && url === '/v1/advertiser/profile') {
+        return send(res, 200, { user: publicUser(user) });
+      }
       if (method === 'PATCH' && url === '/v1/advertiser/profile') {
         const b = await getBody(req);
         if (typeof b.company === 'string') user.company = b.company.trim();
@@ -1099,6 +1103,27 @@ const server = http.createServer(async (req, res) => {
         }
         return send(res, 400, {
           error: `Cannot set status to "${newStatus}" from "${c.status}". Only active↔paused toggle is allowed here.`
+        });
+      }
+
+      // ── Advertiser: GST invoice (self-serve) ─────────────────────────
+      if (method === 'GET' && url.match(/^\/v1\/advertiser\/campaigns\/[^/]+\/invoice$/)) {
+        const campId = url.split('/')[4];
+        const camp = db.campaigns[campId];
+        if (!camp || camp.advertiserId !== user.id) return send(res, 404, { error: 'Not found' });
+        const spentRs = (camp.spentPaise || 0) / 100;
+        const gst = spentRs * 0.18;
+        return send(res, 200, {
+          invoice: {
+            invoiceNo: 'WAITJI-' + campId.slice(-8).toUpperCase(),
+            date: new Date().toISOString().slice(0, 10),
+            seller: { name: 'QivaLabs LLP', address: 'Udaipur, Rajasthan, India' },
+            buyer: { name: user.company || user.name, email: user.email },
+            subtotal: spentRs, gst, total: spentRs + gst,
+            cgst: gst/2, sgst: gst/2,
+            items: [{ desc: 'Ad campaign: ' + (camp.campaignName || camp.adText || '').slice(0,40), amount: spentRs }],
+            campaign: { id: campId, name: camp.campaignName || camp.adText, impressions: camp.impressions || 0 },
+          },
         });
       }
     }
@@ -2027,24 +2052,7 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      // ── Advertiser: GST invoice (self-serve) ─────────────────────────
-      if (method === 'GET' && url.match(/^\/v1\/advertiser\/campaigns\/[^/]+\/invoice$/)) {
-        const campId = url.split('/')[4];
-        const camp = db.campaigns[campId];
-        if (!camp || camp.advertiserId !== user.id) return send(res, 404, { error: 'Not found' });
-        const spentRs = (camp.spentPaise || 0) / 100;
-        const gst = spentRs * 0.18;
-        return send(res, 200, {
-          invoice: {
-            invoiceNo: 'WAITJI-' + campId.slice(-8).toUpperCase(),
-            date: new Date().toISOString().slice(0, 10),
-            seller: { name: 'QivaLabs LLP', address: 'Udaipur, Rajasthan, India' },
-            buyer: { name: user.company || user.name, email: user.email },
-            subtotal: spentRs, gst, total: spentRs + gst,
-            campaign: { id: campId, name: camp.campaignName || camp.adText, impressions: camp.impressions || 0 },
-          },
-        });
-      }
+
 
       // ── Admin: extension health check per earner ─────────────────────
       if (method === 'GET' && url.match(/^\/v1\/admin\/earners\/[^/]+\/health$/)) {
