@@ -428,8 +428,13 @@ function filterCusts(){
   </tr>`).join('')||'<tr><td colspan="8" class="empty">No earners</td></tr>';
 }
 
-function viewEarner(id){
+async function viewEarner(id){
   const u=(window._custs||[]).find(x=>x.id===id)||{};
+  // Fetch full ad log from backend
+  let logData = null;
+  try { logData = await get('/v1/admin/earners/'+id+'/adlog'); } catch(e) {}
+  const logs = logData?.logs || [];
+  const summary = logData?.summary || {};
   const ps=u.profileStatus||{};
   const m=document.createElement('div'); m.className='modal-bg';
   m.innerHTML=`<div class="modal" style="max-width:640px;">
@@ -474,6 +479,22 @@ function viewEarner(id){
       </div>
     </div>
 
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Ad impression log (last 50)</div>
+      <div style="max-height:220px;overflow-y:auto;border:1px solid #E5E7EB;border-radius:8px;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead><tr style="background:#F8F5EE;position:sticky;top:0;"><th style="padding:7px 10px;text-align:left;color:#9AA896;font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:.5px;">Time</th><th style="padding:7px 10px;text-align:left;color:#9AA896;font-weight:600;text-transform:uppercase;font-size:10px;">Ad</th><th style="padding:7px 10px;text-align:left;color:#9AA896;font-weight:600;text-transform:uppercase;font-size:10px;">Type</th><th style="padding:7px 10px;text-align:left;color:#9AA896;font-weight:600;text-transform:uppercase;font-size:10px;">Surface</th><th style="padding:7px 10px;text-align:right;color:#9AA896;font-weight:600;text-transform:uppercase;font-size:10px;">Earned</th><th style="padding:7px 10px;text-align:center;color:#9AA896;font-weight:600;text-transform:uppercase;font-size:10px;">Clicked</th></tr></thead>
+          <tbody>${logs.length?logs.slice(0,50).map(l=>`<tr style="border-bottom:1px solid #F3F4F6;">
+            <td style="padding:6px 10px;color:#9AA896;font-family:monospace;font-size:11px;">${new Date(l.ts).toLocaleString('en-IN',{hour12:true,hour:'numeric',minute:'2-digit',month:'short',day:'numeric'})}</td>
+            <td style="padding:6px 10px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(l.adText)}">${esc((l.adText||'—').slice(0,30))} <span style="font-size:10px;color:#C4B5A0;">${esc(l.advertiser||'')}</span></td>
+            <td style="padding:6px 10px;"><span style="font-size:10px;padding:2px 6px;border-radius:4px;background:${l.adType==='spotlight'?'#FEF9EC':'#EFF6FF'};color:${l.adType==='spotlight'?'#C9901A':'#1D4ED8'};font-weight:600;">${l.isHouseAd?'house':l.adType||'—'}</span></td>
+            <td style="padding:6px 10px;font-size:11px;color:#6B7568;">${l.surface||'terminal'}</td>
+            <td style="padding:6px 10px;text-align:right;font-family:monospace;font-size:12px;font-weight:600;color:#047857;">+₹${((l.earnedPaise||0)/100).toFixed(3)}</td>
+            <td style="padding:6px 10px;text-align:center;">${l.clicked?'<span style="color:#047857;font-size:12px;">✓</span>':'<span style="color:#D4D9CF;font-size:12px;">—</span>'}</td>
+          </tr>`).join(''):'<tr><td colspan="6" style="text-align:center;padding:20px;color:#9AA896;">No impressions yet</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
     <div style="display:flex;gap:8px;">
       <button class="mini-btn green" onclick="sendAdminEmail('${esc(u.email)}','${esc(u.name||'')}')">✉️ Email earner</button>
       <button class="mini-btn" onclick="approveWithdrawalForUser('${u.id}')">💸 Process payout</button>
