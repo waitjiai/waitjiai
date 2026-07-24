@@ -622,7 +622,7 @@ const server = http.createServer(async (req, res) => {
       const params = new URL('http://x'+url).searchParams;
       const adType = params.get('type') || 'spotlight'; // default: spotlight (VS Code spinner)
 
-      const reqCountry = b?.country || 'IN';
+      const reqCountry = params.get('country') || 'IN';
       const ads = Object.values(db.campaigns)
         .filter(c => {
           if (c.status !== 'active' || c.spentPaise >= c.budgetPaise) return false;
