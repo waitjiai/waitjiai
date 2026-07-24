@@ -792,16 +792,7 @@ const server = http.createServer(async (req, res) => {
       }
       c.spentPaise += advCostPaise;
 
-      // Frequency cap — max 20 impressions per developer per campaign per day
-      const todayStart = new Date(); todayStart.setHours(0,0,0,0);
-      const todayImps = db.impressions.filter(i => i.userId === userId && i.campaignId === c.id && i.ts >= todayStart.getTime()).length;
-      const freqCap = c.frequencyCap || 20;
-      if (todayImps >= freqCap) {
-        c.spentPaise -= advCostPaise; // rollback
-        return send(res, 200, { success: false, reason: 'frequency_cap', billed: false });
-      }
-
-      db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, costPaise: advCostPaise, isHouseAd: false, ts: Date.now(), ip, clicked: false, country: b.country||'IN', surface: b.surface||'terminal' });
+      // No frequency cap — earners earn unlimited impressions      db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, costPaise: advCostPaise, isHouseAd: false, ts: Date.now(), ip, clicked: false, country: b.country||'IN', surface: b.surface||'terminal' });
 
       // Spend alert — notify advertiser at 80% budget
       const spentPct = c.spentPaise / c.budgetPaise;
@@ -1059,6 +1050,17 @@ const server = http.createServer(async (req, res) => {
           uniqueUsersReached,
           daily: dailyBreakdown(ids),
         });
+      }
+
+      // ── Advertiser: real geo breakdown from impressions ─────────────
+      if (method === 'GET' && url === '/v1/advertiser/geo') {
+        const mine = Object.values(db.campaigns).filter(c => c.advertiserId === user.id);
+        const ids = new Set(mine.map(c => c.id));
+        const imps = db.impressions.filter(i => ids.has(i.campaignId) && !i.isReferralBonus);
+        const geo = {};
+        imps.forEach(i => { const c = i.country||'IN'; geo[c] = (geo[c]||0)+1; });
+        const sorted = Object.entries(geo).sort((a,b)=>b[1]-a[1]);
+        return send(res, 200, { geo: Object.fromEntries(sorted), total: imps.length });
       }
 
       // single-campaign stats for the advertiser who owns it
