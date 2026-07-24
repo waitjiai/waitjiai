@@ -16,21 +16,66 @@ const { Pool } = require('pg');
 // ── Config ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'waitji-dev-secret-change-in-prod';
+const ENCRYPT_KEY = process.env.ENCRYPT_KEY || crypto.scryptSync('waitji-default-encrypt-key-change-in-prod', 'salt', 32);
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@waitjiai.in';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'WaitJI@Admin2026';
-const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data.json'); // local fallback only — see below
-const DATABASE_URL = process.env.DATABASE_URL || null; // Neon Postgres connection string — REQUIRED for production
+const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data.json');
+const DATABASE_URL = process.env.DATABASE_URL || null;
 const pgPool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } }) : null;
-// Supabase (identity provider for customers + advertisers)
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://tqfjdhneycntoasahstt.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZmpkaG5leWNudG9hc2Foc3R0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mjg1ODcsImV4cCI6MjA5NzIwNDU4N30.u5oqo0c9tmZ7OxZW6R2hbMxUyVrM4nedYsGKC8PR4TA';
 const EXTENSION_ID = process.env.EXTENSION_ID || 'WaitJiai.waitji-ai';
-// Service role key — required for server-side admin reads that bypass RLS (e.g. reading the waitlist table).
-// NEVER given a default value here: this key has full database access and must only live in Render's env vars.
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || null;
-// Resend API key — required to send bulk/marketing emails via Resend's HTTP API.
 const RESEND_API_KEY = process.env.RESEND_API_KEY || null;
 const LAUNCH_EMAIL_FROM = process.env.LAUNCH_EMAIL_FROM || 'WaitJI AI <admin@waitjiai.in>';
+
+// ── Encryption helpers (AES-256-GCM) ─────────────────────────────────────────
+const ENC_KEY = typeof ENCRYPT_KEY === 'string'
+  ? crypto.scryptSync(ENCRYPT_KEY, 'waitji-salt-v1', 32)
+  : ENCRYPT_KEY;
+function encrypt(text) {
+  if (!text) return text;
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', ENC_KEY, iv);
+  const enc = Buffer.concat([cipher.update(String(text), 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return 'enc:' + Buffer.concat([iv, tag, enc]).toString('base64');
+}
+function decrypt(text) {
+  if (!text || !String(text).startsWith('enc:')) return text;
+  try {
+    const buf = Buffer.from(text.slice(4), 'base64');
+    const iv = buf.slice(0, 12);
+    const tag = buf.slice(12, 28);
+    const enc = buf.slice(28);
+    const decipher = crypto.createDecipheriv('aes-256-gcm', ENC_KEY, iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
+  } catch { return text; }
+}
+
+// ── Rate limiter — login/signup brute-force protection ──────────────────────
+const loginAttempts = new Map(); // ip -> { count, resetAt }
+function checkLoginRateLimit(ip) {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip) || { count: 0, resetAt: now + 15 * 60000 };
+  if (now > entry.resetAt) { entry.count = 0; entry.resetAt = now + 15 * 60000; }
+  entry.count++;
+  loginAttempts.set(ip, entry);
+  return entry.count <= 10; // 10 attempts per 15 min
+}
+// Clear stale entries hourly
+setInterval(() => { const now = Date.now(); loginAttempts.forEach((v, k) => { if (now > v.resetAt) loginAttempts.delete(k); }); }, 3600000);
+
+// ── Admin audit log ──────────────────────────────────────────────────────────
+function auditLog(adminId, action, detail) {
+  db.auditLog = db.auditLog || [];
+  db.auditLog.push({ id: uid('audit_'), adminId, action, detail, ts: Date.now() });
+  if (db.auditLog.length > 500) db.auditLog = db.auditLog.slice(-500);
+  // no saveDB here — too frequent, will save on next natural write
+}
+
+
 
 // Cashfree Payouts — for automatic UPI/bank transfers to earners
 // Get from Cashfree dashboard → Payouts → API Keys
@@ -228,8 +273,10 @@ async function loadDB() {
         db = r.rows[0].value;
         db.users ||= {}; db.campaigns ||= {}; db.impressions ||= [];
         db.clicks ||= []; db.fraudFlags ||= []; db.payouts ||= [];
-        db.careers ||= [];     // { id, name, email, phone, role, coverLetter, resumeUrl, resumeName, status, appliedAt, notes }
-        db.jobs ||= [];        // { id, title, type, location, tags, description, requirements, active, createdAt, order }
+        db.careers ||= [];
+        db.jobs ||= [];
+        db.auditLog ||= [];
+        db.ipBlockList ||= [];
         db.sentLaunchEmails ||= {};
         db.houseAds ||= [];
         db.withdrawalRequests ||= [];
@@ -602,6 +649,7 @@ const server = http.createServer(async (req, res) => {
     // Frontend logs in via Supabase (verified email / Google / phone),
     // then exchanges the Supabase token for a WaitJI backend token.
     if (method === 'POST' && url === '/v1/auth/exchange') {
+      if (!checkLoginRateLimit(ip)) return send(res, 429, { error: 'Too many attempts. Try again in 15 minutes.' });
       const b = await getBody(req);
       const sbUser = await validateSupabaseToken(b.access_token);
       if (!sbUser) return send(res, 401, { error: 'invalid or expired Supabase session' });
@@ -743,7 +791,36 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { success: false, reason: 'budget_exhausted', billed: false });
       }
       c.spentPaise += advCostPaise;
+
+      // Frequency cap — max 20 impressions per developer per campaign per day
+      const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+      const todayImps = db.impressions.filter(i => i.userId === userId && i.campaignId === c.id && i.ts >= todayStart.getTime()).length;
+      const freqCap = c.frequencyCap || 20;
+      if (todayImps >= freqCap) {
+        c.spentPaise -= advCostPaise; // rollback
+        return send(res, 200, { success: false, reason: 'frequency_cap', billed: false });
+      }
+
       db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, costPaise: advCostPaise, isHouseAd: false, ts: Date.now(), ip, clicked: false, country: b.country||'IN', surface: b.surface||'terminal' });
+
+      // Spend alert — notify advertiser at 80% budget
+      const spentPct = c.spentPaise / c.budgetPaise;
+      if (spentPct >= 0.80 && spentPct < 0.80 + advCostPaise/c.budgetPaise && RESEND_API_KEY) {
+        const adv = db.users[c.advertiserId];
+        if (adv?.email && !c.alertSent80) {
+          c.alertSent80 = true;
+          fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: LAUNCH_EMAIL_FROM,
+              to: [adv.email],
+              subject: `⚠️ Campaign budget at 80% — ${c.campaignName || c.adText?.slice(0,30)}`,
+              html: `<p>Hi ${adv.name || 'there'},</p><p>Your campaign <b>"${c.adText?.slice(0,50)}"</b> has used 80% of its budget (₹${(c.spentPaise/100).toFixed(2)} of ₹${(c.budgetPaise/100).toFixed(2)}).</p><p>It will pause automatically when the budget runs out. Add more budget to keep it running.</p><p><a href="https://waitjiai.in/advertiser.html" style="background:#2A7A4F;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;margin-top:8px;">Top up budget →</a></p>`,
+            }),
+          }).catch(()=>{});
+        }
+      }
 
       // Referral credit — referrer earns 10% of impression
       if (db.users[userId]?.referredBy) {
@@ -1216,7 +1293,7 @@ const server = http.createServer(async (req, res) => {
         if (!accountNumber || !ifsc || !accountHolder) return send(res, 400, { error: 'accountNumber, ifsc, and accountHolder are required' });
         if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc.toUpperCase())) return send(res, 400, { error: 'Invalid IFSC format' });
         // Save bank details — Cashfree penny drop is async/webhook-based, handled separately
-        user.bankAccount = { accountNumber, ifsc: ifsc.toUpperCase(), accountHolder: accountHolder.trim(), addedAt: Date.now() };
+        user.bankAccount = { accountNumber: encrypt(accountNumber), ifsc: ifsc.toUpperCase(), accountHolder: accountHolder.trim(), addedAt: Date.now() };
         user.payoutMode = 'bank';
         user.bankVerified = true;
         user.upiId = null;
@@ -1484,7 +1561,7 @@ const server = http.createServer(async (req, res) => {
                 beneficiary_id: 'BEN_' + wr.userId,
                 beneficiary_name: earner.bankAccount.accountHolder,
                 beneficiary_instrument_details: {
-                  bank_account_number: earner.bankAccount.accountNumber,
+                  bank_account_number: decrypt(earner.bankAccount.accountNumber),
                   bank_ifsc: earner.bankAccount.ifsc,
                 },
               } : {
@@ -1527,7 +1604,7 @@ const server = http.createServer(async (req, res) => {
                 <p>Your withdrawal has been <b>${autoPaid ? 'automatically processed via Cashfree' : 'approved'}</b>.</p>
                 <table style="border-collapse:collapse;font-size:14px;margin:16px 0">
                   <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Amount</td><td><b>₹${(wr.amountPaise/100).toFixed(2)}</b></td></tr>
-                  <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Paid to</td><td>${wr.upiId || (earner.bankAccount?.accountNumber ? 'Bank account ending '+earner.bankAccount.accountNumber.slice(-4) : '—')}</td></tr>
+                  <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Paid to</td><td>${wr.upiId || (earner.bankAccount?.accountNumber ? 'Bank account ending '+decrypt(earner.bankAccount.accountNumber).slice(-4) : '—')}</td></tr>
                   ${autoPaid ? '<tr><td style="padding:6px 12px 6px 0;color:#6B7185">Status</td><td>Transferred — should arrive within minutes to a few hours</td></tr>' : '<tr><td style="padding:6px 12px 6px 0;color:#6B7185">ETA</td><td>2–3 business days</td></tr>'}
                   ${wr.reviewNote ? `<tr><td style="padding:6px 12px 6px 0;color:#6B7185">Note</td><td>${wr.reviewNote}</td></tr>` : ''}
                 </table>
@@ -1828,6 +1905,195 @@ const server = http.createServer(async (req, res) => {
 
       // all campaigns
       if (method === 'GET' && url === '/v1/admin/campaigns') {
+
+      // ── Advertiser: duplicate campaign ──────────────────────────────
+      if (method === 'POST' && url.match(/^\/v1\/advertiser\/campaigns\/[^/]+\/duplicate$/)) {
+        const campId = url.split('/')[4];
+        const camp = db.campaigns[campId];
+        if (!camp || camp.advertiserId !== user.id) return send(res, 404, { error: 'Campaign not found' });
+        const newCamp = {
+          ...camp,
+          id: uid('c_'),
+          campaignName: (camp.campaignName || camp.adText) + ' (copy)',
+          status: 'draft',
+          spentPaise: 0,
+          impressions: 0,
+          clicks: 0,
+          createdAt: Date.now(),
+        };
+        db.campaigns[newCamp.id] = newCamp;
+        saveDB();
+        auditLog(user.id, 'campaign_duplicate', { original: campId, copy: newCamp.id });
+        return send(res, 201, { campaign: newCamp, message: 'Campaign duplicated as draft — review and launch when ready.' });
+      }
+
+      // ── Advertiser: reach estimator ──────────────────────────────────
+      if (method === 'POST' && url === '/v1/advertiser/reach-estimate') {
+        const b = await getBody(req);
+        const { geo, adType, targeting } = b;
+        const countries = geo?.countries || ['IN'];
+        const totalDevs = Object.values(db.users).filter(u => u.role === 'customer').length;
+        // Estimate based on actual impression distribution
+        const recentImps = db.impressions.filter(i => i.ts > Date.now() - 7 * 864e5);
+        const activeDevs = new Set(recentImps.map(i => i.userId)).size;
+        const geoMatch = recentImps.filter(i => countries.includes(i.country || 'IN')).length;
+        const geoRatio = recentImps.length ? geoMatch / recentImps.length : 0.9;
+        const estimatedReach = Math.round(activeDevs * geoRatio);
+        const dailyImps = Math.round(recentImps.length / 7);
+        const shareOfVoice = db.campaigns && Object.values(db.campaigns).filter(c => c.status === 'active').length;
+        return send(res, 200, {
+          estimatedDailyReach: estimatedReach,
+          estimatedDailyImpressions: Math.round(dailyImps / Math.max(1, shareOfVoice + 1)),
+          totalActiveDevelopers: activeDevs,
+          totalRegisteredDevelopers: totalDevs,
+          geoMatchRatio: (geoRatio * 100).toFixed(0) + '%',
+          countries,
+          note: 'Estimates based on last 7 days of platform activity.',
+        });
+      }
+
+      // ── Admin: audit log ─────────────────────────────────────────────
+      if (method === 'GET' && url === '/v1/admin/audit-log') {
+        if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin only' });
+        const logs = (db.auditLog || []).slice(-100).reverse();
+        return send(res, 200, { logs });
+      }
+
+      // ── Admin: IP block list ──────────────────────────────────────────
+      if (method === 'GET' && url === '/v1/admin/ip-block') {
+        if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin only' });
+        return send(res, 200, { blocked: db.ipBlockList || [] });
+      }
+      if (method === 'POST' && url === '/v1/admin/ip-block') {
+        if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin only' });
+        const b = await getBody(req);
+        if (!b.ip) return send(res, 400, { error: 'ip required' });
+        db.ipBlockList = db.ipBlockList || [];
+        if (!db.ipBlockList.find(x => x.ip === b.ip)) {
+          db.ipBlockList.push({ ip: b.ip, reason: b.reason || 'Manual block', blockedAt: Date.now(), blockedBy: user.id });
+        }
+        auditLog(user.id, 'ip_block', { ip: b.ip, reason: b.reason });
+        saveDB();
+        return send(res, 201, { success: true });
+      }
+      if (method === 'DELETE' && url.match(/^\/v1\/admin\/ip-block\/.+$/)) {
+        if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin only' });
+        const blockIp = url.split('/').pop();
+        db.ipBlockList = (db.ipBlockList || []).filter(x => x.ip !== blockIp);
+        auditLog(user.id, 'ip_unblock', { ip: blockIp });
+        saveDB();
+        return send(res, 200, { success: true });
+      }
+
+      // ── Admin: GST invoice for advertiser campaign ────────────────────
+      if (method === 'GET' && url.match(/^\/v1\/admin\/campaigns\/[^/]+\/invoice$/)) {
+        if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin only' });
+        const campId = url.split('/')[4];
+        const camp = db.campaigns[campId];
+        if (!camp) return send(res, 404, { error: 'Campaign not found' });
+        const adv = db.users[camp.advertiserId];
+        const spentRs = (camp.spentPaise || 0) / 100;
+        const gst = spentRs * 0.18;
+        const total = spentRs + gst;
+        return send(res, 200, {
+          invoice: {
+            invoiceNo: 'WAITJI-' + campId.slice(-8).toUpperCase(),
+            date: new Date().toISOString().slice(0, 10),
+            seller: { name: 'QivaLabs LLP', gstin: 'PENDING', address: 'Udaipur, Rajasthan', pan: 'PENDING' },
+            buyer: { name: adv?.company || adv?.name || 'Advertiser', email: adv?.email || '', gstin: adv?.gstin || 'N/A' },
+            items: [{ desc: `Ad campaign: ${camp.adText?.slice(0, 40)}`, hsn: '998361', rate: spentRs, qty: 1, amount: spentRs }],
+            subtotal: spentRs,
+            cgst: gst / 2,
+            sgst: gst / 2,
+            igst: 0,
+            total,
+            campaign: { id: campId, impressions: camp.impressions || 0, adType: camp.adType },
+          },
+        });
+      }
+
+      // ── Advertiser: GST invoice (self-serve) ─────────────────────────
+      if (method === 'GET' && url.match(/^\/v1\/advertiser\/campaigns\/[^/]+\/invoice$/)) {
+        const campId = url.split('/')[4];
+        const camp = db.campaigns[campId];
+        if (!camp || camp.advertiserId !== user.id) return send(res, 404, { error: 'Not found' });
+        const spentRs = (camp.spentPaise || 0) / 100;
+        const gst = spentRs * 0.18;
+        return send(res, 200, {
+          invoice: {
+            invoiceNo: 'WAITJI-' + campId.slice(-8).toUpperCase(),
+            date: new Date().toISOString().slice(0, 10),
+            seller: { name: 'QivaLabs LLP', address: 'Udaipur, Rajasthan, India' },
+            buyer: { name: user.company || user.name, email: user.email },
+            subtotal: spentRs, gst, total: spentRs + gst,
+            campaign: { id: campId, name: camp.campaignName || camp.adText, impressions: camp.impressions || 0 },
+          },
+        });
+      }
+
+      // ── Admin: extension health check per earner ─────────────────────
+      if (method === 'GET' && url.match(/^\/v1\/admin\/earners\/[^/]+\/health$/)) {
+        if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin only' });
+        const eid = url.split('/')[4];
+        const target = db.users[eid];
+        if (!target) return send(res, 404, { error: 'User not found' });
+        const imps = db.impressions.filter(i => i.userId === eid);
+        const lastImp = imps.length ? Math.max(...imps.map(i => i.ts)) : null;
+        const hourAgo = Date.now() - 3600000;
+        const dayAgo = Date.now() - 864e5;
+        return send(res, 200, {
+          userId: eid,
+          lastImpressionAt: lastImp,
+          lastImpressionAgo: lastImp ? Math.round((Date.now() - lastImp) / 60000) + ' min ago' : 'never',
+          activeLastHour: imps.filter(i => i.ts > hourAgo).length > 0,
+          activeLastDay: imps.filter(i => i.ts > dayAgo).length > 0,
+          impressionsLastHour: imps.filter(i => i.ts > hourAgo).length,
+          impressionsLastDay: imps.filter(i => i.ts > dayAgo).length,
+          status: lastImp && lastImp > hourAgo ? 'active' : lastImp && lastImp > dayAgo ? 'idle' : 'disconnected',
+        });
+      }
+
+      // ── Customer: extension health ────────────────────────────────────
+      if (method === 'GET' && url === '/v1/customer/health') {
+        const imps = db.impressions.filter(i => i.userId === user.id);
+        const lastImp = imps.length ? Math.max(...imps.map(i => i.ts)) : null;
+        const hourAgo = Date.now() - 3600000;
+        return send(res, 200, {
+          connected: !!lastImp,
+          activeLastHour: lastImp && lastImp > hourAgo,
+          lastImpressionAt: lastImp,
+          lastImpressionAgo: lastImp ? Math.round((Date.now() - lastImp) / 60000) + ' min ago' : null,
+          status: lastImp && lastImp > hourAgo ? 'active' : lastImp ? 'idle' : 'not_connected',
+          message: lastImp && lastImp > hourAgo
+            ? 'Extension is active and earning'
+            : lastImp
+            ? 'Extension connected but idle — open Claude Code to earn'
+            : 'Extension not yet connected — paste your User ID in VS Code',
+        });
+      }
+
+      // ── Customer: earnings projection ────────────────────────────────
+      if (method === 'GET' && url === '/v1/customer/projection') {
+        const imps = db.impressions.filter(i => i.userId === user.id);
+        const sevenDaysAgo = Date.now() - 7 * 864e5;
+        const last7Imps = imps.filter(i => i.ts > sevenDaysAgo);
+        const last7Earned = last7Imps.reduce((s, i) => s + (i.earnedPaise || 0), 0);
+        const dailyAvg = last7Earned / 7;
+        const monthlyProjection = dailyAvg * 30;
+        const totalEarned = imps.reduce((s, i) => s + (i.earnedPaise || 0), 0);
+        return send(res, 200, {
+          dailyAvgPaise: Math.round(dailyAvg),
+          weeklyPaise: last7Earned,
+          monthlyProjectionPaise: Math.round(monthlyProjection),
+          totalEarnedPaise: totalEarned,
+          last7Days: last7Imps.length,
+          message: monthlyProjection > 0
+            ? `At your current pace, you'll earn ₹${(monthlyProjection / 100).toFixed(0)} this month`
+            : 'Start using Claude Code to see your earnings projection',
+        });
+      }
+
+      // all campaigns
         return send(res, 200, { campaigns: Object.values(db.campaigns) });
       }
 
@@ -2417,7 +2683,7 @@ function profileStatus(user) {
 function publicUser(u) {
   const ps = profileStatus(u);
   const payoutMethod = u.payoutMode === 'bank' && u.bankAccount
-    ? { type: 'bank', last4: u.bankAccount.accountNumber?.slice(-4), bankIfsc: u.bankAccount.ifsc, bankName: u.bankAccount.accountHolder }
+    ? { type: 'bank', last4: decrypt(u.bankAccount.accountNumber)?.slice(-4), bankIfsc: u.bankAccount.ifsc, bankName: u.bankAccount.accountHolder }
     : u.upiId ? { type: 'upi', upiId: u.upiId } : null;
   return {
     id: u.id, email: u.email, phone: u.phone || '', role: u.role,
