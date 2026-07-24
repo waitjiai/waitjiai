@@ -614,7 +614,8 @@ init();
 setInterval(()=>{ if(curTab==='overview'||curTab==='security')render(); },20000);
 
 function renderCareers(d){
-  const apps = d.applications||[];
+  const el=document.getElementById('tabContent');
+  if(!el) return;
   const s = d.summary||{};
   const statusColor = {new:'#3B82F6',reviewing:'#F0B429',shortlisted:'#2A7A4F',rejected:'#DC2626',hired:'#047857'};
   const statusBg = {new:'#EFF6FF',reviewing:'#FEF9EC',shortlisted:'#EBF5EE',rejected:'#FEE2E2',hired:'#DCFCE7'};
@@ -715,6 +716,8 @@ async function saveNote(id){
 
 // ── JOBS MANAGEMENT ──────────────────────────────────────────────────
 function renderJobs(d){
+  const el=document.getElementById('tabContent');
+  if(!el) return;
   const jobs = d.jobs||[];
   el.innerHTML=`
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
