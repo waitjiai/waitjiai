@@ -444,11 +444,20 @@ async function viewEarner(id){
     </div>
 
     <div class="cards" style="grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
-      <div class="card"><div class="card-label">Earned</div><div class="card-val" style="font-size:18px;color:#047857;">₹${summary.totalEarnedPaise?(summary.totalEarnedPaise/100).toFixed(2):(u.earnedRupees||'0.00')}</div></div>
+      <div class="card"><div class="card-label">Total earned</div><div class="card-val" style="font-size:18px;color:#047857;">₹${summary.totalEarnedPaise?(summary.totalEarnedPaise/100).toFixed(2):(u.earnedRupees||'0.00')}</div></div>
+      <div class="card"><div class="card-label">Available</div><div class="card-val" style="font-size:18px;color:#D97706;">₹${u.pendingRupees||'0.00'}</div></div>
+      <div class="card"><div class="card-label">Paid out</div><div class="card-val" style="font-size:18px;">₹${u.paidOutRupees||'0.00'}</div></div>
       <div class="card"><div class="card-label">Impressions</div><div class="card-val" style="font-size:18px;">${fmt(summary.totalImpressions||u.impressions||0)}</div></div>
-      <div class="card"><div class="card-label">Clicks</div><div class="card-val" style="font-size:18px;">${fmt(summary.totalClicks||u.clicks||0)}</div></div>
-      <div class="card"><div class="card-label">Spotlight / Stream</div><div class="card-val" style="font-size:14px;">${summary.spotlight||0} / ${summary.stream||0}</div></div>
     </div>
+    ${(u.recentWithdrawals||[]).length?`
+    <div style="background:#F8F5EE;border-radius:10px;padding:14px;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Withdrawal history</div>
+      ${(u.recentWithdrawals||[]).map(w=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #E5E7EB;font-size:13px;">
+        <div><span style="font-weight:600;">₹${((w.amountPaise||0)/100).toFixed(2)}</span> <span style="color:#9AA896;font-size:11px;">· ${w.upiId||'Bank'}</span></div>
+        <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:11px;color:#9AA896;">${w.requestedAt?new Date(w.requestedAt).toLocaleDateString('en-IN'):'—'}</span><span style="font-size:11px;padding:2px 8px;border-radius:100px;font-weight:600;background:${w.status==='paid'||w.status==='approved'?'#DCFCE7':w.status==='pending'?'#FEF9EC':'#FEE2E2'};color:${w.status==='paid'||w.status==='approved'?'#047857':w.status==='pending'?'#C9901A':'#DC2626'};">${w.status}</span></div>
+      </div>`).join('')}
+    </div>`:''}
+
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
       <div style="background:#F8F5EE;border-radius:10px;padding:14px;">
