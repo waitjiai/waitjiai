@@ -1032,15 +1032,16 @@ const server = http.createServer(async (req, res) => {
         const imps = db.impressions.filter(i => idSet.has(i.campaignId));
         const clk = db.clicks.filter(c => idSet.has(c.campaignId) && c.valid);
         const invalidClk = db.clicks.filter(c => idSet.has(c.campaignId) && !c.valid);
-        const totalSpent = mine.reduce((s, c) => s + c.spentPaise, 0);
+        const totalSpent = mine.reduce((s, c) => s + (c.spentPaise||0), 0);
         const uniqueUsersReached = new Set(imps.map(i => i.userId)).size;
         return send(res, 200, {
           campaigns: mine.length,
           activeCampaigns: mine.filter(c => c.status === 'active').length,
           impressions: imps.length,
           validClicks: clk.length,
-          blockedClicks: invalidClk.length,  // fraud saved them money
+          blockedClicks: invalidClk.length,
           ctr: imps.length ? (clk.length / imps.length * 100).toFixed(2) : '0.00',
+          totalSpentRupees: (totalSpent / 100).toFixed(2),
           spentRupees: (totalSpent / 100).toFixed(2),
           savedFromFraudRupees: (invalidClk.length * (mine[0]?.bidPaise || 20000) / 1000 * 50 / 100).toFixed(2),
           uniqueUsersReached,
