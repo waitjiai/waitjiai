@@ -201,6 +201,8 @@ async function render(){
     if(curTab==='tracking')   return renderTracking(await get('/v1/admin/overview'));
     if(curTab==='email')      return renderEmail(await get('/v1/admin/waitlist'));
     if(curTab==='social')     return renderSocial();
+    if(curTab==='auditlog')  return renderAuditLog(await get('/v1/admin/audit-log'));
+    if(curTab==='ipblock')   return renderIpBlock(await get('/v1/admin/ip-block'));
   }catch(e){ document.getElementById('tabContent').innerHTML='<div class="loading">Error loading data. <a href="" onclick="render();return false">retry</a></div>'; console.error(e); }
 }
 
@@ -695,6 +697,58 @@ function viewApp(id){
 async function saveNote(id){
   const notes=document.getElementById('appNoteInput')?.value.trim()||'';
   await ptch('/v1/admin/careers/'+id,{notes}); toast('✓ Saved'); document.querySelector('.modal-bg')?.remove(); render();
+}
+
+// ── AUDIT LOG ──────────────────────────────────────────────────────────────
+function renderAuditLog(d){
+  const el=document.getElementById('tabContent'); if(!el) return;
+  const logs=d.logs||[];
+  el.innerHTML=`
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <div style="font-size:16px;font-weight:500;">Admin audit log</div>
+    <span style="font-size:12px;color:#9AA896;">${logs.length} recent actions</span>
+  </div>
+  <div class="panel" style="padding:0;">
+  <table><thead><tr><th>Time</th><th>Admin</th><th>Action</th><th>Detail</th></tr></thead><tbody>
+  ${logs.map(l=>`<tr>
+    <td class="mono" style="font-size:11px;">${new Date(l.ts).toLocaleString('en-IN')}</td>
+    <td class="mono" style="font-size:11px;">${esc(l.adminId||'—').slice(0,14)}</td>
+    <td><span style="font-size:12px;padding:2px 8px;border-radius:4px;background:#F3F4F6;">${esc(l.action||'—')}</span></td>
+    <td style="font-size:12px;color:#6B7568;">${esc(JSON.stringify(l.detail||{}).slice(0,60))}</td>
+  </tr>`).join('')||'<tr><td colspan="4" class="empty">No audit entries yet</td></tr>'}
+  </tbody></table></div>`;
+}
+
+// ── IP BLOCK LIST ──────────────────────────────────────────────────────────
+function renderIpBlock(d){
+  const el=document.getElementById('tabContent'); if(!el) return;
+  const blocked=d.blocked||[];
+  el.innerHTML=`
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <div style="font-size:16px;font-weight:500;">IP block list</div>
+    <button class="mini-btn red" onclick="blockIp()">+ Block IP</button>
+  </div>
+  <div class="panel" style="padding:0;">
+  <table><thead><tr><th>IP Address</th><th>Reason</th><th>Blocked at</th><th>Actions</th></tr></thead><tbody>
+  ${blocked.map(b=>`<tr>
+    <td class="mono">${esc(b.ip)}</td>
+    <td style="font-size:13px;">${esc(b.reason||'—')}</td>
+    <td style="font-size:12px;">${b.blockedAt?new Date(b.blockedAt).toLocaleDateString('en-IN'):'—'}</td>
+    <td><button class="mini-btn green" onclick="unblockIp('${esc(b.ip)}')">Unblock</button></td>
+  </tr>`).join('')||'<tr><td colspan="4" class="empty">No IPs blocked</td></tr>'}
+  </tbody></table></div>`;
+}
+
+async function blockIp(){
+  const ip=prompt('IP address to block:'); if(!ip) return;
+  const reason=prompt('Reason (e.g. click fraud, spam):') || 'Manual block';
+  const r=await fetch(API+'/v1/admin/ip-block',{method:'POST',headers:H,body:JSON.stringify({ip,reason})});
+  if((await r.json()).success){toast('✓ IP blocked');render();}
+}
+async function unblockIp(ip){
+  if(!confirm('Unblock '+ip+'?')) return;
+  await del('/v1/admin/ip-block/'+encodeURIComponent(ip));
+  toast('✓ Unblocked'); render();
 }
 
 // ── JOBS ──────────────────────────────────────────────────────────────
