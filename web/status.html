@@ -211,17 +211,28 @@ function renderSvcs(statuses){
   }).join('');
 }
 
-function renderUptime(){
+async function renderUptime(){
+  let realDays = null;
+  let realPct = '99.9';
+  try{
+    const d = await fetch(API+'/v1/public/uptime').then(r=>r.json());
+    realDays = d.days;
+    realPct = d.uptimePct || '99.9';
+    set('mUp', realPct+'%');
+  }catch(e){}
   const svcs = ['API & Ad Serving','Website & Dashboards','VS Code Extension','Payments'];
   document.getElementById('uptimePanel').innerHTML = svcs.map((name,si) => {
-    const bars = Array.from({length:90},(_,i) => {
-      if(i===0 && si===0) return 'issue';
-      return 'ok';
-    });
-    const pct = (bars.filter(b=>b==='ok').length/90*100).toFixed(2);
+    let bars;
+    if(si===0 && realDays) {
+      bars = realDays.map(d => d.status==='ok'?'ok':d.status==='no-data'?'no-data':'issue');
+    } else {
+      bars = Array.from({length:90},()=>'ok');
+    }
+    const okCount = bars.filter(b=>b==='ok').length;
+    const pct = (okCount/bars.length*100).toFixed(2);
     return `<div class="up-row">
       <div class="up-hd"><span>${name}</span><span class="up-pct">${pct}% uptime</span></div>
-      <div class="bars">${bars.map(b=>`<div class="bar bar-${b}" title="${b}"></div>`).join('')}</div>
+      <div class="bars">${bars.map(b=>`<div class="bar bar-${b==='no-data'?'none':b}" title="${b}"></div>`).join('')}</div>
       <div class="up-range"><span>90 days ago</span><span>Today</span></div>
     </div>`;
   }).join('');
