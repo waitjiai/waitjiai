@@ -491,8 +491,34 @@ const server = http.createServer(async (req, res) => {
   try {
     // ═══════════ PUBLIC ═══════════
     if (method === 'GET' && url === '/health') {
+      // Store uptime ping for real 90-day history
+      db.uptimePings = db.uptimePings || [];
+      const today = new Date().toISOString().slice(0,10);
+      if (!db.uptimePings.find(p => p.date === today)) {
+        db.uptimePings.push({ date: today, up: true, ts: Date.now() });
+        if (db.uptimePings.length > 100) db.uptimePings = db.uptimePings.slice(-100);
+        saveDB();
+      }
+      return send(res, 200, { ok: true, storage: pgAvailable ? 'Postgres' : 'local', ts: Date.now() });
+    }
 
-    // ── Public: platform status ──
+    // ── Public: real 90-day uptime history ──
+    if (method === 'GET' && url === '/v1/public/uptime') {
+      const dayMs = 864e5;
+      const pings = db.uptimePings || [];
+      const pingMap = {};
+      pings.forEach(p => { pingMap[p.date] = p; });
+      const days = [];
+      for (let i = 89; i >= 0; i--) {
+        const d = new Date(Date.now() - i * dayMs);
+        const dateStr = d.toISOString().slice(0,10);
+        days.push({ date: dateStr, label: d.toLocaleDateString('en-IN',{month:'short',day:'numeric'}), status: pingMap[dateStr] ? 'ok' : 'no-data' });
+      }
+      const knownUpDays = pings.filter(p => p.up).length;
+      return send(res, 200, { days, uptimePct: pings.length > 0 ? (knownUpDays / pings.length * 100).toFixed(2) : '100.00' });
+    }
+
+
     if (method === 'GET' && url === '/v1/public/status') {
       const dayAgo = Date.now() - 864e5;
       const impsToday = db.impressions.filter(i => i.ts > dayAgo).length;
@@ -568,8 +594,6 @@ const server = http.createServer(async (req, res) => {
     }
 
 
-      return send(res, 200, { status: 'ok', version: '3.0.0-supabase', ts: Date.now() });
-    }
     if (method === 'GET' && url === '/') {
       return send(res, 200, { message: 'WaitJI AI API v2', auth: true });
     }
@@ -602,7 +626,11 @@ const server = http.createServer(async (req, res) => {
           createdAt: Date.now(), banned: false,
         };
         db.users[profileId] = user;
-      } else {
+        // Referral tracking — credit referrer if ref param passed
+        if (b.ref && db.users[b.ref] && db.users[b.ref].role === 'customer') {
+          user.referredBy = b.ref;
+          db.users[b.ref].referralCount = (db.users[b.ref].referralCount || 0) + 1;
+        }
         // existing → refresh verification status + contact, but NEVER change role here
         user.email = sbUser.email || user.email;
         user.phone = sbUser.phone || user.phone;
@@ -646,18 +674,32 @@ const server = http.createServer(async (req, res) => {
       const adType = params.get('type') || 'spotlight'; // default: spotlight (VS Code spinner)
 
       const reqCountry = params.get('country') || 'IN';
-      const ads = Object.values(db.campaigns)
+      const reqSurface = params.get('surface') || 'terminal';
+
+      // Audience targeting filter
+      const now_h = new Date().getHours(); // IST hour
+      const ads2 = Object.values(db.campaigns)
         .filter(c => {
           if (c.status !== 'active' || c.spentPaise >= c.budgetPaise) return false;
           if (c.adType && c.adType !== adType) return false;
-          // Geo filter — only serve if campaign targets this country (default IN)
+          // Geo filter
           const geoCountries = c.geo?.countries || ['IN'];
           if (geoCountries.length && !geoCountries.includes(reqCountry)) return false;
+          // Time of day targeting
+          const tod = c.targeting?.timeOfDay;
+          if (tod && tod !== 'all') {
+            if (tod === 'morning' && (now_h < 9 || now_h >= 12)) return false;
+            if (tod === 'afternoon' && (now_h < 12 || now_h >= 18)) return false;
+            if (tod === 'evening' && (now_h < 18 || now_h >= 23)) return false;
+          }
+          // IDE targeting
+          const ideTools = c.targeting?.ideTools || ['vscode'];
+          if (ideTools.length && !ideTools.includes('vscode') && reqSurface === 'vscode') return false;
           return true;
         })
-        .sort((a, b) => b.bidPaise - a.bidPaise)
-        .slice(0, 3)
-        .map(c => ({ id: c.id, text: c.adText, url: c.url, advertiser: c.advertiser, cpmPaise: c.bidPaise, adType: c.adType || 'spotlight', isHouseAd: false, geo: c.geo }));
+        .sort((a, b) => b.bidPaise - a.bidPaise);
+
+      const ads = ads2.slice(0, 3).map(c => ({ id: c.id, text: c.adText, url: c.url, advertiser: c.advertiser, cpmPaise: c.bidPaise, adType: c.adType || 'spotlight', isHouseAd: false, geo: c.geo }));
 
       if (ads.length > 0) return send(res, 200, { ads, servedAt: Date.now() });
 
@@ -702,6 +744,15 @@ const server = http.createServer(async (req, res) => {
       }
       c.spentPaise += advCostPaise;
       db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, costPaise: advCostPaise, isHouseAd: false, ts: Date.now(), ip, clicked: false, country: b.country||'IN', surface: b.surface||'terminal' });
+
+      // Referral credit — referrer earns 10% of impression
+      if (db.users[userId]?.referredBy) {
+        const referrer = db.users[db.users[userId].referredBy];
+        if (referrer && !referrer.banned) {
+          const refEarn = Math.floor(earnPaise * 0.10);
+          db.impressions.push({ id: uid('ref_'), userId: referrer.id, campaignId: c.id, earnedPaise: refEarn, costPaise: 0, isHouseAd: false, isReferralBonus: true, referredUser: userId, ts: Date.now(), ip: '', clicked: false, country: b.country||'IN', surface: 'referral' });
+        }
+      }
       saveDB();
       return send(res, 200, { success: true, earnedPaise: earnPaise, billed: true });
     }
@@ -988,11 +1039,89 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
-      // recent activity (real-time feed)
+      // ── Customer: 14-day daily earnings breakdown ────────────────────
+      if (method === 'GET' && url === '/v1/customer/daily') {
+        const dayMs = 864e5;
+        const now = Date.now();
+        const imps = db.impressions.filter(i => i.userId === user.id);
+        const clks = db.clicks.filter(c => c.userId === user.id && c.valid);
+        const days = [];
+        for (let i = 13; i >= 0; i--) {
+          const dayStart = new Date(now - i * dayMs); dayStart.setHours(0,0,0,0);
+          const dayEnd = new Date(dayStart); dayEnd.setHours(23,59,59,999);
+          const dayImps = imps.filter(imp => imp.ts >= dayStart.getTime() && imp.ts <= dayEnd.getTime());
+          const dayClks = clks.filter(cl => cl.ts >= dayStart.getTime() && cl.ts <= dayEnd.getTime());
+          days.push({
+            date: dayStart.toISOString().slice(0,10),
+            label: dayStart.toLocaleDateString('en-IN',{month:'short',day:'numeric'}),
+            impressions: dayImps.length,
+            clicks: dayClks.length,
+            earnedPaise: dayImps.reduce((s,i) => s+(i.earnedPaise||0), 0),
+          });
+        }
+        return send(res, 200, { daily: days });
+      }
+
+      // ── Customer: streak & stickiness stats ─────────────────────────
+      if (method === 'GET' && url === '/v1/customer/streak') {
+        const dayMs = 864e5;
+        const imps = db.impressions.filter(i => i.userId === user.id);
+        if (!imps.length) return send(res, 200, { currentStreak:0, longestStreak:0, activeDays:0, totalDays:0 });
+        const activeDaySet = new Set(imps.map(i => new Date(i.ts).toISOString().slice(0,10)));
+        const activeDays = [...activeDaySet].sort();
+        let currentStreak = 0, longestStreak = 0, streak = 1;
+        for (let i = 1; i < activeDays.length; i++) {
+          const diff = (new Date(activeDays[i]) - new Date(activeDays[i-1])) / dayMs;
+          if (diff === 1) { streak++; } else { longestStreak = Math.max(longestStreak, streak); streak = 1; }
+        }
+        longestStreak = Math.max(longestStreak, streak);
+        // Current streak — check if today or yesterday active
+        const today = new Date().toISOString().slice(0,10);
+        const yesterday = new Date(Date.now()-dayMs).toISOString().slice(0,10);
+        if (activeDaySet.has(today) || activeDaySet.has(yesterday)) {
+          currentStreak = 1;
+          let d = new Date(activeDaySet.has(today)?today:yesterday);
+          while (true) {
+            d = new Date(d - dayMs);
+            if (activeDaySet.has(d.toISOString().slice(0,10))) currentStreak++; else break;
+          }
+        }
+        return send(res, 200, { currentStreak, longestStreak, activeDays: activeDaySet.size, totalDays: Math.ceil((Date.now()-imps[imps.length-1].ts)/dayMs) });
+      }
+
+      // ── Customer: referral stats ─────────────────────────────────────
+      if (method === 'GET' && url === '/v1/customer/referrals') {
+        const referred = Object.values(db.users).filter(u => u.referredBy === user.id);
+        const referralEarnings = referred.reduce((s, u) => {
+          const uImps = db.impressions.filter(i => i.userId === u.id);
+          return s + Math.floor(uImps.reduce((s2,i) => s2+(i.earnedPaise||0), 0) * 0.10);
+        }, 0);
+        return send(res, 200, {
+          referrals: referred.length,
+          referralEarningsPaise: referralEarnings,
+          referralLink: `https://www.waitjiai.in?ref=${user.id}`,
+          referred: referred.map(u => ({ email: u.email.replace(/(.{2}).*(@.*)/, '$1***$2'), joinedAt: u.createdAt })),
+        });
+      }
+
+      // ── Customer: geo stats (where their ads were shown) ─────────────
+      if (method === 'GET' && url === '/v1/customer/geo') {
+        const imps = db.impressions.filter(i => i.userId === user.id);
+        const geoCounts = {};
+        imps.forEach(i => { const c = i.country||'IN'; geoCounts[c] = (geoCounts[c]||0)+1; });
+        const surfaceCounts = {};
+        imps.forEach(i => { const s = i.surface||'terminal'; surfaceCounts[s] = (surfaceCounts[s]||0)+1; });
+        return send(res, 200, { geo: geoCounts, surfaces: surfaceCounts, total: imps.length });
+      }
+
+      // ── Customer: referral credit on signup ─────────────────────────
+      // (handled in signup — credits referrer 10% of each impression)
+
+      // ── Recent activity (real-time feed) ──────────────────────────
       if (method === 'GET' && url === '/v1/customer/activity') {
         const imps = db.impressions.filter(i => i.userId === user.id)
           .slice(-30).reverse()
-          .map(i => ({ type: 'impression', campaignId: i.campaignId, earnedPaise: i.earnedPaise, ts: i.ts }));
+          .map(i => ({ type: 'impression', campaignId: i.campaignId, earnedPaise: (i.earnedPaise||0), ts: i.ts, advertiser: db.campaigns[i.campaignId]?.advertiser || 'WaitJI AI' }));
         return send(res, 200, { activity: imps });
       }
 
@@ -1267,6 +1396,10 @@ const server = http.createServer(async (req, res) => {
         const streamImps = db.impressions.filter(i => db.campaigns[i.campaignId]?.adType==='stream').length;
         const extStats = await getExtensionStats();
         const fraudFlagsToday = db.fraudFlags.filter(f => f.ts > dayAgo).length;
+        const geoBreakdown = {};
+        db.impressions.forEach(i => { const c = i.country||'IN'; geoBreakdown[c] = (geoBreakdown[c]||0)+1; });
+        const surfaceBreakdown = {};
+        db.impressions.forEach(i => { const s = i.surface||'terminal'; surfaceBreakdown[s] = (surfaceBreakdown[s]||0)+1; });
         return send(res, 200, {
           summary: {
             totalImpressions: db.impressions.length,
@@ -1289,6 +1422,8 @@ const server = http.createServer(async (req, res) => {
             streamImpressions: streamImps,
             extensionInstalls: extStats.installCount,
           },
+          geoBreakdown,
+          surfaceBreakdown,
           // backward compat
           advertisers: advertisers.length,
           customers: customers.length,
