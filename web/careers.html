@@ -279,6 +279,8 @@ function tagClass(tag){
   return 'tag-full';
 }
 
+function esc2(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
 async function loadJobs(){
   try{
     const r = await fetch(JOBS_API + '/v1/public/jobs');
@@ -304,14 +306,12 @@ async function loadJobs(){
         <div class="jc-desc">${esc2(job.description)}</div>
         ${job.requirements?`<div style="font-size:12.5px;color:var(--muted2);margin-top:7px;"><b>Requirements:</b> ${esc2(job.requirements)}</div>`:''}
       </div>
-      <div class="jc-right"><button class="apply-btn" onclick="openModal('${esc2(job.title)}')">Apply now</button></div>
+      <div class="jc-right"><button class="apply-btn" data-role="${esc2(job.title)}" onclick="openModal(this.dataset.role)">Apply now</button></div>
     </div>`).join('');
   } catch(e){
     document.getElementById('jobsGrid').innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">Could not load jobs — <a href="" onclick="loadJobs();return false;">retry</a></div>';
   }
 }
-
-function esc2(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 loadJobs();
 
