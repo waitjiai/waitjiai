@@ -1639,10 +1639,23 @@ const server = http.createServer(async (req, res) => {
           const totalSessionMin7d = sessions7d.reduce((s, x) => s + x.durationMin, 0);
           const adsShownToday = imps.some(i => i.ts > dayAgo);
           const lastImpression = imps.length ? Math.max(...imps.map(i => i.ts)) : null;
+          const totalEarnedPaise = imps.reduce((s, i) => s + (i.earnedPaise||0), 0);
+          const paidOutPaise = (db.withdrawalRequests||[])
+            .filter(w => w.userId === u.id && (w.status === 'paid' || w.status === 'approved'))
+            .reduce((s, w) => s + (w.amountPaise||0), 0);
+          const pendingPaise = Math.max(0, totalEarnedPaise - paidOutPaise);
+          const withdrawals = (db.withdrawalRequests||[])
+            .filter(w => w.userId === u.id)
+            .sort((a,b) => b.requestedAt - a.requestedAt)
+            .slice(0, 5);
           return {
             ...publicUser(u),
             impressions: imps.length,
-            earnedRupees: (imps.reduce((s, i) => s + (i.earnedPaise||0), 0) / 100).toFixed(2),
+            earnedRupees: (totalEarnedPaise / 100).toFixed(2),
+            pendingPaise,
+            pendingRupees: (pendingPaise / 100).toFixed(2),
+            paidOutRupees: (paidOutPaise / 100).toFixed(2),
+            recentWithdrawals: withdrawals,
             fraudFlags: flags.length,
             sessions7d: sessions7d.length,
             totalSessionMin7d,
