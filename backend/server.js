@@ -2283,9 +2283,12 @@ const server = http.createServer(async (req, res) => {
 
     if (method === 'GET' && url === '/v1/stats') {
       const totalEarned = db.impressions.reduce((s, i) => s + (i.earnedPaise||0), 0);
+      const totalUsers = Object.values(db.users).filter(u => u.role === 'customer').length;
       return send(res, 200, {
         totalImpressions: db.impressions.length,
         activeCampaigns: Object.values(db.campaigns).filter(c => c.status === 'active').length,
+        totalPaidRupees: Math.floor(totalEarned / 100),
+        totalUsers,
         totalEarnedByDevsRupees: (totalEarned / 100).toFixed(2),
       });
     }
