@@ -228,6 +228,8 @@ async function loadDB() {
         db = r.rows[0].value;
         db.users ||= {}; db.campaigns ||= {}; db.impressions ||= [];
         db.clicks ||= []; db.fraudFlags ||= []; db.payouts ||= [];
+        db.careers ||= [];     // { id, name, email, phone, role, coverLetter, resumeUrl, resumeName, status, appliedAt, notes }
+        db.jobs ||= [];        // { id, title, type, location, tags, description, requirements, active, createdAt, order }
         db.sentLaunchEmails ||= {};
         db.houseAds ||= [];
         db.withdrawalRequests ||= [];
@@ -297,6 +299,16 @@ function seed() {
       { id: uid('house_'), text: 'WaitJI AI · Loving this? Rate us on the Marketplace ⭐', url: 'https://marketplace.visualstudio.com/items?itemName=WaitJiai.waitji-ai&ssr=false#review-details', active: true, createdAt: Date.now() },
     ];
     console.log('Seeded default house ads');
+  }
+  if (!db.jobs || db.jobs.length === 0) {
+    db.jobs = [
+      { id: uid('job_'), title: 'Full-Stack Developer', type: 'Full-time', location: 'Remote / Udaipur', tags: ['full-time','remote'], description: 'Node.js backend, Postgres, VS Code extension (TypeScript), HTML/CSS/JS frontend. You\'ll own features end-to-end — from idea to deployed. We move fast and ship daily.', requirements: 'Node.js, TypeScript, SQL, Git. Bonus: VS Code extension API experience.', active: true, createdAt: Date.now(), order: 0 },
+      { id: uid('job_'), title: 'VS Code Extension Developer', type: 'Full-time', location: 'Remote', tags: ['full-time','remote'], description: 'Deep expertise in the VS Code extension API. You\'ll improve our spinnerVerbs integration, build new surfaces, and solve problems that no Stack Overflow answer covers.', requirements: 'VS Code Extension API, TypeScript, Node.js.', active: true, createdAt: Date.now(), order: 1 },
+      { id: uid('job_'), title: 'Growth & BD Intern', type: 'Internship', location: 'Remote', tags: ['internship','commission','remote'], description: 'Acquire advertisers — SaaS companies, bootcamps, developer tools. No fixed salary; earn 10% commission on every campaign you close. Uncapped earning potential.', requirements: 'Communication skills, persistence, basic understanding of B2B SaaS.', active: true, createdAt: Date.now(), order: 2 },
+      { id: uid('job_'), title: 'UI/UX Designer', type: 'Part-time / Full-time', location: 'Remote / Udaipur', tags: ['full-time','remote'], description: 'Design the advertiser dashboard, developer earnings UI, and marketing pages. Figma-first. You\'ll have full creative ownership.', requirements: 'Figma, strong visual design sense, experience with SaaS dashboards.', active: true, createdAt: Date.now(), order: 3 },
+      { id: uid('job_'), title: 'Developer Relations & Content', type: 'Internship', location: 'Remote', tags: ['internship','remote'], description: 'Write for dev.to, write Twitter threads, make YouTube demos, engage with the Claude Code community.', requirements: 'Strong writing skills, active developer community presence.', active: true, createdAt: Date.now(), order: 4 },
+    ];
+    console.log('Seeded default jobs');
   }
   saveDB();
 }
@@ -1680,6 +1692,206 @@ const server = http.createServer(async (req, res) => {
         saveDB();
         return send(res, 200, { user: publicUser(target) });
       }
+    }
+
+    // ── Public: list active jobs (for careers.html) ──
+    if (method === 'GET' && url === '/v1/public/jobs') {
+      const jobs = (db.jobs || [])
+        .filter(j => j.active)
+        .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+      return send(res, 200, { jobs, total: jobs.length });
+    }
+
+    // ── CAREERS: public submit application ──
+    if (method === 'POST' && url === '/v1/careers/apply') {
+      const b = await getBody(req);
+      const { name, email, phone, role, coverLetter, resumeBase64, resumeName, resumeType } = b;
+      if (!name || !email || !role) return send(res, 400, { error: 'name, email, and role are required' });
+      if (!resumeBase64) return send(res, 400, { error: 'Resume is required' });
+      if (resumeBase64.length > 5 * 1024 * 1024 * 1.4) return send(res, 400, { error: 'Resume must be under 5MB' }); // base64 ~1.37x
+
+      // Upload resume to Supabase Storage
+      let resumeUrl = null;
+      try {
+        const fileExt = (resumeName || 'resume.pdf').split('.').pop().toLowerCase();
+        const fileName = `resumes/${Date.now()}_${uid()}.${fileExt}`;
+        const fileBuffer = Buffer.from(resumeBase64, 'base64');
+        const uploadRes = await fetch(
+          `${SUPABASE_URL}/storage/v1/object/careers/${fileName}`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY}`,
+              'apikey': SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY,
+              'Content-Type': resumeType || 'application/pdf',
+              'x-upsert': 'true',
+            },
+            body: fileBuffer,
+          }
+        );
+        if (uploadRes.ok) {
+          resumeUrl = `${SUPABASE_URL}/storage/v1/object/public/careers/${fileName}`;
+        } else {
+          const errText = await uploadRes.text().catch(()=>'');
+          console.error('Supabase storage upload failed:', uploadRes.status, errText);
+          // Fallback: store base64 inline (smaller resumes only)
+          resumeUrl = `data:${resumeType||'application/pdf'};base64,${resumeBase64.slice(0,100)}...`;
+        }
+      } catch(e) {
+        console.error('Resume upload error:', e.message);
+      }
+
+      const application = {
+        id: uid('app_'),
+        name: name.trim(),
+        email: email.toLowerCase().trim(),
+        phone: (phone||'').trim(),
+        role,
+        coverLetter: (coverLetter||'').trim().slice(0, 2000),
+        resumeUrl,
+        resumeName: resumeName || 'resume.pdf',
+        status: 'new',
+        appliedAt: Date.now(),
+        notes: '',
+        ip,
+      };
+      db.careers.push(application);
+      saveDB();
+
+      // Email admin
+      if (RESEND_API_KEY) {
+        fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: LAUNCH_EMAIL_FROM,
+            to: ['admin@waitjiai.in'],
+            subject: `💼 New application — ${role} — ${name}`,
+            html: `<p><b>New job application on WaitJI AI</b></p>
+              <table style="border-collapse:collapse;font-size:14px">
+                <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Name</td><td><b>${name}</b></td></tr>
+                <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Email</td><td>${email}</td></tr>
+                <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Phone</td><td>${phone||'—'}</td></tr>
+                <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Role</td><td><b>${role}</b></td></tr>
+                <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Cover letter</td><td>${(coverLetter||'—').slice(0,300)}</td></tr>
+                <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Resume</td><td><a href="${resumeUrl||'#'}">Download CV</a></td></tr>
+              </table>
+              <p style="margin-top:16px"><a href="https://waitjiai.in/admin.html" style="background:#2A7A4F;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600">View in Admin Panel →</a></p>`,
+          }),
+        }).catch(()=>{});
+      }
+
+      // Confirmation email to applicant
+      if (RESEND_API_KEY) {
+        fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: LAUNCH_EMAIL_FROM,
+            to: [email],
+            subject: `✅ Application received — ${role} at WaitJI AI`,
+            html: `<p>Hi ${name},</p>
+              <p>We've received your application for <b>${role}</b> at WaitJI AI. Our team will review it and get back to you within 3–5 business days.</p>
+              <p>In the meantime, feel free to install our VS Code extension and start earning while you code!</p>
+              <p>— Rajamuddin & the WaitJI AI Team<br>QivaLabs LLP, Udaipur</p>`,
+          }),
+        }).catch(()=>{});
+      }
+
+      return send(res, 201, { success: true, applicationId: application.id, message: 'Application received! We will get back to you within 3–5 business days.' });
+    }
+
+    // ── ADMIN: Jobs CRUD ──
+    if (method === 'GET' && url === '/v1/admin/jobs') {
+      const user = auth(req);
+      if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin access required' });
+      const jobs = (db.jobs || []).sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+      return send(res, 200, { jobs });
+    }
+    if (method === 'POST' && url === '/v1/admin/jobs') {
+      const user = auth(req);
+      if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin access required' });
+      const b = await getBody(req);
+      if (!b.title) return send(res, 400, { error: 'title is required' });
+      const job = {
+        id: uid('job_'),
+        title: b.title.trim(),
+        type: b.type || 'Full-time',
+        location: b.location || 'Remote',
+        tags: b.tags || [],
+        description: (b.description || '').trim(),
+        requirements: (b.requirements || '').trim(),
+        active: b.active !== false,
+        createdAt: Date.now(),
+        order: (db.jobs || []).length,
+      };
+      db.jobs = db.jobs || [];
+      db.jobs.push(job);
+      saveDB();
+      return send(res, 201, { job });
+    }
+    if (method === 'PATCH' && url.match(/^\/v1\/admin\/jobs\/[^/]+$/)) {
+      const user = auth(req);
+      if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin access required' });
+      const jobId = url.split('/').pop();
+      const job = (db.jobs || []).find(j => j.id === jobId);
+      if (!job) return send(res, 404, { error: 'Job not found' });
+      const b = await getBody(req);
+      if (b.title !== undefined) job.title = b.title.trim();
+      if (b.type !== undefined) job.type = b.type;
+      if (b.location !== undefined) job.location = b.location;
+      if (b.tags !== undefined) job.tags = b.tags;
+      if (b.description !== undefined) job.description = b.description.trim();
+      if (b.requirements !== undefined) job.requirements = b.requirements.trim();
+      if (b.active !== undefined) job.active = !!b.active;
+      if (b.order !== undefined) job.order = Number(b.order);
+      job.updatedAt = Date.now();
+      saveDB();
+      return send(res, 200, { job });
+    }
+    if (method === 'DELETE' && url.match(/^\/v1\/admin\/jobs\/[^/]+$/)) {
+      const user = auth(req);
+      if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin access required' });
+      const jobId = url.split('/').pop();
+      db.jobs = (db.jobs || []).filter(j => j.id !== jobId);
+      saveDB();
+      return send(res, 200, { deleted: true });
+    }
+
+    // ── CAREERS: admin list all applications ──
+    if (method === 'GET' && url.startsWith('/v1/admin/careers')) {
+      const user = auth(req);
+      if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin access required' });
+      const params = new URL('http://x'+url).searchParams;
+      const statusFilter = params.get('status');
+      let apps = [...(db.careers||[])].sort((a,b) => b.appliedAt - a.appliedAt);
+      if (statusFilter) apps = apps.filter(a => a.status === statusFilter);
+      return send(res, 200, {
+        applications: apps,
+        summary: {
+          total: db.careers.length,
+          new: db.careers.filter(a=>a.status==='new').length,
+          reviewing: db.careers.filter(a=>a.status==='reviewing').length,
+          shortlisted: db.careers.filter(a=>a.status==='shortlisted').length,
+          rejected: db.careers.filter(a=>a.status==='rejected').length,
+          hired: db.careers.filter(a=>a.status==='hired').length,
+        }
+      });
+    }
+
+    // ── CAREERS: admin update application status/notes ──
+    if (method === 'PATCH' && url.match(/^\/v1\/admin\/careers\/[^/]+$/)) {
+      const user = auth(req);
+      if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin access required' });
+      const appId = url.split('/').pop();
+      const app = (db.careers||[]).find(a => a.id === appId);
+      if (!app) return send(res, 404, { error: 'Application not found' });
+      const b = await getBody(req);
+      if (b.status) app.status = b.status;
+      if (b.notes !== undefined) app.notes = b.notes;
+      app.updatedAt = Date.now();
+      saveDB();
+      return send(res, 200, { application: app });
     }
 
     // ── public bidding stats (for homepage live bidding section) ──
