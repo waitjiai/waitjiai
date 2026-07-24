@@ -418,7 +418,7 @@ function renderAnalytics(){
   </div>
   <div class="stat-row">
     <div class="stat-box"><div class="stat-box-label">Click-through</div><div class="stat-box-val">${e.impressions?((e.clicks/e.impressions)*100).toFixed(2):'0.00'}%</div><div class="stat-box-sub">${e.clicks||0} clicks</div></div>
-    <div class="stat-box"><div class="stat-box-label">Current streak</div><div class="stat-box-val">0d</div><div class="stat-box-sub">longest 0d</div></div>
+    <div class="stat-box"><div class="stat-box-label">Current streak</div><div class="stat-box-val" id="streakVal">—</div><div class="stat-box-sub" id="streakSub">loading…</div></div>
     <div class="stat-box"><div class="stat-box-label">Total earned</div><div class="stat-box-val" style="color:var(--sage);">₹${e.totalEarnedRupees||'0.00'}</div><div class="stat-box-sub">₹${e.todayRupees||'0.00'}/active day</div></div>
   </div>
 
@@ -456,9 +456,28 @@ function renderAnalytics(){
   </div>`;
 
   setTimeout(()=>{
-    const labels=Array.from({length:14},(_,i)=>{const d=new Date;d.setDate(d.getDate()-13+i);return d.toLocaleDateString('en-IN',{month:'short',day:'numeric'});});
-    const ctx1=document.getElementById('earningsChart');
-    if(ctx1) new Chart(ctx1,{type:'bar',data:{labels,datasets:[{label:'Earnings (₹)',data:Array(14).fill(0).map((_,i)=>i===13?parseFloat(e.todayRupees||0):0),backgroundColor:'rgba(42,122,79,.7)',borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{grid:{color:'#F3F4F6'},ticks:{font:{size:10},callback:v=>'₹'+v}}}}});
+    // Fetch real daily earnings
+    fetch(API+'/v1/customer/daily',{headers:H}).then(r=>r.json()).then(d=>{
+      const daily=d.daily||[];
+      const labels=daily.map(x=>x.label);
+      const data=daily.map(x=>(x.earnedPaise||0)/100);
+      const ctx1=document.getElementById('earningsChart');
+      if(ctx1) new Chart(ctx1,{type:'bar',data:{labels,datasets:[{label:'Earnings (₹)',data,backgroundColor:'rgba(42,122,79,.7)',borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{grid:{color:'#F3F4F6'},ticks:{font:{size:10},callback:v=>'₹'+v.toFixed(2)}}}}});
+    }).catch(()=>{});
+    // Fetch real streak
+    fetch(API+'/v1/customer/streak',{headers:H}).then(r=>r.json()).then(d=>{
+      const sv=document.getElementById('streakVal'); if(sv) sv.textContent=d.currentStreak+'d';
+      const ss=document.getElementById('streakSub'); if(ss) ss.textContent='longest '+d.longestStreak+'d · '+d.activeDays+' active days';
+    }).catch(()=>{});
+    // Fetch real geo stats
+    fetch(API+'/v1/customer/geo',{headers:H}).then(r=>r.json()).then(d=>{
+      const ctx2=document.getElementById('surfaceChart');
+      if(ctx2){
+        const labels=Object.keys(d.surfaces||{terminal:1}).map(s=>s==='terminal'?'Terminal CLI':'VS Code');
+        const data=Object.values(d.surfaces||{terminal:1});
+        new Chart(ctx2,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:['#2A7A4F','#3B82F6'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:12}}}}});
+      }
+    }).catch(()=>{});
     const ctx2=document.getElementById('surfaceChart');
     if(ctx2) new Chart(ctx2,{type:'doughnut',data:{labels:['Terminal CLI','VS Code'],datasets:[{data:[activityData.length,0],backgroundColor:['#2A7A4F','#3B82F6'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:12}}}}});
     const heatmap=document.getElementById('heatmap');
@@ -662,7 +681,44 @@ function renderWithdraw(){
 
 // ── REFERRAL ──
 function renderReferral(){
-  const refLink=`https://waitjiai.in?ref=${me.id}`;
+  const refLink=`https://www.waitjiai.in?ref=${me.id}`;
+  document.getElementById('mainContent').innerHTML=`
+  <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:18px;">Referral program</h1>
+  <div style="max-width:560px;">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Your referral link</div></div>
+      <div class="panel-body">
+        <p style="font-size:13.5px;color:var(--muted);margin-bottom:14px;">Share your link and earn <strong>10% of your referrals' earnings</strong> — for life. No cap.</p>
+        <div class="copy-box"><div class="copy-box-val">${refLink}</div><button class="copy-btn" onclick="navigator.clipboard.writeText('${refLink}');toast('✓ Copied')">Copy</button></div>
+        <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="metric"><div class="metric-label">Referrals</div><div class="metric-val" id="refCount">—</div><div class="metric-sub">developers referred</div></div>
+          <div class="metric"><div class="metric-label">Referral earnings</div><div class="metric-val" id="refEarnings">—</div><div class="metric-sub">10% of their earnings</div></div>
+        </div>
+        <div id="refList" style="margin-top:14px;"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">How it works</div></div>
+      <div class="panel-body">
+        ${[['1','Share your referral link','Send it to fellow developers or post on Twitter/LinkedIn'],['2','They install and connect','When they sign up using your link and connect their extension'],['3','You earn 10% forever','For every impression they earn, you get 10% on top — automatically']].map(([n,t,d])=>`
+        <div style="display:flex;gap:14px;margin-bottom:14px;">
+          <div style="width:28px;height:28px;border-radius:50%;background:var(--sage);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${n}</div>
+          <div><div style="font-size:14px;font-weight:600;margin-bottom:2px;">${t}</div><div style="font-size:12.5px;color:var(--muted);">${d}</div></div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+  // Fetch real referral data
+  fetch(API+'/v1/customer/referrals',{headers:H}).then(r=>r.json()).then(d=>{
+    const rc=document.getElementById('refCount'); if(rc) rc.textContent=d.referrals||0;
+    const re=document.getElementById('refEarnings'); if(re) re.textContent='₹'+((d.referralEarningsPaise||0)/100).toFixed(2);
+    const rl=document.getElementById('refList');
+    if(rl&&d.referred?.length){
+      rl.innerHTML='<div style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Your referrals</div>'+
+      d.referred.map(r=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>${r.email}</span><span style="color:var(--muted2);font-size:11.5px;">${new Date(r.joinedAt).toLocaleDateString('en-IN')}</span></div>`).join('');
+    }
+  }).catch(()=>{});
+}
   document.getElementById('mainContent').innerHTML=`
   <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:18px;">Referral program</h1>
   <div style="max-width:560px;">
