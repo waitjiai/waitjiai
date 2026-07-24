@@ -370,7 +370,7 @@ function renderOverview(){
     const labels=Array.from({length:14},(_,i)=>{const d=new Date;d.setDate(d.getDate()-13+i);return d.toLocaleDateString('en-IN',{month:'short',day:'numeric'});});
     const daily=analytics.daily||[];
     const ctx=document.getElementById('spendChart');
-    if(ctx) new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Spend (₹)',data:Array(14).fill(0).map((_,i)=>i===13?parseFloat(analytics.totalSpentRupees||0)/14:0),backgroundColor:'rgba(42,122,79,.7)',borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{ticks:{callback:v=>'₹'+v,font:{size:10}}}}}});
+    if(ctx) new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Spend (₹)',data:Array(14).fill(0).map((_,i)=>i===13?parseFloat(analytics.totalSpentRupees||analytics.spentRupees||0)/14:0),backgroundColor:'rgba(42,122,79,.7)',borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{ticks:{callback:v=>'₹'+v,font:{size:10}}}}}});
     const spotCount=camps.filter(c=>c.adType==='spotlight').length;
     const streamCount=camps.filter(c=>c.adType==='stream').length;
     const ctx2=document.getElementById('mixChart');
