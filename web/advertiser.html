@@ -856,8 +856,7 @@ function renderAnalytics(){
     <div class="panel"><div class="ph"><div class="pt">Impressions — 14 days</div></div><div class="pb"><div class="chart-wrap"><canvas id="impChart"></canvas></div></div></div>
     <div class="panel"><div class="ph"><div class="pt">Geo breakdown</div></div><div class="pb">
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Developer reach by region</div>
-      ${INDIA_STATES.slice(0,6).map((s,i)=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:9px;"><div style="font-size:12.5px;width:110px;">${s.name}</div><div style="flex:1;height:5px;background:var(--cream2);border-radius:100px;overflow:hidden;"><div style="height:100%;background:var(--sage);width:${Math.random()*60+10}%;border-radius:100px;"></div></div><div style="font-family:var(--mono);font-size:11px;min-width:40px;text-align:right;color:var(--muted2);">${fmt(Math.floor(Math.random()*100))}</div></div>`).join('')}
-      <div style="font-size:11px;color:var(--muted2);margin-top:8px;">Live geo data available with geo-targeted campaigns</div>
+      <div id="geoBreakdown">Loading geo data…</div>
     </div></div>
   </div>
   <div class="panel">
@@ -882,66 +881,31 @@ function renderAnalytics(){
     const ctx=document.getElementById('impChart');
     if(ctx){const _ac=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'Impressions',data:Array(14).fill(0).map((_,i)=>i===13?a.totalImpressions||0:0),borderColor:'#2A7A4F',backgroundColor:'rgba(42,122,79,.1)',fill:true,tension:.4,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{grid:{color:'#F3F4F6'},ticks:{font:{size:10}}}}}});(window._advCharts=window._advCharts||[]).push(_ac);}
   },80);
-}
 
-// ── PROFILE ──
-function renderProfile(){
-  document.getElementById('mainContent').innerHTML=`
-  <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:18px;">Company profile</h1>
-  <div style="max-width:560px;">
-    <div class="panel"><div class="ph"><div class="pt">Company details</div></div>
-    <div class="pb">
-      <div class="field"><label>Company name</label><input id="compName" value="${esc(me.company||'')}"></div>
-      <div class="field"><label>Contact name</label><input id="contactName" value="${esc(me.name||'')}"></div>
-      <div class="field"><label>Email</label><input value="${esc(me.email)}" disabled style="opacity:.6;"></div>
-      <div class="field"><label>Website</label><input id="website" value="${esc(me.website||'')}" placeholder="https://yourcompany.com"></div>
-      <div class="field"><label>Industry</label>
-        <select id="industry">
-          ${['SaaS / Software','EdTech','FinTech','DevTools','Gaming','E-commerce','Agency','Other'].map(i=>`<option ${me.industry===i?'selected':''}>${i}</option>`).join('')}
-        </select>
-      </div>
-      <button class="btn btn-p" onclick="saveProfile()">Save changes</button>
-    </div></div>
-  </div>`;
-}
-async function saveProfile(){
-  const r=await fetch(API+'/v1/advertiser/profile',{method:'PATCH',headers:H,body:JSON.stringify({company:document.getElementById('compName')?.value,name:document.getElementById('contactName')?.value,website:document.getElementById('website')?.value,industry:document.getElementById('industry')?.value})});
-  toast(r.ok?'✓ Profile saved':'⚠️ Failed'); if(r.ok) await load();
-}
-
-// ── BILLING ──
-function renderBilling(){
-  const totalSpent=camps.reduce((s,c)=>s+(c.spentPaise||0),0);
-  document.getElementById('mainContent').innerHTML=`
-  <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:18px;">Billing</h1>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-    <div>
-      <div class="panel"><div class="ph"><div class="pt">Billing summary</div></div>
-      <div class="pb">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-          <div class="metric"><div class="ml">Total spent</div><div class="mv" style="color:var(--sage);">${fmtRs(totalSpent)}</div></div>
-          <div class="metric"><div class="ml">Campaigns</div><div class="mv">${camps.length}</div></div>
+  // Load real geo breakdown from backend
+  fetch(API+'/v1/advertiser/geo',{headers:H}).then(r=>r.json()).then(d=>{
+    const geoEl=document.getElementById('geoBreakdown');
+    if(!geoEl) return;
+    const geo=d.geo||{};
+    const total=d.total||1;
+    const countryNames={'IN':'India','US':'USA','GB':'UK','SG':'Singapore','AU':'Australia','CA':'Canada','DE':'Germany','NL':'Netherlands','AE':'UAE','JP':'Japan'};
+    const sorted=Object.entries(geo).sort((a,b)=>b[1]-a[1]);
+    if(!sorted.length){
+      geoEl.innerHTML='<div style="font-size:12px;color:var(--muted2);">No impressions yet — geo data appears as campaigns run</div>';
+      return;
+    }
+    geoEl.innerHTML=sorted.map(([code,count])=>{
+      const pct=Math.round(count/total*100);
+      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:9px;">
+        <div style="font-size:12.5px;width:110px;">${countryNames[code]||code}</div>
+        <div style="flex:1;height:5px;background:var(--cream2);border-radius:100px;overflow:hidden;">
+          <div style="height:100%;background:var(--sage);width:${pct}%;border-radius:100px;"></div>
         </div>
-        <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Payment method</div>
-        <div style="background:var(--cream);border-radius:8px;padding:12px 14px;font-size:13px;">Razorpay — UPI, Cards, Netbanking accepted</div>
-        <div style="font-size:12px;color:var(--muted2);margin-top:8px;">All payments are processed securely via Razorpay. GSTIN invoice available on request.</div>
-      </div></div>
-    </div>
-    <div>
-      <div class="panel"><div class="ph"><div class="pt">Transaction history</div></div>
-      <div style="padding:0 18px;">
-        ${camps.filter(c=>c.paidAt).map(c=>`
-        <div class="wd-row" style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;">
-          <div><div style="font-weight:600;">${esc(c.campaignName||c.adText.slice(0,30))}</div><div style="font-size:11.5px;color:var(--muted2);">${c.paidAt?new Date(c.paidAt).toLocaleDateString('en-IN'):''} · ${c.adType==='spotlight'?'Spotlight':'Stream'}</div></div>
-          <div style="font-family:var(--mono);font-weight:700;color:var(--sage);">${fmtRs(c.paidAmountPaise||c.budgetPaise)}</div>
-        </div>`).join('')||'<div style="text-align:center;padding:24px;color:var(--muted2);">No transactions yet</div>'}
-      </div></div>
-    </div>
-  </div>`;
+        <div style="font-family:var(--mono);font-size:11px;min-width:40px;text-align:right;color:var(--muted2);">${count} imps</div>
+      </div>`;
+    }).join('')+'<div style="font-size:11px;color:var(--muted2);margin-top:8px;">Based on '+total+' real impressions</div>';
+  }).catch(()=>{
+    const geoEl=document.getElementById('geoBreakdown');
+    if(geoEl) geoEl.innerHTML='<div style="font-size:12px;color:var(--muted2);">Could not load geo data</div>';
+  });
 }
-
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelectorAll('.modal-bg').forEach(m=>m.remove());}});
-load();
-</script>
-</body>
-</html>
