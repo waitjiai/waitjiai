@@ -659,7 +659,7 @@ const server = http.createServer(async (req, res) => {
         const check = validateImpression(userId, ip);
         if (!check.valid) return send(res, 200, { success: false, reason: check.reason, billed: false });
         const earnPaise = Math.floor(HOUSE_AD_RATE_PAISE / 1000); // full house rate goes to the developer
-        db.impressions.push({ id: uid('i_'), userId, campaignId: houseAd.id, earnedPaise: earnPaise, costPaise: 0, isHouseAd: true, ts: Date.now(), ip, clicked: false });
+        db.impressions.push({ id: uid('i_'), userId, campaignId: houseAd.id, earnedPaise: earnPaise, costPaise: 0, isHouseAd: true, ts: Date.now(), ip, clicked: false, country: b.country||'IN', surface: b.surface||'terminal' });
         saveDB();
         return send(res, 200, { success: true, earnedPaise: earnPaise, billed: true, isHouseAd: true });
       }
@@ -678,7 +678,7 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { success: false, reason: 'budget_exhausted', billed: false });
       }
       c.spentPaise += advCostPaise;
-      db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, costPaise: advCostPaise, isHouseAd: false, ts: Date.now(), ip, clicked: false });
+      db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, costPaise: advCostPaise, isHouseAd: false, ts: Date.now(), ip, clicked: false, country: b.country||'IN', surface: b.surface||'terminal' });
       saveDB();
       return send(res, 200, { success: true, earnedPaise: earnPaise, billed: true });
     }
@@ -1231,30 +1231,51 @@ const server = http.createServer(async (req, res) => {
         const users = Object.values(db.users);
         const advertisers = users.filter(u => u.role === 'advertiser');
         const customers = users.filter(u => u.role === 'customer');
-        const totalSpent = Object.values(db.campaigns).reduce((s, c) => s + c.spentPaise, 0);
+        const totalSpent = Object.values(db.campaigns).reduce((s, c) => s + (c.spentPaise||0), 0);
         const validClicks = db.clicks.filter(c => c.valid).length;
         const blockedClicks = db.clicks.filter(c => !c.valid).length;
         const sevenDaysAgo = Date.now() - 7 * 864e5;
+        const dayAgo = Date.now() - 864e5;
         const activeUsers = users.filter(u => u.lastActiveAt && u.lastActiveAt > sevenDaysAgo && u.role !== 'admin').length;
-        const totalRegistered = advertisers.length + customers.length;
+        const totalEarnedPaise = db.impressions.reduce((s, i) => s + (i.earnedPaise||0), 0);
+        const platformRevPaise = db.impressions.reduce((s, i) => s + (i.costPaise||0) - (i.earnedPaise||0), 0);
+        const pendingWds = (db.withdrawalRequests||[]).filter(w => w.status==='pending');
+        const spotImps = db.impressions.filter(i => db.campaigns[i.campaignId]?.adType==='spotlight').length;
+        const streamImps = db.impressions.filter(i => db.campaigns[i.campaignId]?.adType==='stream').length;
         const extStats = await getExtensionStats();
+        const fraudFlagsToday = db.fraudFlags.filter(f => f.ts > dayAgo).length;
         return send(res, 200, {
+          summary: {
+            totalImpressions: db.impressions.length,
+            totalClicks: validClicks,
+            blockedClicks,
+            totalEarnedPaise,
+            platformRevenuePaise: platformRevPaise,
+            totalAdvertisers: advertisers.length,
+            activeAdvertisers: advertisers.filter(u => Object.values(db.campaigns).some(c => c.advertiserId===u.id && c.status==='active')).length,
+            totalEarners: customers.length,
+            activeEarners: customers.filter(u => u.lastActiveAt && u.lastActiveAt > dayAgo).length,
+            activeCampaigns: Object.values(db.campaigns).filter(c => c.status==='active').length,
+            pendingReviewCampaigns: Object.values(db.campaigns).filter(c => c.status==='pending_review').length,
+            pendingWithdrawals: pendingWds.length,
+            pendingWithdrawalPaise: pendingWds.reduce((s,w) => s+(w.amountPaise||0), 0),
+            fraudFlagsToday,
+            fraudFlagsTotal: db.fraudFlags.length,
+            uniqueDevelopers: new Set(db.impressions.map(i=>i.userId)).size,
+            spotlightImpressions: spotImps,
+            streamImpressions: streamImps,
+            extensionInstalls: extStats.installCount,
+          },
+          // backward compat
           advertisers: advertisers.length,
           customers: customers.length,
-          totalRegisteredUsers: totalRegistered,
-          activeUsers7d: activeUsers,
-          extensionInstalls: extStats.installCount, // null if marketplace fetch failed — never fabricated
-          extensionStatsError: extStats.error || null,
           campaigns: Object.keys(db.campaigns).length,
-          activeCampaigns: Object.values(db.campaigns).filter(c => c.status === 'active').length,
-          pendingPaymentCampaigns: Object.values(db.campaigns).filter(c => c.status === 'pending_payment').length,
-          pendingCampaigns: Object.values(db.campaigns).filter(c => c.status === 'pending_review').length,
+          activeCampaigns: Object.values(db.campaigns).filter(c => c.status==='active').length,
           impressions: db.impressions.length,
           validClicks, blockedClicks,
           fraudFlags: db.fraudFlags.length,
-          bannedUsers: users.filter(u => u.banned).length,
-          platformRevenueRupees: (totalSpent / 2 / 100).toFixed(2),
-          payoutsOwedRupees: (db.impressions.reduce((s, i) => s + i.earnedPaise, 0) / 100).toFixed(2),
+          platformRevenueRupees: (platformRevPaise/100).toFixed(2),
+          payoutsOwedRupees: (totalEarnedPaise/100).toFixed(2),
         });
       }
 
@@ -1432,7 +1453,19 @@ const server = http.createServer(async (req, res) => {
       if (method === 'GET' && url === '/v1/admin/advertisers') {
         const advs = Object.values(db.users).filter(u => u.role === 'advertiser').map(u => {
           const camps = Object.values(db.campaigns).filter(c => c.advertiserId === u.id);
-          return { ...publicUser(u), campaigns: camps.length, totalSpentRupees: (camps.reduce((s, c) => s + c.spentPaise, 0) / 100).toFixed(2) };
+          const totalImps = camps.reduce((s,c) => s + db.impressions.filter(i => i.campaignId===c.id).length, 0);
+          const totalClicks = camps.reduce((s,c) => s + db.clicks.filter(cl => cl.campaignId===c.id && cl.valid).length, 0);
+          return {
+            ...publicUser(u),
+            company: u.company, industry: u.industry, website: u.website,
+            totalCampaigns: camps.length,
+            activeCampaigns: camps.filter(c=>c.status==='active').length,
+            totalSpentPaise: camps.reduce((s,c) => s+(c.spentPaise||0), 0),
+            totalImpressions: totalImps,
+            totalClicks,
+            ctr: totalImps ? (totalClicks/totalImps*100).toFixed(2) : '0.00',
+            campaigns: camps.map(c=>({...c, impressions: db.impressions.filter(i=>i.campaignId===c.id).length, clicks: db.clicks.filter(cl=>cl.campaignId===c.id&&cl.valid).length})),
+          };
         });
         return send(res, 200, { advertisers: advs });
       }
@@ -1482,6 +1515,144 @@ const server = http.createServer(async (req, res) => {
           sessions,
           recentImpressions,
         });
+      }
+
+      // ── Admin: send email to any audience ──────────────────────────────
+      if (method === 'POST' && url === '/v1/admin/send-email') {
+        if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin only' });
+        const b = await getBody(req);
+        const { subject, body: emailBody, audience, singleEmail } = b;
+        if (!subject || !emailBody) return send(res, 400, { error: 'subject and body required' });
+        if (!RESEND_API_KEY) return send(res, 503, { error: 'Resend not configured' });
+
+        let recipients = [];
+        if (audience === 'single' && singleEmail) {
+          recipients = [singleEmail];
+        } else if (audience === 'earners') {
+          recipients = Object.values(db.users).filter(u => u.role === 'customer' && !u.banned).map(u => u.email);
+        } else if (audience === 'advertisers') {
+          recipients = Object.values(db.users).filter(u => u.role === 'advertiser' && !u.banned).map(u => u.email);
+        } else if (audience === 'inactive-earners') {
+          const cutoff = Date.now() - 14 * 864e5;
+          recipients = Object.values(db.users).filter(u => u.role === 'customer' && !u.banned && (!u.lastActiveAt || u.lastActiveAt < cutoff)).map(u => u.email);
+        } else if (audience === 'waitlist-not-joined') {
+          const userEmails = new Set(Object.values(db.users).map(u => u.email.toLowerCase()));
+          recipients = (db.waitlist || []).filter(e => !userEmails.has(e.email.toLowerCase())).map(e => e.email);
+        } else if (audience === 'waitlist-all') {
+          recipients = (db.waitlist || []).map(e => e.email);
+        }
+
+        if (!recipients.length) return send(res, 400, { error: 'No recipients found for this audience' });
+
+        // Send in batches of 10 (Resend free tier limit)
+        let sent = 0;
+        const batches = [];
+        for (let i = 0; i < recipients.length; i += 10) batches.push(recipients.slice(i, i + 10));
+        for (const batch of batches) {
+          try {
+            await Promise.all(batch.map(email =>
+              fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  from: LAUNCH_EMAIL_FROM,
+                  to: [email],
+                  subject,
+                  html: emailBody + `<hr style="margin-top:32px;border:none;border-top:1px solid #eee;"><p style="font-size:11px;color:#999;">WaitJI AI · QivaLabs LLP · Udaipur, India · <a href="https://waitjiai.in">waitjiai.in</a></p>`,
+                }),
+              }).then(r => { if (r.ok) sent++; })
+            ));
+          } catch(e) { /* continue with next batch */ }
+        }
+        return send(res, 200, { success: true, sent, attempted: recipients.length });
+      }
+
+      // ── Admin: earner full ad log with geo ─────────────────────────────
+      if (method === 'GET' && url.match(/^\/v1\/admin\/earners\/[^/]+\/adlog$/)) {
+        if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin only' });
+        const uidParam = url.split('/')[4];
+        const target = db.users[uidParam];
+        if (!target) return send(res, 404, { error: 'User not found' });
+        const imps = db.impressions.filter(i => i.userId === uidParam).sort((a, b) => b.ts - a.ts);
+        const clks = db.clicks.filter(c => c.userId === uidParam).sort((a, b) => b.ts - a.ts);
+        const clickMap = {};
+        clks.forEach(c => { clickMap[c.impressionId || c.campaignId + '_' + c.ts] = c; });
+        const logs = imps.slice(0, 200).map(i => {
+          const camp = db.campaigns[i.campaignId];
+          return {
+            id: i.id,
+            ts: i.ts,
+            date: new Date(i.ts).toLocaleString('en-IN'),
+            adType: camp?.adType || i.adType || 'spotlight',
+            adText: camp?.adText || i.adText || '—',
+            advertiser: camp?.advertiser || (i.isHouseAd ? 'WaitJI (house ad)' : '—'),
+            campaignId: i.campaignId,
+            earnedPaise: i.earnedPaise || 0,
+            isHouseAd: !!i.isHouseAd,
+            country: i.country || 'IN',
+            city: i.city || '—',
+            surface: i.surface || 'terminal',
+            clicked: !!i.clicked,
+            valid: i.valid !== false,
+          };
+        });
+        return send(res, 200, {
+          user: publicUser(target),
+          logs,
+          summary: {
+            totalImpressions: imps.length,
+            totalClicks: clks.filter(c => c.valid).length,
+            totalEarnedPaise: imps.reduce((s, i) => s + (i.earnedPaise || 0), 0),
+            spotlight: imps.filter(i => db.campaigns[i.campaignId]?.adType === 'spotlight').length,
+            stream: imps.filter(i => db.campaigns[i.campaignId]?.adType === 'stream').length,
+            houseAds: imps.filter(i => i.isHouseAd).length,
+            countries: [...new Set(imps.map(i => i.country || 'IN'))],
+          },
+        });
+      }
+
+      // ── Admin: advertiser full profile ─────────────────────────────────
+      if (method === 'GET' && url.match(/^\/v1\/admin\/advertisers\/[^/]+$/)) {
+        if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin only' });
+        const advId = url.split('/').pop();
+        const adv = db.users[advId];
+        if (!adv || adv.role !== 'advertiser') return send(res, 404, { error: 'Advertiser not found' });
+        const camps = Object.values(db.campaigns).filter(c => c.advertiserId === advId);
+        const totalImps = camps.reduce((s, c) => {
+          return s + db.impressions.filter(i => i.campaignId === c.id).length;
+        }, 0);
+        const totalClicks = camps.reduce((s, c) => {
+          return s + db.clicks.filter(cl => cl.campaignId === c.id && cl.valid).length;
+        }, 0);
+        return send(res, 200, {
+          advertiser: { ...publicUser(adv), company: adv.company, industry: adv.industry, website: adv.website },
+          campaigns: camps.map(c => ({
+            ...c,
+            impressions: db.impressions.filter(i => i.campaignId === c.id).length,
+            clicks: db.clicks.filter(cl => cl.campaignId === c.id && cl.valid).length,
+          })),
+          summary: {
+            totalCampaigns: camps.length,
+            activeCampaigns: camps.filter(c => c.status === 'active').length,
+            totalSpentPaise: camps.reduce((s, c) => s + (c.spentPaise || 0), 0),
+            totalBudgetPaise: camps.reduce((s, c) => s + (c.budgetPaise || 0), 0),
+            totalImpressions: totalImps,
+            totalClicks,
+            ctr: totalImps ? (totalClicks / totalImps * 100).toFixed(2) : '0.00',
+          },
+        });
+      }
+
+      // ── Admin: ban/unban user ──────────────────────────────────────────
+      if (method === 'PATCH' && url.match(/^\/v1\/admin\/users\/[^/]+$/)) {
+        if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin only' });
+        const uid2 = url.split('/').pop();
+        const target = db.users[uid2];
+        if (!target) return send(res, 404, { error: 'User not found' });
+        const b = await getBody(req);
+        if (b.banned !== undefined) target.banned = !!b.banned;
+        saveDB();
+        return send(res, 200, { user: publicUser(target) });
       }
 
       // all campaigns
