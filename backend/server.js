@@ -522,7 +522,7 @@ const server = http.createServer(async (req, res) => {
         .map(u => {
           const imps = db.impressions.filter(i => i.userId === u.id && !i.isHouseAd);
           const clks = db.clicks.filter(c => c.userId === u.id && c.valid);
-          const totalPaise = imps.reduce((s, i) => s + i.earnedPaise, 0);
+          const totalPaise = imps.reduce((s, i) => s + (i.earnedPaise||0), 0);
           return { totalPaise, imps: imps.length, clicks: clks.length };
         })
         .filter(e => e.totalPaise > 0)
@@ -969,14 +969,14 @@ const server = http.createServer(async (req, res) => {
       if (method === 'GET' && url === '/v1/customer/earnings') {
         const imps = db.impressions.filter(i => i.userId === user.id);
         const clk = db.clicks.filter(c => c.userId === user.id && c.valid);
-        const totalImpPaise = imps.reduce((s, i) => s + i.earnedPaise, 0);
+        const totalImpPaise = imps.reduce((s, i) => s + (i.earnedPaise||0), 0);
         const totalClickPaise = clk.length * 100; // simplified
         const paidOut = db.payouts.filter(p => p.userId === user.id && p.status === 'paid')
           .reduce((s, p) => s + p.amountPaise, 0);
         const total = totalImpPaise + totalClickPaise;
         // today
         const dayCut = Date.now() - 864e5;
-        const todayPaise = imps.filter(i => i.ts > dayCut).reduce((s, i) => s + i.earnedPaise, 0);
+        const todayPaise = imps.filter(i => i.ts > dayCut).reduce((s, i) => s + (i.earnedPaise||0), 0);
         return send(res, 200, {
           totalEarnedRupees: (total / 100).toFixed(2),
           todayRupees: (todayPaise / 100).toFixed(2),
@@ -1126,7 +1126,7 @@ const server = http.createServer(async (req, res) => {
         if (!user.upiId && !user.bankAccount) return send(res, 400, { error: 'Add a verified UPI ID or bank account before withdrawing.' });
 
         const imps = db.impressions.filter(i => i.userId === user.id);
-        const total = imps.reduce((s, i) => s + i.earnedPaise, 0);
+        const total = imps.reduce((s, i) => s + (i.earnedPaise||0), 0);
         const alreadyPaidOrPending = db.withdrawalRequests
           .filter(r => r.userId === user.id && ['pending','approved','paid'].includes(r.status))
           .reduce((s, r) => s + r.amountPaise, 0);
@@ -1507,7 +1507,7 @@ const server = http.createServer(async (req, res) => {
           return {
             ...publicUser(u),
             impressions: imps.length,
-            earnedRupees: (imps.reduce((s, i) => s + i.earnedPaise, 0) / 100).toFixed(2),
+            earnedRupees: (imps.reduce((s, i) => s + (i.earnedPaise||0), 0) / 100).toFixed(2),
             fraudFlags: flags.length,
             sessions7d: sessions7d.length,
             totalSessionMin7d,
@@ -1534,7 +1534,7 @@ const server = http.createServer(async (req, res) => {
           user: publicUser(target),
           totalImpressions: imps.length,
           totalClicks: clk.length,
-          totalEarnedRupees: (imps.reduce((s, i) => s + i.earnedPaise, 0) / 100).toFixed(2),
+          totalEarnedRupees: (imps.reduce((s, i) => s + (i.earnedPaise||0), 0) / 100).toFixed(2),
           sessions,
           recentImpressions,
         });
@@ -2147,7 +2147,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (method === 'GET' && url === '/v1/stats') {
-      const totalEarned = db.impressions.reduce((s, i) => s + i.earnedPaise, 0);
+      const totalEarned = db.impressions.reduce((s, i) => s + (i.earnedPaise||0), 0);
       return send(res, 200, {
         totalImpressions: db.impressions.length,
         activeCampaigns: Object.values(db.campaigns).filter(c => c.status === 'active').length,
