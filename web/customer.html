@@ -262,7 +262,12 @@ function renderDashboard(){
   const hourlyRate=hoursActive>0?(pending/hoursActive).toFixed(2):'—';
   const hasPending=withdrawals.some(w=>w.status==='pending');
 
-  document.getElementById('mainContent').innerHTML=`
+  const healthBadge = health.status==='active'
+      ? '<span style="background:#DCFCE7;color:#047857;font-size:11px;padding:3px 10px;border-radius:100px;font-weight:600;">● Extension active</span>'
+      : health.status==='idle'
+      ? '<span style="background:#FEF9EC;color:#C9901A;font-size:11px;padding:3px 10px;border-radius:100px;font-weight:600;">◌ Idle — open Claude Code</span>'
+      : '<span style="background:#FEE2E2;color:#DC2626;font-size:11px;padding:3px 10px;border-radius:100px;font-weight:600;">✗ Not connected</span>';
+    document.getElementById('mainContent').innerHTML=`
   <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:4px;">Welcome back${me.name?', '+esc(me.name):''} 👋</h1>
   <p style="font-size:13.5px;color:var(--muted);margin-bottom:22px;">Your earnings dashboard <span class="live-tag"><span class="live-dot"></span>live</span></p>
 
