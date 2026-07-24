@@ -510,6 +510,10 @@ function renderCreate(){
             </div>
           </div>
           <div id="budgetCalc" style="background:var(--cream2);border-radius:8px;padding:12px 14px;font-size:13px;"></div>
+          <div id="reachEstimate" style="background:var(--sage-soft);border:1px solid #A7F3C8;border-radius:8px;padding:12px 14px;font-size:13px;margin-top:10px;display:none;">
+            <div style="font-weight:600;margin-bottom:4px;">Estimated reach</div>
+            <div id="reachData" style="color:var(--sage-d);"></div>
+          </div>
           <div class="field" style="margin-top:14px;">
             <label>Discount code (optional)</label>
             <div style="display:flex;gap:8px;"><input id="discountCode" placeholder="Enter promo code" style="flex:1;"><button class="btn btn-o" style="white-space:nowrap;" onclick="validateDiscount()">Apply</button></div>
@@ -633,6 +637,20 @@ function updateBudgetCalc(){
     <div><div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Dev pool (65%)</div><div style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--sage);">${sym}${devShareLocal.toFixed(0)}</div></div>
     <div><div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">In INR</div><div style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--muted);">₹${Math.round(budget*(curPricing?.rate||1)).toLocaleString('en-IN')}</div></div>
   </div>`;
+  // Reach estimator — debounced API call
+  clearTimeout(window._reachTimer);
+  window._reachTimer = setTimeout(async ()=>{
+    try{
+      const r=await fetch(API+'/v1/advertiser/reach-estimate',{method:'POST',headers:H,body:JSON.stringify({geo:{countries:['IN']},adType})});
+      const d=await r.json();
+      const re=document.getElementById('reachEstimate');
+      const rd=document.getElementById('reachData');
+      if(re&&rd&&d.estimatedDailyReach){
+        rd.innerHTML=`~<b>${d.estimatedDailyReach}</b> active developers reachable · ~<b>${d.estimatedDailyImpressions}</b> impressions/day at current competition`;
+        re.style.display='block';
+      }
+    }catch(e){}
+  },800);
 }
 
 let appliedDiscount=null;
@@ -748,6 +766,8 @@ function renderCampaigns(){
         ${c.status==='pending_payment'?`<button class="btn btn-p" onclick="payForCampaign('${c.id}',${c.budgetPaise})">Complete payment →</button>`:''}
         ${c.status==='active'?`<button class="btn btn-o" onclick="toggleCamp('${c.id}','paused')">Pause</button>`:''}
         ${c.status==='paused'?`<button class="btn btn-p" onclick="toggleCamp('${c.id}','active')">Resume</button>`:''}
+        <button class="btn btn-o" onclick="duplicateCamp('${c.id}')" style="font-size:12px;">⧉ Duplicate</button>
+        <button class="btn btn-o" onclick="downloadInvoice('${c.id}')" style="font-size:12px;">🧾 Invoice</button>
         <button class="btn btn-o" onclick="viewStats('${c.id}')">View stats</button>
       </div>
     </div>`;
@@ -759,6 +779,29 @@ async function toggleCamp(id,status){
   const d=await r.json();
   if(r.ok){toast('✓ Campaign '+status);await load();goTo('campaigns');}
   else toast('⚠️ '+(d.error||'Failed'));
+}
+
+async function duplicateCamp(id){
+  const r=await fetch(API+'/v1/advertiser/campaigns/'+id+'/duplicate',{method:'POST',headers:H});
+  const d=await r.json();
+  if(r.ok){toast('✓ Campaign duplicated as draft');await load();goTo('campaigns');}
+  else toast('⚠️ '+(d.error||'Failed'));
+}
+
+async function downloadInvoice(id){
+  const r=await fetch(API+'/v1/advertiser/campaigns/'+id+'/invoice',{headers:H});
+  const d=await r.json();
+  if(!r.ok){toast('⚠️ '+(d.error||'Invoice not available'));return;}
+  const inv=d.invoice;
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Invoice ${inv.invoiceNo}</title><style>body{font-family:Arial,sans-serif;max-width:700px;margin:40px auto;color:#111;font-size:14px;}h1{font-size:24px;margin-bottom:4px;}table{width:100%;border-collapse:collapse;margin:16px 0;}th,td{text-align:left;padding:8px 12px;border:1px solid #ddd;}th{background:#f5f5f5;}.total{font-weight:700;font-size:16px;}.footer{margin-top:32px;font-size:12px;color:#666;}</style></head><body>
+  <div style="display:flex;justify-content:space-between;margin-bottom:24px;"><div><h1>Tax Invoice</h1><div style="color:#666;">Invoice No: <b>${inv.invoiceNo}</b></div><div style="color:#666;">Date: ${inv.date}</div></div><div style="text-align:right;"><div><b>${inv.seller.name}</b></div><div>${inv.seller.address}</div></div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:20px;"><div><div style="font-weight:700;margin-bottom:6px;">Billed to</div><div>${inv.buyer.name}</div><div>${inv.buyer.email}</div><div>GSTIN: ${inv.buyer.gstin||'N/A'}</div></div></div>
+  <table><thead><tr><th>Description</th><th>Amount</th></tr></thead><tbody><tr><td>${inv.items?.[0]?.desc||'Ad campaign'}</td><td>₹${inv.subtotal?.toFixed(2)}</td></tr></tbody></table>
+  <div style="text-align:right;"><div>Subtotal: ₹${inv.subtotal?.toFixed(2)}</div><div>CGST 9%: ₹${inv.cgst?.toFixed(2)}</div><div>SGST 9%: ₹${inv.sgst?.toFixed(2)}</div><div class="total">Total: ₹${inv.total?.toFixed(2)}</div></div>
+  <div class="footer"><p>QivaLabs LLP · Udaipur, Rajasthan · LLPIN ACV-6746 · DPIIT DIPP247112</p><p>This is a computer-generated invoice.</p></div></body></html>`;
+  const blob=new Blob([html],{type:'text/html'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='invoice-'+inv.invoiceNo+'.html';a.click();
+  toast('✓ Invoice downloaded');
 }
 
 async function viewStats(id){
