@@ -1629,6 +1629,7 @@ const server = http.createServer(async (req, res) => {
 
         // Record in payouts ledger
         db.payouts.push({ id: uid('p_'), userId: wr.userId, amountPaise: wr.amountPaise, status: autoPaid ? 'paid' : 'approved', ts: Date.now(), withdrawalRequestId: wr.id, cashfreeTransferId });
+        auditLog(user.id, autoPaid ? 'withdrawal_paid' : 'withdrawal_approved', { wrId: wr.id, userId: wr.userId, amountPaise: wr.amountPaise });
         saveDB();
 
         // Email earner
@@ -2150,6 +2151,7 @@ const server = http.createServer(async (req, res) => {
         if (b.status === 'active') {
           if (c.status !== 'pending_review') return send(res, 400, { error: `Cannot activate — campaign status is "${c.status}", payment not yet verified.` });
           c.status = 'active';
+          auditLog(user.id, 'campaign_approved', { campId: cid, adText: c.adText?.slice(0,40), advertiserId: c.advertiserId });
         } else if (b.status === 'rejected') {
           if (c.paymentId && !c.refunded) {
             try {
@@ -2162,8 +2164,10 @@ const server = http.createServer(async (req, res) => {
           }
           c.status = 'rejected';
           c.rejectReason = b.reason || null;
+          auditLog(user.id, 'campaign_rejected', { campId: cid, reason: b.reason, advertiserId: c.advertiserId });
         } else if (b.status === 'paused' && c.status === 'active') {
           c.status = 'paused';
+          auditLog(user.id, 'campaign_paused', { campId: cid, advertiserId: c.advertiserId });
         }
         saveDB();
         return send(res, 200, { campaign: c });
@@ -2319,8 +2323,12 @@ const server = http.createServer(async (req, res) => {
           target.banned = b.banned;
           target.banReason = b.banned ? (b.reason || 'Not specified') : null;
           target.bannedAt = b.banned ? Date.now() : null;
+          auditLog(user.id, b.banned ? 'user_ban' : 'user_unban', { targetId: uidToBan, email: target.email, reason: b.reason });
         }
-        if (b.role === 'advertiser' || b.role === 'customer') target.role = b.role;
+        if (b.role === 'advertiser' || b.role === 'customer') {
+          auditLog(user.id, 'user_role_change', { targetId: uidToBan, email: target.email, newRole: b.role });
+          target.role = b.role;
+        }
         saveDB();
         return send(res, 200, { user: publicUser(target) });
       }
