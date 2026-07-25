@@ -1945,8 +1945,11 @@ const server = http.createServer(async (req, res) => {
 
       // all campaigns
       if (method === 'GET' && url === '/v1/admin/campaigns') {
+        const allCamps = Object.values(db.campaigns).sort((a,b)=>b.createdAt-a.createdAt);
+        return send(res, 200, { campaigns: allCamps });
+      }
 
-      // ── Advertiser: duplicate campaign ──────────────────────────────
+
       if (method === 'POST' && url.match(/^\/v1\/advertiser\/campaigns\/[^/]+\/duplicate$/)) {
         const campId = url.split('/')[4];
         const camp = db.campaigns[campId];
@@ -2321,7 +2324,6 @@ const server = http.createServer(async (req, res) => {
         saveDB();
         return send(res, 200, { user: publicUser(target) });
       }
-    }
 
     // ── Public: list active jobs (for careers.html) ──
     if (method === 'GET' && url === '/v1/public/jobs') {
