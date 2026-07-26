@@ -194,6 +194,24 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
 .footer-logo{font-family:var(--mono);color:rgba(255,255,255,.7);font-size:13px;}
 .footer-links{display:flex;gap:20px;}
 .footer-links a:hover{color:#fff;}
+.footer-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;font-family:var(--mono);padding:4px 10px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);text-decoration:none;transition:.15s;}
+.footer-badge:hover{background:rgba(255,255,255,.12);color:rgba(255,255,255,.8);}
+
+/* ── FEATURED BADGES (hero) ── */
+.feat-badges{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin:28px auto 8px;max-width:780px;}
+.feat-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);text-decoration:none;color:#fff;transition:transform .2s,background .2s,border-color .2s;animation:badgeFadeIn .5s ease both;}
+.feat-badge:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25);transform:translateY(-2px);}
+.feat-badge-mii{background:linear-gradient(135deg,rgba(255,153,51,.15),rgba(19,136,8,.15));border-color:rgba(255,153,51,.3);}
+.feat-badge-icon{font-size:18px;line-height:1;}
+.feat-badge-text{display:flex;flex-direction:column;gap:1px;}
+.feat-badge-top{font-size:9px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.45);font-family:var(--mono);}
+.feat-badge-name{font-size:12.5px;font-weight:700;color:#fff;font-family:var(--mono);}
+.feat-badge:nth-child(1){animation-delay:.05s;}
+.feat-badge:nth-child(2){animation-delay:.1s;}
+.feat-badge:nth-child(3){animation-delay:.15s;}
+.feat-badge:nth-child(4){animation-delay:.2s;}
+.feat-badge:nth-child(5){animation-delay:.25s;}
+@keyframes badgeFadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 
 /* ── RESPONSIVE ── */
 @media(max-width:760px){
@@ -247,14 +265,31 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
   </div>
   <p class="install-or">Or <a href="https://marketplace.visualstudio.com/items?itemName=WaitJiai.waitji-ai">install from VS Code Marketplace</a> &nbsp;·&nbsp; Free forever</p>
 
-  <div style="display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;margin-top:28px;margin-bottom:8px;">
-    <a href="https://www.producthunt.com/products/waitji-ai?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-waitji-ai" target="_blank" rel="noopener noreferrer">
-      <img alt="WaitJI AI - Earn UPI income while Claude Code thinks | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1205023&theme=light&t=1785011943134" style="display:block;">
+  <!-- FEATURED BADGES -->
+  <div class="feat-badges">
+    <a href="https://www.producthunt.com/products/waitji-ai?utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-waitji-ai" target="_blank" rel="noopener noreferrer" class="feat-badge">
+      <span class="feat-badge-icon">🚀</span>
+      <span class="feat-badge-text"><span class="feat-badge-top">Featured on</span><span class="feat-badge-name">Product Hunt</span></span>
     </a>
-    <a href="https://launchkiwi.com" target="_blank" rel="noopener">
-      <img src="https://launchkiwi.com/badge-light.png" alt="Featured on LaunchKiwi" width="198" height="62" style="display:block;">
+    <a href="https://launchkiwi.com" target="_blank" rel="noopener" class="feat-badge">
+      <span class="feat-badge-icon">🥝</span>
+      <span class="feat-badge-text"><span class="feat-badge-top">Featured on</span><span class="feat-badge-name">LaunchKiwi</span></span>
     </a>
+    <a href="https://www.nxgntools.com/tools/waitji-ai?utm_source=waitji-ai" target="_blank" rel="noopener" class="feat-badge">
+      <span class="feat-badge-icon">⚡</span>
+      <span class="feat-badge-text"><span class="feat-badge-top">Featured on</span><span class="feat-badge-name">NextGen Tools</span></span>
+    </a>
+    <a href="https://postyourstartup.co/startup/waitji-ai?ref=badge" target="_blank" rel="noopener" class="feat-badge">
+      <span class="feat-badge-icon">📣</span>
+      <span class="feat-badge-text"><span class="feat-badge-top">Featured on</span><span class="feat-badge-name">PostYourStartup</span></span>
+    </a>
+    <span class="feat-badge feat-badge-mii">
+      <span class="feat-badge-icon">🇮🇳</span>
+      <span class="feat-badge-text"><span class="feat-badge-top">Proudly</span><span class="feat-badge-name">Made in India</span></span>
+    </span>
   </div>
+
+  <div class="hero-stats">
     <div><div class="hstat-num hstat-earn" id="tickPaid">₹0</div><div class="hstat-label">paid to developers</div></div>
     <div><div class="hstat-num" id="tickImps">—</div><div class="hstat-label">impressions served</div></div>
     <div><div class="hstat-num" id="tickDevs">—</div><div class="hstat-label">active developers</div></div>
@@ -537,13 +572,12 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
 </section>
 <footer>
   <div class="footer-logo">WaitJI AI · by QivaLabs LLP</div>
-  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-    <a href="https://launchkiwi.com" target="_blank" rel="noopener">
-      <img src="https://launchkiwi.com/badge-light.png" alt="Featured on LaunchKiwi" width="198" height="62" style="display:block;">
-    </a>
-    <a href="https://www.producthunt.com/products/waitji-ai?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-waitji-ai" target="_blank" rel="noopener noreferrer">
-      <img alt="WaitJI AI - Earn UPI income while Claude Code thinks | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1205023&theme=light&t=1785011943134" style="display:block;">
-    </a>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <a href="https://www.producthunt.com/products/waitji-ai?utm_source=badge-featured&utm_medium=badge" target="_blank" rel="noopener noreferrer" class="footer-badge">🚀 Product Hunt</a>
+    <a href="https://launchkiwi.com" target="_blank" rel="noopener" class="footer-badge">🥝 LaunchKiwi</a>
+    <a href="https://www.nxgntools.com/tools/waitji-ai?utm_source=waitji-ai" target="_blank" rel="noopener" class="footer-badge">⚡ NextGen Tools</a>
+    <a href="https://postyourstartup.co/startup/waitji-ai?ref=badge" target="_blank" rel="noopener" class="footer-badge">📣 PostYourStartup</a>
+    <span class="footer-badge" style="cursor:default;">🇮🇳 Made in India</span>
   </div>
   <div class="footer-links">
     <a href="privacy.html">Privacy</a>
