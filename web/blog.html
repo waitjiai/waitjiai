@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Blog — WaitJI AI | Developer Income, AI Tools & Ad Marketplace Insights</title>
+<meta name="description" content="WaitJI AI blog — insights on earning passive income with Claude Code, AI developer tools, ad marketplace strategy, and building India's developer economy.">
+<link rel="canonical" href="https://www.waitjiai.in/blog.html">
+<meta property="og:title" content="WaitJI AI Blog — Developer Income & AI Marketplace Insights">
+<meta property="og:description" content="Insights on earning with Claude Code, AI developer tools, and India's developer ad economy.">
+<meta property="og:url" content="https://www.waitjiai.in/blog.html">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="WaitJI AI Blog">
+<meta name="twitter:description" content="Earn passive income with Claude Code. Insights for Indian developers and advertisers.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  "name": "WaitJI AI Blog",
+  "url": "https://www.waitjiai.in/blog.html",
+  "description": "Insights on developer income, AI tools, and India's ad marketplace ecosystem.",
+  "publisher": {
+    "@type": "Organization",
+    "name": "QivaLabs LLP",
+    "url": "https://www.waitjiai.in/"
+  }
+}
+</script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0B0F0A;--sage:#2A7A4F;--sage-d:#1E5A3A;--sage-l:#3D9E68;--sage-soft:#EBF5EE;
+  --gold:#F0B429;--gold-soft:#FEF9EC;--cream:#F8F5EE;--cream2:#EEE9DD;
+  --muted:#6B7568;--muted2:#9AA896;--border:#D4D9CF;
+  --surface:#fff;--bg:#F3F0E8;
+  --display:'Sora',sans-serif;--mono:'IBM Plex Mono',monospace;--body:'Inter',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.6;}
+a{color:inherit;text-decoration:none;}
+
+.nav{position:sticky;top:0;z-index:100;background:rgba(243,240,232,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 40px;display:flex;align-items:center;justify-content:space-between;height:60px;}
+.nav-logo{font-family:var(--mono);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;}
+.nav-logo-mark{width:26px;height:26px;border-radius:6px;background:var(--sage);display:flex;align-items:center;justify-content:center;}
+.nav-logo-mark svg{width:15px;height:15px;}
+.nav-links{display:flex;align-items:center;gap:24px;font-size:13.5px;color:var(--muted);}
+.nav-links a:hover{color:var(--ink);}
+.nav-cta{background:var(--ink);color:#fff;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:600;}
+.nav-cta:hover{opacity:.85;}
+
+.hero-sm{background:var(--ink);color:#fff;padding:60px 40px 50px;text-align:center;}
+.hero-sm h1{font-family:var(--display);font-size:clamp(28px,4vw,48px);font-weight:800;margin-bottom:12px;}
+.hero-sm p{font-size:16px;color:rgba(255,255,255,.6);max-width:520px;margin:0 auto;}
+
+.page{max-width:1080px;margin:0 auto;padding:60px 40px;}
+
+/* FEATURED POST */
+.featured{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-bottom:56px;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+.featured-visual{background:linear-gradient(135deg,var(--ink) 0%,#1C2F23 100%);padding:40px;display:flex;flex-direction:column;justify-content:flex-end;position:relative;min-height:280px;}
+.featured-visual::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 30% 30%,rgba(42,122,79,.3),transparent);}
+.featured-tag{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--sage-l);margin-bottom:12px;position:relative;z-index:1;}
+.featured-title{font-family:var(--display);font-size:clamp(20px,2.5vw,28px);font-weight:800;color:#fff;line-height:1.2;position:relative;z-index:1;}
+.featured-body{padding:36px;}
+.featured-body .post-meta{margin-bottom:14px;}
+.featured-excerpt{font-size:15px;color:var(--muted);line-height:1.75;margin-bottom:20px;}
+.read-more{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;color:var(--sage);transition:.15s;}
+.read-more:hover{color:var(--sage-d);gap:9px;}
+
+/* POST GRID */
+.section-label{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--muted2);margin-bottom:20px;}
+.posts-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:48px;}
+.post-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:.2s;display:flex;flex-direction:column;}
+.post-card:hover{border-color:var(--sage);transform:translateY(-3px);box-shadow:0 8px 24px rgba(42,122,79,.1);}
+.post-card-visual{height:140px;display:flex;align-items:center;justify-content:center;font-size:48px;position:relative;}
+.post-card-body{padding:18px;flex:1;display:flex;flex-direction:column;}
+.post-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+.post-tag{font-size:10px;font-weight:700;font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:4px;}
+.tag-guide{background:#EBF5EE;color:var(--sage-d);}
+.tag-growth{background:var(--gold-soft);color:#92400E;}
+.tag-tech{background:#EFF6FF;color:#1D4ED8;}
+.tag-story{background:#FDF4FF;color:#7E22CE;}
+.tag-india{background:#FFF7ED;color:#9A3412;}
+.post-date{font-size:11.5px;color:var(--muted2);font-family:var(--mono);}
+.post-title{font-family:var(--display);font-size:16px;font-weight:700;line-height:1.3;margin-bottom:8px;flex:1;}
+.post-excerpt{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:14px;}
+.post-footer{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:12px;border-top:1px solid var(--border);}
+.post-author{font-size:12px;color:var(--muted2);}
+.post-read-time{font-size:11.5px;font-family:var(--mono);color:var(--muted2);}
+
+/* CATEGORIES */
+.cat-filter{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;}
+.cat-btn{font-size:12px;font-weight:600;font-family:var(--mono);padding:5px 12px;border-radius:100px;background:var(--surface);border:1.5px solid var(--border);color:var(--muted);cursor:pointer;transition:.15s;}
+.cat-btn:hover,.cat-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+/* NEWSLETTER */
+.newsletter{background:linear-gradient(135deg,var(--ink),#1C2F23);border-radius:16px;padding:44px;text-align:center;margin-top:16px;}
+.newsletter h2{font-family:var(--display);font-size:24px;font-weight:800;color:#fff;margin-bottom:10px;}
+.newsletter p{color:rgba(255,255,255,.6);font-size:15px;margin-bottom:24px;}
+.nl-form{display:flex;gap:10px;max-width:420px;margin:0 auto;flex-wrap:wrap;}
+.nl-input{flex:1;padding:11px 16px;border-radius:8px;border:none;font-size:14px;font-family:var(--body);background:rgba(255,255,255,.1);color:#fff;outline:none;min-width:180px;}
+.nl-input::placeholder{color:rgba(255,255,255,.35);}
+.nl-btn{background:var(--sage);color:#fff;padding:11px 22px;border-radius:8px;font-weight:600;font-size:14px;border:none;cursor:pointer;font-family:var(--body);transition:.15s;white-space:nowrap;}
+.nl-btn:hover{background:var(--sage-d);}
+
+/* ARTICLE PAGE styles (used in inline articles) */
+.article-hero{background:var(--ink);color:#fff;padding:72px 40px 56px;text-align:center;}
+.article-hero .tag{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--sage-l);margin-bottom:16px;}
+.article-hero h1{font-family:var(--display);font-size:clamp(28px,4vw,52px);font-weight:800;max-width:800px;margin:0 auto 16px;line-height:1.15;}
+.article-hero .meta{color:rgba(255,255,255,.5);font-size:13.5px;font-family:var(--mono);}
+.article{max-width:720px;margin:0 auto;padding:56px 40px;}
+.article h2{font-family:var(--display);font-size:22px;font-weight:700;margin:36px 0 14px;}
+.article h3{font-family:var(--display);font-size:18px;font-weight:700;margin:28px 0 10px;color:var(--sage-d);}
+.article p{font-size:16px;line-height:1.85;color:#2C3329;margin-bottom:18px;}
+.article ul,.article ol{margin:14px 0 18px 22px;}
+.article li{font-size:15.5px;line-height:1.75;color:#2C3329;margin-bottom:6px;}
+.article code{font-family:var(--mono);font-size:13px;background:var(--cream2);padding:2px 7px;border-radius:4px;}
+.article pre{background:var(--ink);color:#A3E4B9;padding:20px 24px;border-radius:10px;font-family:var(--mono);font-size:13px;overflow-x:auto;margin:18px 0;}
+.article blockquote{border-left:3px solid var(--sage);padding:14px 20px;background:var(--sage-soft);border-radius:0 8px 8px 0;margin:20px 0;font-style:italic;color:var(--sage-d);}
+.article .callout{background:var(--gold-soft);border:1px solid #FDE68A;border-radius:10px;padding:16px 20px;margin:20px 0;font-size:15px;}
+
+footer{background:var(--ink);color:rgba(255,255,255,.4);padding:32px 40px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:12px;}
+.footer-links{display:flex;gap:18px;}
+.footer-links a:hover{color:#fff;}
+
+@media(max-width:768px){
+  .nav{padding:0 20px;}
+  .page{padding:40px 20px;}
+  .hero-sm{padding:44px 20px 36px;}
+  .featured{grid-template-columns:1fr;}
+  .posts-grid{grid-template-columns:1fr 1fr;}
+  .nl-form{flex-direction:column;}
+}
+@media(max-width:560px){
+  .posts-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-logo">
+    <div class="nav-logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.4)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></div>
+    WaitJI AI
+  </a>
+  <div class="nav-links">
+    <a href="index.html">Home</a>
+    <a href="blog.html" style="color:var(--sage);font-weight:600;">Blog</a>
+    <a href="faq.html">FAQ</a>
+    <a href="careers.html">Careers</a>
+    <a href="advertiser.html" class="nav-cta">Advertise</a>
+  </div>
+</nav>
+
+<div class="hero-sm">
+  <h1>WaitJI AI Blog</h1>
+  <p>Developer income, AI tools, ad marketplace insights, and building India's developer economy.</p>
+</div>
+
+<div class="page">
+
+  <!-- FEATURED POST -->
+  <div class="featured">
+    <div class="featured-visual">
+      <div class="featured-tag">★ Featured post</div>
+      <div class="featured-title">How I Turned My Claude Code Wait Time Into ₹800/Month Without Writing a Single Extra Line of Code</div>
+    </div>
+    <div class="featured-body">
+      <div class="post-meta">
+        <span class="post-tag tag-guide">Guide</span>
+        <span class="post-date">Jun 28, 2026</span>
+      </div>
+      <p class="featured-excerpt">Every developer using Claude Code spends between 3–15 seconds per prompt waiting for the AI to think. Over a typical 4-hour coding session, that's 20–40 minutes of idle time. WaitJI AI converts those pauses into UPI income — here's exactly how it works and what one developer earned in their first 30 days.</p>
+      <a href="blog/how-to-earn-with-claude-code.html" class="read-more">Read article →</a>
+    </div>
+  </div>
+
+  <!-- FILTER -->
+  <div class="section-label">All articles</div>
+  <div class="cat-filter">
+    <button class="cat-btn active" onclick="filterPosts('all',this)">All</button>
+    <button class="cat-btn" onclick="filterPosts('guide',this)">Guides</button>
+    <button class="cat-btn" onclick="filterPosts('growth',this)">Growth</button>
+    <button class="cat-btn" onclick="filterPosts('tech',this)">Technical</button>
+    <button class="cat-btn" onclick="filterPosts('india',this)">India</button>
+    <button class="cat-btn" onclick="filterPosts('story',this)">Stories</button>
+  </div>
+
+  <div class="posts-grid" id="postsGrid">
+
+    <a href="blog/how-to-earn-with-claude-code.html" class="post-card" data-cat="guide">
+      <div class="post-card-visual" style="background:linear-gradient(135deg,#0B0F0A,#1C2F23);">💰</div>
+      <div class="post-card-body">
+        <div class="post-meta"><span class="post-tag tag-guide">Guide</span><span class="post-date">Jun 28, 2026</span></div>
+        <div class="post-title">How to Earn ₹800/Month With Claude Code — Without Changing Your Workflow</div>
+        <div class="post-excerpt">Step-by-step guide to installing WaitJI AI, connecting your UPI, and maximising earnings from your daily Claude Code sessions.</div>
+        <div class="post-footer"><span class="post-author">Rajamuddin · QivaLabs</span><span class="post-read-time">6 min read</span></div>
+      </div>
+    </a>
+
+    <a href="blog/spinnerverbs-how-it-works.html" class="post-card" data-cat="tech">
+      <div class="post-card-visual" style="background:linear-gradient(135deg,#1D1F4E,#2D3A8C);">⚙️</div>
+      <div class="post-card-body">
+        <div class="post-meta"><span class="post-tag tag-tech">Technical</span><span class="post-date">Jun 25, 2026</span></div>
+        <div class="post-title">The spinnerVerbs API: How WaitJI AI Puts Ads Inside Claude Code's Thinking Spinner</div>
+        <div class="post-excerpt">A technical deep-dive into Claude Code's officially documented spinnerVerbs setting, how the poller daemon works, and why this approach is both legitimate and non-intrusive.</div>
+        <div class="post-footer"><span class="post-author">Rajamuddin · QivaLabs</span><span class="post-read-time">8 min read</span></div>
+      </div>
+    </a>
+
+    <a href="blog/why-advertise-to-developers.html" class="post-card" data-cat="growth">
+      <div class="post-card-visual" style="background:linear-gradient(135deg,#2A1A0A,#5C3D1E);">📣</div>
+      <div class="post-card-body">
+        <div class="post-meta"><span class="post-tag tag-growth">Growth</span><span class="post-date">Jun 22, 2026</span></div>
+        <div class="post-title">Why Developers Are the Best Audience for B2B SaaS Ads in 2026</div>
+        <div class="post-excerpt">Indian developers influence over ₹12,000 crore in annual B2B software purchases. Here's why reaching them inside their IDE is more effective than LinkedIn or Google Ads.</div>
+        <div class="post-footer"><span class="post-author">WaitJI AI Team</span><span class="post-read-time">5 min read</span></div>
+      </div>
+    </a>
+
+    <a href="blog/india-developer-economy-2026.html" class="post-card" data-cat="india">
+      <div class="post-card-visual" style="background:linear-gradient(135deg,#FF9933,#138808);">🇮🇳</div>
+      <div class="post-card-body">
+        <div class="post-meta"><span class="post-tag tag-india">India</span><span class="post-date">Jun 20, 2026</span></div>
+        <div class="post-title">India Has 5.8 Million Developers. Almost None Are Monetising Their Idle Time.</div>
+        <div class="post-excerpt">India is the world's second-largest developer market. Yet passive income tools built for Indian developers barely exist. Why WaitJI AI started with UPI-first payouts and what that unlocks.</div>
+        <div class="post-footer"><span class="post-author">Rajamuddin · QivaLabs</span><span class="post-read-time">7 min read</span></div>
+      </div>
+    </a>
+
+    <a href="blog/fraud-detection-ad-marketplace.html" class="post-card" data-cat="tech">
+      <div class="post-card-visual" style="background:linear-gradient(135deg,#1A0A2E,#3D1F6E);">🛡️</div>
+      <div class="post-card-body">
+        <div class="post-meta"><span class="post-tag tag-tech">Technical</span><span class="post-date">Jun 17, 2026</span></div>
+        <div class="post-title">How We Built Fraud Detection for a Developer Ad Marketplace — Without ML</div>
+        <div class="post-excerpt">Click fraud is the biggest risk for any ad marketplace. Here's how WaitJI AI's layered rule-based fraud protection works — IP rate limiting, click cooldowns, bot detection — and why it outperforms simpler approaches.</div>
+        <div class="post-footer"><span class="post-author">WaitJI AI Team</span><span class="post-read-time">9 min read</span></div>
+      </div>
+    </a>
+
+    <a href="blog/ppp-pricing-developer-ads.html" class="post-card" data-cat="growth">
+      <div class="post-card-visual" style="background:linear-gradient(135deg,#0A2210,#1A4A2A);">💱</div>
+      <div class="post-card-body">
+        <div class="post-meta"><span class="post-tag tag-growth">Growth</span><span class="post-date">Jun 14, 2026</span></div>
+        <div class="post-title">Why We Use Purchasing Power Parity Pricing for Developer Ads — And How It Works</div>
+        <div class="post-excerpt">A developer in Mumbai and a developer in Manhattan use the same code. But their purchasing power is wildly different. WaitJI AI's PPP-adjusted pricing model lets global advertisers reach Indian developers at fair local rates.</div>
+        <div class="post-footer"><span class="post-author">WaitJI AI Team</span><span class="post-read-time">6 min read</span></div>
+      </div>
+    </a>
+
+    <a href="blog/building-waitji-qivalabs.html" class="post-card" data-cat="story">
+      <div class="post-card-visual" style="background:linear-gradient(135deg,#1A1A2E,#2A3A5E);">🚀</div>
+      <div class="post-card-body">
+        <div class="post-meta"><span class="post-tag tag-story">Founder Story</span><span class="post-date">Jun 10, 2026</span></div>
+        <div class="post-title">Building India's First AI Ad Marketplace From Udaipur — What We Learned in the First 30 Days</div>
+        <div class="post-excerpt">WaitJI AI launched on June 25, 2026. Here's everything we got wrong, what surprised us, what the first developers told us, and where we're going next.</div>
+        <div class="post-footer"><span class="post-author">Rajamuddin · QivaLabs</span><span class="post-read-time">10 min read</span></div>
+      </div>
+    </a>
+
+    <a href="blog/upi-developer-payouts.html" class="post-card" data-cat="india">
+      <div class="post-card-visual" style="background:linear-gradient(135deg,#1A0F0A,#3D2210);">📱</div>
+      <div class="post-card-body">
+        <div class="post-meta"><span class="post-tag tag-india">India</span><span class="post-date">Jun 07, 2026</span></div>
+        <div class="post-title">Why UPI Makes Micropayments to Developers Finally Viable in India</div>
+        <div class="post-excerpt">Getting ₹0.52 per impression to 10,000 developers would have been impossible 5 years ago. UPI changed the micropayment economics entirely. Here's how WaitJI AI uses UPI's zero-cost architecture to make developer payouts work at scale.</div>
+        <div class="post-footer"><span class="post-author">Rajamuddin · QivaLabs</span><span class="post-read-time">5 min read</span></div>
+      </div>
+    </a>
+
+    <a href="blog/claude-code-passive-income-guide.html" class="post-card" data-cat="guide">
+      <div class="post-card-visual" style="background:linear-gradient(135deg,#0A1F12,#1A3A22);">🤖</div>
+      <div class="post-card-body">
+        <div class="post-meta"><span class="post-tag tag-guide">Guide</span><span class="post-date">Jul 01, 2026</span></div>
+        <div class="post-title">The Complete Guide to Passive Income for Indian Developers Using AI Tools in 2026</div>
+        <div class="post-excerpt">Claude Code, GitHub Copilot, Cursor — AI coding tools are everywhere. This guide covers every legitimate way Indian developers can earn passive income while using AI tools, including WaitJI AI, referral programs, and content monetisation.</div>
+        <div class="post-footer"><span class="post-author">WaitJI AI Team</span><span class="post-read-time">12 min read</span></div>
+      </div>
+    </a>
+
+  </div>
+
+  <!-- NEWSLETTER -->
+  <div class="newsletter">
+    <h2>Developer income insights, weekly</h2>
+    <p>New articles on earning with AI tools, ad marketplace data, and India's developer economy. No spam, unsubscribe anytime.</p>
+    <div class="nl-form">
+      <input class="nl-input" type="email" placeholder="your@email.com" id="nlEmail">
+      <button class="nl-btn" onclick="nlSubmit()">Subscribe →</button>
+    </div>
+    <div id="nlMsg" style="font-size:13px;color:var(--sage-l);margin-top:12px;min-height:20px;"></div>
+  </div>
+
+</div>
+
+<footer>
+  <div style="font-family:var(--mono);color:rgba(255,255,255,.7);font-size:13px;">WaitJI AI · by QivaLabs LLP</div>
+  <div class="footer-links">
+    <a href="index.html">Home</a>
+    <a href="faq.html">FAQ</a>
+    <a href="privacy.html">Privacy</a>
+    <a href="terms.html">Terms</a>
+    <a href="careers.html">Careers</a>
+    <a href="mailto:admin@waitjiai.in">Contact</a>
+  </div>
+  <div style="font-size:11px;">© 2026 QivaLabs LLP · LLPIN ACV-6746</div>
+</footer>
+
+<script>
+function filterPosts(cat, btn){
+  document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.post-card').forEach(card=>{
+    card.style.display = cat==='all' || card.dataset.cat===cat ? '' : 'none';
+  });
+}
+function nlSubmit(){
+  const email = document.getElementById('nlEmail').value.trim();
+  const msg = document.getElementById('nlMsg');
+  if(!email||!email.includes('@')){msg.textContent='Please enter a valid email.';msg.style.color='#F87171';return;}
+  // Add to waitlist via backend
+  fetch('https://waitjiai-backend.onrender.com/v1/waitlist/join',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({email, source:'blog-newsletter'})
+  }).then(r=>{
+    if(r.ok){msg.textContent='✓ Subscribed! First article lands in your inbox soon.';msg.style.color='var(--sage-l)';}
+    else{msg.textContent='✓ You\'re on the list!';msg.style.color='var(--sage-l)';}
+  }).catch(()=>{msg.textContent='✓ Subscribed!';msg.style.color='var(--sage-l)';});
+}
+</script>
+</body>
+</html>
