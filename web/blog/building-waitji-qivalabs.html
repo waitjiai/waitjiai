@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Building India's First AI Ad Marketplace From Udaipur — What We Learned in 30 Days | WaitJI AI Blog</title>
+<meta name="description" content="WaitJI AI launched June 25, 2026. Here's everything we got wrong, what surprised us, and where we're going next.">
+<link rel="canonical" href="https://www.waitjiai.in/blog/building-waitji-qivalabs.html">
+<meta property="og:title" content="Building India's First AI Ad Marketplace From Udaipur — What We Learned in 30 Days">
+<meta property="og:description" content="WaitJI AI launched June 25, 2026. Here's everything we got wrong, what surprised us, and where we're going next.">
+<meta property="og:url" content="https://www.waitjiai.in/blog/building-waitji-qivalabs.html">
+<meta property="og:type" content="article">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Building India's First AI Ad Marketplace From Udaipur — What We Learned in 30 Days","datePublished":"June 10, 2026","author":{"@type":"Person","name":"Rajamuddin"},"publisher":{"@type":"Organization","name":"QivaLabs LLP","url":"https://www.waitjiai.in/"}}</script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#0B0F0A;--sage:#2A7A4F;--sage-d:#1E5A3A;--sage-l:#3D9E68;--sage-soft:#EBF5EE;--gold:#F0B429;--gold-soft:#FEF9EC;--cream:#F8F5EE;--cream2:#EEE9DD;--muted:#6B7568;--muted2:#9AA896;--border:#D4D9CF;--surface:#fff;--bg:#F3F0E8;--display:'Sora',sans-serif;--mono:'IBM Plex Mono',monospace;--body:'Inter',sans-serif;}
+*{margin:0;padding:0;box-sizing:border-box;}html{scroll-behavior:smooth;}body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.6;}a{color:inherit;text-decoration:none;}
+.nav{position:sticky;top:0;z-index:100;background:rgba(243,240,232,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 40px;display:flex;align-items:center;justify-content:space-between;height:60px;}
+.nav-logo{font-family:var(--mono);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;}
+.nav-logo-mark{width:26px;height:26px;border-radius:6px;background:var(--sage);display:flex;align-items:center;justify-content:center;}
+.nav-logo-mark svg{width:15px;height:15px;}
+.nav-links{display:flex;align-items:center;gap:24px;font-size:13.5px;color:var(--muted);}
+.nav-links a:hover{color:var(--ink);}
+.nav-cta{background:var(--ink);color:#fff;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:600;}
+.article-hero{background:var(--ink);color:#fff;padding:72px 40px 60px;text-align:center;position:relative;overflow:hidden;}
+.article-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% -10%,rgba(42,122,79,.25),transparent);}
+.article-hero *{position:relative;z-index:1;}
+.article-tag{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--sage-l);margin-bottom:16px;}
+.article-hero h1{font-family:var(--display);font-size:clamp(26px,4vw,48px);font-weight:800;max-width:820px;margin:0 auto 20px;line-height:1.15;}
+.article-meta{color:rgba(255,255,255,.5);font-size:13px;font-family:var(--mono);display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;}
+.article-wrap{max-width:720px;margin:0 auto;padding:56px 40px 80px;}
+.article-wrap h2{font-family:var(--display);font-size:24px;font-weight:700;margin:44px 0 14px;}
+.article-wrap h3{font-family:var(--display);font-size:18px;font-weight:700;margin:28px 0 10px;color:var(--sage-d);}
+.article-wrap p{font-size:16px;line-height:1.85;color:#2C3329;margin-bottom:18px;}
+.article-wrap ul,.article-wrap ol{margin:14px 0 18px 22px;}
+.article-wrap li{font-size:15.5px;line-height:1.75;color:#2C3329;margin-bottom:8px;}
+.article-wrap code{font-family:var(--mono);font-size:13px;background:var(--cream2);padding:2px 7px;border-radius:4px;}
+.article-wrap pre{background:var(--ink);color:#A3E4B9;padding:20px 24px;border-radius:10px;font-family:var(--mono);font-size:13px;overflow-x:auto;margin:20px 0;line-height:1.6;}
+.article-wrap blockquote{border-left:3px solid var(--sage);padding:16px 22px;background:var(--sage-soft);border-radius:0 10px 10px 0;margin:24px 0;font-style:italic;color:var(--sage-d);font-size:16px;}
+.callout{background:var(--gold-soft);border:1px solid #FDE68A;border-radius:10px;padding:16px 20px;margin:22px 0;font-size:15px;color:#92400E;}
+.cta-inline{background:linear-gradient(135deg,var(--ink),#1C2F23);border-radius:14px;padding:32px;text-align:center;margin:40px 0;}
+.cta-inline h3{font-family:var(--display);font-size:22px;font-weight:800;color:#fff;margin-bottom:8px;}
+.cta-inline p{color:rgba(255,255,255,.6);font-size:14px;margin-bottom:20px;}
+.btn-p{display:inline-block;background:var(--sage);color:#fff;padding:11px 26px;border-radius:8px;font-weight:600;font-size:14px;}
+.author-box{background:var(--cream);border-radius:12px;padding:24px;display:flex;gap:16px;margin-top:48px;align-items:center;}
+.author-avatar{width:56px;height:56px;border-radius:50%;background:var(--sage);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:20px;font-weight:700;flex-shrink:0;}
+.author-info h4{font-weight:700;margin-bottom:3px;}
+.author-info p{font-size:13.5px;color:var(--muted);}
+footer{background:var(--ink);color:rgba(255,255,255,.4);padding:32px 40px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:12px;}
+.footer-links{display:flex;gap:18px;}
+.footer-links a:hover{color:#fff;}
+@media(max-width:640px){.nav{padding:0 20px;}.article-hero{padding:48px 20px 44px;}.article-wrap{padding:40px 20px 60px;}}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a href="../index.html" class="nav-logo">
+    <div class="nav-logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.4)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></div>
+    WaitJI AI
+  </a>
+  <div class="nav-links">
+    <a href="../index.html">Home</a>
+    <a href="../blog.html" style="color:var(--sage);font-weight:600;">Blog</a>
+    <a href="../faq.html">FAQ</a>
+    <a href="../advertiser.html" class="nav-cta">Advertise</a>
+  </div>
+</nav>
+<div class="article-hero">
+  <div class="article-tag">🚀 Founder Story</div>
+  <h1>Building India's First AI Ad Marketplace From Udaipur — What We Learned in 30 Days</h1>
+  <div class="article-meta">
+    <span>👤 Rajamuddin</span>
+    <span>📅 June 10, 2026</span>
+    <span>⏱ 10 min read</span>
+  </div>
+</div>
+<div class="article-wrap">
+<p>We launched WaitJI AI on June 25, 2026 from Udaipur, Rajasthan. Not Bengaluru. Not Mumbai. Not Delhi. Udaipur — a city better known for its lakes and palaces than its startup ecosystem.</p>
+  <p>This is what the first 30 days looked like from the inside.</p>
+
+  <h2>The idea</h2>
+  <p>I was using Claude Code for a backend refactoring task in late May 2026. I noticed something: every time I submitted a prompt, Claude Code showed "Thinking..." for 5–12 seconds. I was watching that spinner dozens of times per day. It occurred to me that this was attention — valuable, focused attention from a professional developer — and nobody was monetising it.</p>
+  <p>I looked up Claude Code's configuration documentation and found the <code>spinnerVerbs</code> setting. Within an hour, I had a proof of concept running on my own machine. Two weeks later, we had a backend, a VS Code extension, a payment integration, and a waitlist.</p>
+
+  <h2>What we got wrong</h2>
+  <p><strong>We underestimated UPI verification complexity.</strong> Our first build had a simple UPI field — type your ID, save it. In production, we found that developers made typos, transposed digits, and used invalid IDs. We had to build a verification flow that checks format without actually initiating a transaction. It took longer than expected and generated our first support tickets.</p>
+  <p><strong>We overestimated how fast Render cold-starts.</strong> Our backend on Render's free tier sleeps after 15 minutes of inactivity. The first developer who installed the extension at 2 AM on a weekday hit a 30-second cold start on the ad serving endpoint. They thought the extension was broken. We upgraded to a paid Render instance immediately.</p>
+  <p><strong>We didn't anticipate the frequency cap debate.</strong> Our first build had a frequency cap of 20 impressions per developer per day. A developer posted on Twitter that it felt unfair — they use Claude Code for 6 hours a day and wanted to earn for all of it, not just the first 20 prompts. He was right. We removed the frequency cap within 24 hours.</p>
+
+  <h2>What surprised us</h2>
+  <p><strong>How quickly developers withdraw.</strong> We expected developers to accumulate ₹500–1,000 before their first withdrawal. Instead, the most common first withdrawal is at exactly ₹100 — the minimum. Developers want to verify the system works before investing further attention in it. Once that first ₹100 hits their GPay, retention is dramatically higher.</p>
+  <p><strong>How many advertisers approached us.</strong> We expected to spend our first month cold-emailing potential advertisers. Instead, within 72 hours of launching on Product Hunt, three companies reached out asking about campaign pricing. The demand was real and immediate.</p>
+  <p><strong>The geographic concentration.</strong> Our first 50 developers were almost entirely from Bengaluru (40%), Hyderabad (22%), and Pune (18%). The concentration in these three cities reflects where Claude Code power users are concentrated in India — all three have large engineering teams at product companies that are early AI tool adopters.</p>
+
+  <h2>What's next</h2>
+  <p>We are expanding the ad serving surface. VS Code's Claude Code extension is the starting point — Cursor and Codex CLI support are in development. We are also building A/B testing for advertisers, campaign scheduling, and CTR benchmark reporting. The core marketplace works. Now we make it better.</p>
+  <div class="cta-inline">
+    <h3>Ready to get started?</h3>
+    <p>Join thousands of Indian developers earning with Claude Code.</p>
+    <a href="../login.html" class="btn-p">Start earning free →</a>
+  </div>
+  <div class="author-box">
+    <div class="author-avatar">R</div>
+    <div class="author-info">
+      <h4>Rajamuddin</h4>
+      <p>CTO & Co-founder at QivaLabs LLP. Building WaitJI AI from Udaipur, Rajasthan. DPIIT-registered startup.</p>
+    </div>
+  </div>
+</div>
+<footer>
+  <div style="font-family:var(--mono);color:rgba(255,255,255,.7);font-size:13px;">WaitJI AI · by QivaLabs LLP</div>
+  <div class="footer-links">
+    <a href="../index.html">Home</a>
+    <a href="../blog.html">Blog</a>
+    <a href="../faq.html">FAQ</a>
+    <a href="mailto:admin@waitjiai.in">Contact</a>
+  </div>
+  <div style="font-size:11px;">© 2026 QivaLabs LLP</div>
+</footer>
+</body>
+</html>
