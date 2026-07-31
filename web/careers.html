@@ -290,7 +290,7 @@ async function loadJobs(){
     if(!grid) return;
     const jobs = d.jobs || [];
     if(!jobs.length){
-      grid.innerHTML = '<div style="text-align:center;padding:60px;color:var(--muted);"><div style="font-size:28px;margin-bottom:12px;">🔍</div><div style="font-size:15px;font-weight:600;">No open positions right now</div><div style="font-size:13.5px;margin-top:8px;">Send a general application — we're always looking for great people.</div><br><button class="apply-btn" onclick="openModal('General Application')">Send general application</button></div>';
+      grid.innerHTML = '<div style="text-align:center;padding:60px;color:var(--muted);"><div style="font-size:28px;margin-bottom:12px;">🔍</div><div style="font-size:15px;font-weight:600;">No open positions right now</div><div style="font-size:13.5px;margin-top:8px;">Send a general application — we are always looking for great people.</div><br><button class="apply-btn" onclick="openModal(&quot;General Application&quot;)">Send general application</button></div>';
       return;
     }
     // Always add General Application at end
