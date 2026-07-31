@@ -224,29 +224,74 @@ if(existingToken&&existingRole){
   else window.location.href='customer.html';
 }
 
-// Also handle Supabase email confirmation redirect (hash contains access_token)
-(async()=>{
-  const {data:{session}}=await sb.auth.getSession();
-  if(session){
+// ── OAuth + email-confirmation redirect handling ──
+// OAuth (Google/GitHub) returns with tokens in the URL hash. Supabase parses
+// these asynchronously, so we listen for the auth state change rather than
+// calling getSession() immediately (which races the hash parser).
+let _oauthHandled = false;
+
+// Show a loading state if we're returning from an OAuth redirect
+if (window.location.hash.includes('access_token') || window.location.search.includes('code=')) {
+  const box = document.getElementById('submitBtn');
+  if (box) { box.disabled = true; box.textContent = 'Signing you in…'; }
+  showOk('Completing sign-in…');
+}
+
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (_oauthHandled) return;
+  if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.access_token) {
+    _oauthHandled = true;
     await exchangeAndRedirect(session.access_token, null);
+  }
+});
+
+// Fallback: if onAuthStateChange doesn't fire within 1.2s, check session directly
+setTimeout(async () => {
+  if (_oauthHandled) return;
+  try {
+    const {data:{session}} = await sb.auth.getSession();
+    if (session?.access_token) {
+      _oauthHandled = true;
+      await exchangeAndRedirect(session.access_token, null);
+    }
+  } catch(e) {}
+}, 1200);
+
+// Surface OAuth errors returned in the URL
+(function(){
+  const p = new URLSearchParams(window.location.hash.replace('#','') || window.location.search);
+  const err = p.get('error_description') || p.get('error');
+  if (err) {
+    showErr(decodeURIComponent(err).replace(/\+/g,' '));
+    history.replaceState(null,'',window.location.pathname);
   }
 })();
 
 
-async function loginWithGoogle(){
-  const {data,error}=await sb.auth.signInWithOAuth({
-    provider:'google',
-    options:{redirectTo:window.location.origin+'/login.html'}
-  });
-  if(error) showErr(error.message);
+async function oauthLogin(provider){
+  clearMsg();
+  try{
+    const {error}=await sb.auth.signInWithOAuth({
+      provider,
+      options:{
+        redirectTo: window.location.origin + '/login.html',
+        queryParams:{ access_type:'offline', prompt:'select_account' },
+      }
+    });
+    if(error){
+      const m=(error.message||'').toLowerCase();
+      if(m.includes('provider') && (m.includes('not enabled')||m.includes('disabled'))){
+        showErr(provider.charAt(0).toUpperCase()+provider.slice(1)+' sign-in is not available yet. Please sign up with your email instead.');
+      } else {
+        showErr(error.message||'Could not start sign-in. Try email signup instead.');
+      }
+    }
+  }catch(e){
+    showErr('Could not reach the sign-in service. Please use email signup.');
+  }
 }
-async function loginWithGitHub(){
-  const {data,error}=await sb.auth.signInWithOAuth({
-    provider:'github',
-    options:{redirectTo:window.location.origin+'/login.html'}
-  });
-  if(error) showErr(error.message);
-}
+async function loginWithGoogle(){ return oauthLogin('google'); }
+async function loginWithGitHub(){ return oauthLogin('github'); }
 document.getElementById('email').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('password').focus();});
 document.getElementById('password').addEventListener('keydown',e=>{if(e.key==='Enter')handleSubmit();});
 </script>
