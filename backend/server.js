@@ -498,6 +498,30 @@ function verifyPassword(pw, stored) {
   const test = crypto.scryptSync(pw, salt, 64).toString('hex');
   return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(test));
 }
+
+// ── FEATURE: role-based admin sub-accounts ──────────────────────────────────────
+// An admin user without `adminScope` set (or with adminScope === 'full') is the
+// original, unrestricted founder/admin account. Sub-admins created via
+// POST /v1/admin/sub-admins get an explicit scopes array and can only reach
+// routes that call requireFullAdmin() if 'full' is in their scopes — everything
+// else in the /v1/admin block remains open to them (view-only dashboards, etc.)
+// since the blast radius of viewing data is much lower than mutating money/bans.
+function isFullAdmin(user) {
+  return !user.adminScope || user.adminScope === 'full' || (Array.isArray(user.adminScope) && user.adminScope.includes('full'));
+}
+function requireFullAdmin(user, res) {
+  if (isFullAdmin(user)) return true;
+  send(res, 403, { error: 'This action requires full-admin access. Your account is scoped to: ' + (Array.isArray(user.adminScope) ? user.adminScope.join(', ') : 'limited') });
+  return false;
+}
+function requireScope(user, allowedScopes, res) {
+  if (isFullAdmin(user)) return true;
+  const has = Array.isArray(user.adminScope) && user.adminScope.some(s => allowedScopes.includes(s));
+  if (has) return true;
+  send(res, 403, { error: `This action requires one of these scopes: ${allowedScopes.join(', ')}. Your account is scoped to: ${Array.isArray(user.adminScope) ? user.adminScope.join(', ') : 'limited'}` });
+  return false;
+}
+
 // Minimal JWT (HS256)
 function signToken(payload) {
   const header = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
@@ -988,7 +1012,14 @@ const server = http.createServer(async (req, res) => {
         })
         .sort((a, b) => b.bidPaise - a.bidPaise);
 
-      const ads = ads2.slice(0, 3).map(c => ({ id: c.id, text: c.adText, url: c.url, advertiser: c.advertiser, cpmPaise: c.bidPaise, adType: c.adType || 'spotlight', isHouseAd: false, geo: c.geo }));
+      const ads = ads2.slice(0, 3).map(c => {
+        // ── FEATURE: multi-creative rotation ──
+        // Pick uniformly between the primary ad text/url and any additional
+        // creative variants the advertiser added, so they can see which wins.
+        const variants = [{ id: 'primary', adText: c.adText, url: c.url }, ...(c.creatives || [])];
+        const chosen = variants[Math.floor(Math.random() * variants.length)];
+        return { id: c.id, creativeId: chosen.id, text: chosen.adText, url: chosen.url, advertiser: c.advertiser, cpmPaise: c.bidPaise, adType: c.adType || 'spotlight', isHouseAd: false, geo: c.geo };
+      });
 
       if (ads.length > 0) return send(res, 200, { ads, servedAt: Date.now() });
 
@@ -1037,8 +1068,15 @@ const server = http.createServer(async (req, res) => {
       }
       c.spentPaise += advCostPaise;
 
+      // ── FEATURE: multi-creative rotation — track which variant was shown ──
+      const shownCreativeId = b.creativeId || 'primary';
+      if (shownCreativeId !== 'primary' && Array.isArray(c.creatives)) {
+        const cr = c.creatives.find(x => x.id === shownCreativeId);
+        if (cr) cr.impressions = (cr.impressions || 0) + 1;
+      }
+
       // No frequency cap — earners earn unlimited impressions
-      db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, costPaise: advCostPaise, isHouseAd: false, ts: Date.now(), ip, clicked: false, country: resolvedCountry, surface: b.surface||'terminal', adType: c.adType || 'spotlight', advertiserName: c.advertiser || c.companyName || 'Unknown', adText: (c.adText||'').slice(0,60) });
+      db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, costPaise: advCostPaise, isHouseAd: false, ts: Date.now(), ip, clicked: false, country: resolvedCountry, surface: b.surface||'terminal', adType: c.adType || 'spotlight', advertiserName: c.advertiser || c.companyName || 'Unknown', adText: (c.adText||'').slice(0,60), creativeId: shownCreativeId });
 
       // Spend alert — notify advertiser at 80% budget
       const spentPct = c.spentPaise / c.budgetPaise;
@@ -1102,6 +1140,12 @@ const server = http.createServer(async (req, res) => {
       const clickEarnPaise = Math.floor(clickCostPaise * 0.65);
       if (c.spentPaise + clickCostPaise <= c.budgetPaise) {
         c.spentPaise += clickCostPaise;
+      }
+      // ── FEATURE: multi-creative rotation — track which variant was clicked ──
+      const clickedCreativeId = b.creativeId || 'primary';
+      if (clickedCreativeId !== 'primary' && Array.isArray(c.creatives)) {
+        const cr = c.creatives.find(x => x.id === clickedCreativeId);
+        if (cr) cr.clicks = (cr.clicks || 0) + 1;
       }
       saveDB();
       return send(res, 200, { success: true, earnedPaise: clickEarnPaise, billed: true });
@@ -1466,6 +1510,45 @@ if (method === 'POST' && url === '/v1/advertiser/reach-estimate') {
           invalidClicks: clk.filter(x => !x.valid).length,
           ctr: imps.length ? (clk.filter(x => x.valid).length / imps.length * 100).toFixed(2) : '0.00',
         });
+      }
+
+      // ── FEATURE: add a creative variant to an already-running campaign ──
+      if (method === 'POST' && url.match(/^\/v1\/advertiser\/campaigns\/[^/]+\/creatives$/)) {
+        const cid = url.split('/')[4];
+        const c = db.campaigns[cid];
+        if (!c || c.advertiserId !== user.id) return send(res, 404, { error: 'not found' });
+        c.creatives = c.creatives || [];
+        if (c.creatives.length >= 4) return send(res, 400, { error: 'Maximum 4 additional creative variants per campaign (plus the primary).' });
+        const b = await getBody(req);
+        if (!b.adText) return send(res, 400, { error: 'adText is required' });
+        const creative = { id: uid('cr_'), adText: b.adText.slice(0, 200), url: b.url || c.url, impressions: 0, clicks: 0 };
+        c.creatives.push(creative);
+        saveDB();
+        return send(res, 201, { creative, creatives: c.creatives });
+      }
+
+      // ── FEATURE: per-creative performance breakdown (which A/B variant wins) ──
+      if (method === 'GET' && url.match(/^\/v1\/advertiser\/campaigns\/[^/]+\/creatives$/)) {
+        const cid = url.split('/')[4];
+        const c = db.campaigns[cid];
+        if (!c || c.advertiserId !== user.id) return send(res, 404, { error: 'not found' });
+
+        const namedCreatives = c.creatives || [];
+        const namedImpressions = namedCreatives.reduce((s, cr) => s + (cr.impressions || 0), 0);
+        const namedClicks = namedCreatives.reduce((s, cr) => s + (cr.clicks || 0), 0);
+        const totalImpressions = db.impressions.filter(i => i.campaignId === cid).length;
+        const totalClicks = db.clicks.filter(x => x.campaignId === cid && x.valid).length;
+
+        const rows = [
+          {
+            id: 'primary', adText: c.adText, url: c.url,
+            impressions: Math.max(0, totalImpressions - namedImpressions),
+            clicks: Math.max(0, totalClicks - namedClicks),
+          },
+          ...namedCreatives.map(cr => ({ id: cr.id, adText: cr.adText, url: cr.url, impressions: cr.impressions || 0, clicks: cr.clicks || 0 })),
+        ].map(r => ({ ...r, ctr: r.impressions ? ((r.clicks / r.impressions) * 100).toFixed(2) : '0.00' }));
+
+        return send(res, 200, { creatives: rows });
       }
 
       // pause / resume own campaign — only active→paused or paused→active allowed
@@ -2075,6 +2158,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
 
       // approve a withdrawal request — auto-pays via Cashfree if configured
       if (method === 'POST' && url.match(/^\/v1\/admin\/withdrawals\/[^/]+\/approve$/)) {
+        if (!requireScope(user, ['finance'], res)) return;
         const wid = url.split('/')[4];
         const wr = db.withdrawalRequests.find(r => r.id === wid);
         if (!wr) return send(res, 404, { error: 'Withdrawal request not found' });
@@ -2093,6 +2177,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
       // approve ALL pending withdrawal requests for one user in a single click (admin.html "approve all for user" button)
       // Was previously dead — frontend called this but no handler existed, so the button silently did nothing.
       if (method === 'POST' && url === '/v1/admin/withdrawals/approve-all-for-user') {
+        if (!requireScope(user, ['finance'], res)) return;
         const b = await getBody(req);
         if (!b.userId) return send(res, 400, { error: 'userId is required' });
         const pending = db.withdrawalRequests.filter(r => r.userId === b.userId && r.status === 'pending');
@@ -2115,6 +2200,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
 
       // reject a withdrawal request — requires a reason, sends email to earner explaining why
       if (method === 'POST' && url.match(/^\/v1\/admin\/withdrawals\/[^/]+\/reject$/)) {
+        if (!requireScope(user, ['finance'], res)) return;
         const wid = url.split('/')[4];
         const wr = db.withdrawalRequests.find(r => r.id === wid);
         if (!wr) return send(res, 404, { error: 'Withdrawal request not found' });
@@ -2351,49 +2437,6 @@ if (method === 'GET' && url === '/v1/customer/projection') {
       }
 
       // ── Admin: advertiser full profile ─────────────────────────────────
-      if (method === 'GET' && url.match(/^\/v1\/admin\/advertisers\/[^/]+$/)) {
-        if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin only' });
-        const advId = url.split('/').pop();
-        const adv = db.users[advId];
-        if (!adv || adv.role !== 'advertiser') return send(res, 404, { error: 'Advertiser not found' });
-        const camps = Object.values(db.campaigns).filter(c => c.advertiserId === advId);
-        const totalImps = camps.reduce((s, c) => {
-          return s + db.impressions.filter(i => i.campaignId === c.id).length;
-        }, 0);
-        const totalClicks = camps.reduce((s, c) => {
-          return s + db.clicks.filter(cl => cl.campaignId === c.id && cl.valid).length;
-        }, 0);
-        return send(res, 200, {
-          advertiser: { ...publicUser(adv), company: adv.company, industry: adv.industry, website: adv.website },
-          campaigns: camps.map(c => ({
-            ...c,
-            impressions: db.impressions.filter(i => i.campaignId === c.id).length,
-            clicks: db.clicks.filter(cl => cl.campaignId === c.id && cl.valid).length,
-          })),
-          summary: {
-            totalCampaigns: camps.length,
-            activeCampaigns: camps.filter(c => c.status === 'active').length,
-            totalSpentPaise: camps.reduce((s, c) => s + (c.spentPaise || 0), 0),
-            totalBudgetPaise: camps.reduce((s, c) => s + (c.budgetPaise || 0), 0),
-            totalImpressions: totalImps,
-            totalClicks,
-            ctr: totalImps ? (totalClicks / totalImps * 100).toFixed(2) : '0.00',
-          },
-        });
-      }
-
-      // ── Admin: ban/unban user ──────────────────────────────────────────
-      if (method === 'PATCH' && url.match(/^\/v1\/admin\/users\/[^/]+$/)) {
-        if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin only' });
-        const uid2 = url.split('/').pop();
-        const target = db.users[uid2];
-        if (!target) return send(res, 404, { error: 'User not found' });
-        const b = await getBody(req);
-        if (b.banned !== undefined) target.banned = !!b.banned;
-        saveDB();
-        return send(res, 200, { user: publicUser(target) });
-      }
-
       // all campaigns
       if (method === 'GET' && url === '/v1/admin/campaigns') {
         const allCamps = Object.values(db.campaigns).sort((a,b)=>b.createdAt-a.createdAt);
@@ -2743,6 +2786,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         return send(res, 200, { codes: db.discountCodes || [] });
       }
       if (method === 'POST' && url === '/v1/admin/discount-codes') {
+        if (!requireScope(user, ['finance'], res)) return;
         const b = await getBody(req);
         if (!b.code || !b.discountPct) return send(res, 400, { error: 'code and discountPct required' });
         const code = b.code.trim().toUpperCase().replace(/\s+/g, '');
@@ -2966,6 +3010,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
 
       // ban / unban user (with optional reason — e.g. "ad policy violation", "nudity")
       if (method === 'PATCH' && url.match(/^\/v1\/admin\/users\/[^/]+$/)) {
+        if (!requireScope(user, ['moderation'], res)) return;
         const uidToBan = url.split('/').pop();
         const target = db.users[uidToBan];
         if (!target) return send(res, 404, { error: 'not found' });
@@ -2982,6 +3027,42 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         }
         saveDB();
         return send(res, 200, { user: publicUser(target) });
+      }
+
+      // ── FEATURE: role-based admin sub-accounts ──
+      if (method === 'GET' && url === '/v1/admin/sub-admins') {
+        const subs = Object.values(db.users)
+          .filter(u => u.role === 'admin' && u.id !== 'admin')
+          .map(u => ({ id: u.id, email: u.email, name: u.name, adminScope: u.adminScope || 'full', createdAt: u.createdAt, banned: u.banned }));
+        return send(res, 200, { subAdmins: subs, isFullAdmin: isFullAdmin(user) });
+      }
+      if (method === 'POST' && url === '/v1/admin/sub-admins') {
+        if (!requireFullAdmin(user, res)) return; // only a full admin can create other admin accounts
+        const b = await getBody(req);
+        if (!b.email || !b.password) return send(res, 400, { error: 'email and password are required' });
+        if (Object.values(db.users).some(u => u.email === b.email.toLowerCase())) return send(res, 400, { error: 'A user with this email already exists' });
+        const validScopes = ['support', 'finance', 'moderation']; // support: view-only; finance: can approve payouts; moderation: can ban/review campaigns
+        const scopes = Array.isArray(b.scopes) ? b.scopes.filter(s => validScopes.includes(s)) : [];
+        if (scopes.length === 0) return send(res, 400, { error: `scopes must include at least one of: ${validScopes.join(', ')}` });
+
+        const subId = uid('subadmin_');
+        db.users[subId] = {
+          id: subId, email: b.email.toLowerCase(), passwordHash: hashPassword(b.password),
+          role: 'admin', adminScope: scopes, name: b.name || b.email, createdAt: Date.now(), banned: false,
+        };
+        auditLog(user.id, 'sub_admin_created', { subAdminId: subId, email: b.email, scopes });
+        saveDB();
+        return send(res, 201, { subAdmin: { id: subId, email: b.email, adminScope: scopes } });
+      }
+      if (method === 'DELETE' && url.match(/^\/v1\/admin\/sub-admins\/[^/]+$/)) {
+        if (!requireFullAdmin(user, res)) return;
+        const subId = url.split('/').pop();
+        const target = db.users[subId];
+        if (!target || target.role !== 'admin' || subId === 'admin') return send(res, 404, { error: 'Sub-admin not found' });
+        delete db.users[subId];
+        auditLog(user.id, 'sub_admin_removed', { subAdminId: subId, email: target.email });
+        saveDB();
+        return send(res, 200, { success: true });
       }
     } // ← closes `if (url.startsWith('/v1/admin'))` — this brace was MISSING (was
       //   incorrectly closing ~230 lines earlier), which had silently ejected every
@@ -3503,6 +3584,54 @@ async function runAutoPayoutSweep() {
   } catch (e) { console.error('runAutoPayoutSweep error:', e.message); }
 }
 
+// ── FEATURE: weekly performance report email ───────────────────────────────────
+// Runs weekly. Sends every advertiser with at least one campaign a summary of
+// the last 7 days — impressions, valid clicks, spend, CTR — so they don't have
+// to remember to check the dashboard. This is the "inbox, not login" feature
+// aimed at advertisers like agencies who won't check a dashboard on their own.
+async function runWeeklyReportSweep() {
+  if (!RESEND_API_KEY) return;
+  try {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const advertisers = Object.values(db.users).filter(u => u.role === 'advertiser');
+
+    for (const adv of advertisers) {
+      const camps = Object.values(db.campaigns).filter(c => c.advertiserId === adv.id);
+      if (camps.length === 0) continue;
+      const campIds = new Set(camps.map(c => c.id));
+      const weekImps = db.impressions.filter(i => campIds.has(i.campaignId) && i.ts >= weekAgo);
+      const weekClicks = db.clicks.filter(c => campIds.has(c.campaignId) && c.valid && c.ts >= weekAgo);
+      if (weekImps.length === 0) continue; // nothing happened this week — don't send a noisy empty report
+
+      const spentPaise = weekImps.reduce((s, i) => s + (i.costPaise || 0), 0) + weekClicks.reduce((s, c) => s + (c.costPaise || 0), 0);
+      const ctr = weekImps.length ? ((weekClicks.length / weekImps.length) * 100).toFixed(2) : '0.00';
+      const activeCampCount = camps.filter(c => c.status === 'active').length;
+
+      if (!adv.email) continue;
+      fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: LAUNCH_EMAIL_FROM,
+          to: [adv.email],
+          subject: `📊 Your WaitJI AI weekly report — ${weekImps.length} impressions this week`,
+          html: `<p>Hi ${adv.name || 'there'},</p>
+            <p>Here's how your campaigns performed over the last 7 days:</p>
+            <table style="border-collapse:collapse;font-size:14px;margin:16px 0">
+              <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Impressions</td><td><b>${weekImps.length.toLocaleString('en-IN')}</b></td></tr>
+              <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Valid clicks</td><td><b>${weekClicks.length}</b></td></tr>
+              <tr><td style="padding:6px 12px 6px 0;color:#6B7185">CTR</td><td><b>${ctr}%</b></td></tr>
+              <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Spend this week</td><td><b>₹${(spentPaise/100).toFixed(2)}</b></td></tr>
+              <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Active campaigns</td><td><b>${activeCampCount}</b></td></tr>
+            </table>
+            <p><a href="https://waitjiai.in/advertiser.html" style="background:#4F46E5;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600">View full dashboard →</a></p>
+            <p style="color:#9198B8;font-size:12px;margin-top:20px">You're getting this because you have active or recent campaigns on WaitJI AI.</p>`,
+        }),
+      }).catch(() => {});
+    }
+  } catch (e) { console.error('runWeeklyReportSweep error:', e.message); }
+}
+
 
 (async () => {
   await loadDB();
@@ -3513,5 +3642,6 @@ async function runAutoPayoutSweep() {
   setInterval(runCampaignScheduleSweep, 5 * 60 * 1000);       // every 5 min
   setTimeout(() => { runZeroImpressionAlertSweep(); setInterval(runZeroImpressionAlertSweep, 60 * 60 * 1000); }, 30 * 1000); // hourly, first run after 30s
   setTimeout(() => { runAutoPayoutSweep(); setInterval(runAutoPayoutSweep, 24 * 60 * 60 * 1000); }, 60 * 1000); // daily, first run after 60s
+  setTimeout(() => { runWeeklyReportSweep(); setInterval(runWeeklyReportSweep, 7 * 24 * 60 * 60 * 1000); }, 90 * 1000); // weekly, first run after 90s
   server.listen(PORT, () => console.log(`WaitJI AI API v3 running on port ${PORT} (storage: ${pgAvailable ? 'Postgres' : 'LOCAL DISK — NOT PERSISTENT'})`));
 })();
