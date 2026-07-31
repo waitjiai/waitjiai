@@ -166,6 +166,96 @@ async function cashfreeApi(method, path, body) {
   if (!r.ok) throw new Error(d?.message || `Cashfree ${method} ${path} → ${r.status}`);
   return { data: d, status: r.status };
 }
+
+// ── Shared withdrawal-approval logic ───────────────────────────────────────────
+// Extracted so both the single "/approve" endpoint and the bulk
+// "/approve-all-for-user" endpoint share one code path (previously this logic
+// was duplicated only in the single-approve route, and approve-all-for-user
+// didn't exist at all — its button in admin.html called a route with no handler).
+async function approveOneWithdrawal(wr, adminUserId, note) {
+  const earner = db.users[wr.userId];
+
+  let cashfreeTransferId = null;
+  let cashfreeError = null;
+  let autoPaid = false;
+
+  // ── PayPal route (international developers) ──
+  if (earner?.payoutMode === 'paypal' && earner.paypalEmail && paypalEnabled()) {
+    try {
+      const pp = await paypalPayout(earner.paypalEmail, wr.amountPaise, `WaitJI AI earnings — ${(wr.amountPaise/100).toFixed(2)} INR`);
+      autoPaid = true;
+      wr.paypalBatchId = pp.batchId;
+      wr.paypalUsd = pp.usd;
+    } catch (e) {
+      cashfreeError = 'PayPal: ' + e.message;
+    }
+  }
+  // ── Cashfree route (Indian developers — UPI/bank) ──
+  else if (CASHFREE_CLIENT_ID && CASHFREE_CLIENT_SECRET && earner) {
+    try {
+      const transferBody = {
+        transfer_id: wr.id,
+        transfer_amount: (wr.amountPaise / 100).toFixed(2),
+        transfer_currency: 'INR',
+        transfer_mode: earner.payoutMode === 'bank' && earner.bankAccount ? 'banktransfer' : 'upi',
+        beneficiary_details: earner.payoutMode === 'bank' && earner.bankAccount ? {
+          beneficiary_id: 'BEN_' + wr.userId,
+          beneficiary_name: earner.bankAccount.accountHolder,
+          beneficiary_instrument_details: {
+            bank_account_number: decrypt(earner.bankAccount.accountNumber),
+            bank_ifsc: earner.bankAccount.ifsc,
+          },
+        } : {
+          beneficiary_id: 'BEN_' + wr.userId,
+          beneficiary_name: earner.name || earner.email,
+          beneficiary_instrument_details: {
+            vpa: earner.upiId,
+          },
+        },
+      };
+      const { data } = await cashfreeApi('POST', '/payout/v2/transfers', transferBody);
+      cashfreeTransferId = data?.data?.transfer_id || data?.transfer_id || wr.id;
+      autoPaid = true;
+      wr.cashfreeTransferId = cashfreeTransferId;
+    } catch (e) {
+      cashfreeError = e.message;
+      // Don't block approval — admin can still manually pay
+    }
+  }
+
+  wr.status = 'approved';
+  wr.reviewedAt = Date.now();
+  wr.reviewNote = note;
+  wr.autoPaid = autoPaid;
+
+  db.payouts.push({ id: uid('p_'), userId: wr.userId, amountPaise: wr.amountPaise, status: autoPaid ? 'paid' : 'approved', ts: Date.now(), withdrawalRequestId: wr.id, cashfreeTransferId });
+  auditLog(adminUserId, autoPaid ? 'withdrawal_paid' : 'withdrawal_approved', { wrId: wr.id, userId: wr.userId, amountPaise: wr.amountPaise });
+  saveDB();
+
+  if (RESEND_API_KEY && earner?.email) {
+    fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: LAUNCH_EMAIL_FROM,
+        to: [earner.email],
+        subject: `✅ Your withdrawal of ₹${(wr.amountPaise/100).toFixed(2)} has been ${autoPaid ? 'processed' : 'approved'}`,
+        html: `<p>Hi ${earner.name||'there'},</p>
+          <p>Your withdrawal has been <b>${autoPaid ? 'automatically processed via Cashfree' : 'approved'}</b>.</p>
+          <table style="border-collapse:collapse;font-size:14px;margin:16px 0">
+            <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Amount</td><td><b>₹${(wr.amountPaise/100).toFixed(2)}</b></td></tr>
+            <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Paid to</td><td>${wr.upiId || (earner.bankAccount?.accountNumber ? 'Bank account ending '+decrypt(earner.bankAccount.accountNumber).slice(-4) : '—')}</td></tr>
+            ${autoPaid ? '<tr><td style="padding:6px 12px 6px 0;color:#6B7185">Status</td><td>Transferred — should arrive within minutes to a few hours</td></tr>' : '<tr><td style="padding:6px 12px 6px 0;color:#6B7185">ETA</td><td>2–3 business days</td></tr>'}
+            ${wr.reviewNote ? `<tr><td style="padding:6px 12px 6px 0;color:#6B7185">Note</td><td>${wr.reviewNote}</td></tr>` : ''}
+          </table>
+          <p>— WaitJI AI Team</p>`,
+      }),
+    }).catch(() => {});
+  }
+
+  return { autoPaid, cashfreeTransferId, cashfreeError };
+}
+
 // Razorpay — required for real advertiser payment collection. Never given a default
 // (these are secret credentials and must only live in Render's env vars).
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || null;
@@ -289,6 +379,7 @@ let db = {
   houseAds: [],     // { id, text, url, active } — shown when no real advertiser campaign is active
   withdrawalRequests: [], // { id, userId, amountPaise, upiId, status, requestedAt, reviewedAt, reviewNote }
   discountCodes: [],      // { id, code, discountPct, maxUses, usedCount, expiresAt, createdAt, active, description }
+  waitlist: [],           // { email, source, joinedAt } — public waitlist signups (blog + status page forms)
 };
 const HOUSE_AD_RATE_PAISE = 5000; // ₹50 per 1000 impressions, founder-funded
 
@@ -347,6 +438,7 @@ async function loadDB() {
         db.houseAds ||= [];
         db.withdrawalRequests ||= [];
         db.discountCodes ||= [];
+        db.waitlist ||= [];
         console.log(`Loaded DB from Postgres: ${Object.keys(db.users).length} users, ${Object.keys(db.campaigns).length} campaigns`);
       } else {
         console.log('No existing DB row in Postgres — starting fresh (first boot).');
@@ -367,6 +459,7 @@ async function loadDB() {
       db.clicks ||= []; db.fraudFlags ||= []; db.payouts ||= [];
       db.sentLaunchEmails ||= {};
       db.houseAds ||= [];
+      db.waitlist ||= [];
     }
   } catch (e) { console.error('Local DB load error:', e.message); }
 }
@@ -642,6 +735,38 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { days, uptimePct: pings.length > 0 ? (knownUpDays / pings.length * 100).toFixed(2) : '100.00' });
     }
 
+
+    // ── Public: waitlist signup (blog "join waitlist" form + status.html subscribe form) ──
+    // Was previously dead — frontend called this but no handler existed, so signups silently 404'd.
+    if (method === 'POST' && (url === '/v1/waitlist' || url === '/v1/waitlist/join')) {
+      const b = await getBody(req);
+      const email = (b.email || '').trim().toLowerCase();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return send(res, 400, { error: 'Please enter a valid email address' });
+      }
+      db.waitlist ||= [];
+      const existing = db.waitlist.find(w => w.email === email);
+      if (existing) {
+        return send(res, 200, { success: true, alreadyJoined: true, message: "You're already on the waitlist!" });
+      }
+      db.waitlist.push({ email, source: b.source || 'unknown', joinedAt: Date.now() });
+      saveDB();
+
+      if (RESEND_API_KEY) {
+        fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: LAUNCH_EMAIL_FROM,
+            to: [email],
+            subject: "You're on the WaitJI AI waitlist! 🎉",
+            html: `<p>Hi,</p><p>Thanks for joining the WaitJI AI waitlist. We'll email you the moment there's news — new features, early access, or launch updates.</p><p>— WaitJI AI Team</p>`,
+          }),
+        }).catch(() => {});
+      }
+
+      return send(res, 200, { success: true, alreadyJoined: false, message: "You're on the waitlist!" });
+    }
 
     // ── Public: feature flags for the frontend (no secrets exposed) ──
     if (method === 'GET' && url === '/v1/public/config') {
@@ -1887,99 +2012,36 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         if (!wr) return send(res, 404, { error: 'Withdrawal request not found' });
         if (wr.status !== 'pending') return send(res, 400, { error: `Cannot approve — status is "${wr.status}"` });
         const b = await getBody(req);
-        const earner = db.users[wr.userId];
-
-        let cashfreeTransferId = null;
-        let cashfreeError = null;
-        let autoPaid = false;
-        let paypalBatchId = null;
-        let payoutRail = null;
-
-        // ── PayPal route (international developers) ──
-        if (earner?.payoutMode === 'paypal' && earner.paypalEmail && paypalEnabled()) {
-          try {
-            const pp = await paypalPayout(earner.paypalEmail, wr.amountPaise, `WaitJI AI earnings — ${(wr.amountPaise/100).toFixed(2)} INR`);
-            paypalBatchId = pp.batchId;
-            autoPaid = true;
-            payoutRail = 'paypal';
-            wr.paypalBatchId = pp.batchId;
-            wr.paypalUsd = pp.usd;
-          } catch (e) {
-            cashfreeError = 'PayPal: ' + e.message;
-          }
-        }
-        // ── Cashfree route (Indian developers — UPI/bank) ──
-        else if (CASHFREE_CLIENT_ID && CASHFREE_CLIENT_SECRET && earner) {
-          payoutRail = 'cashfree';
-          try {
-            const transferBody = {
-              transfer_id: wr.id,
-              transfer_amount: (wr.amountPaise / 100).toFixed(2),
-              transfer_currency: 'INR',
-              transfer_mode: earner.payoutMode === 'bank' && earner.bankAccount ? 'banktransfer' : 'upi',
-              beneficiary_details: earner.payoutMode === 'bank' && earner.bankAccount ? {
-                beneficiary_id: 'BEN_' + wr.userId,
-                beneficiary_name: earner.bankAccount.accountHolder,
-                beneficiary_instrument_details: {
-                  bank_account_number: decrypt(earner.bankAccount.accountNumber),
-                  bank_ifsc: earner.bankAccount.ifsc,
-                },
-              } : {
-                beneficiary_id: 'BEN_' + wr.userId,
-                beneficiary_name: earner.name || earner.email,
-                beneficiary_instrument_details: {
-                  vpa: earner.upiId,
-                },
-              },
-            };
-            const { data } = await cashfreeApi('POST', '/payout/v2/transfers', transferBody);
-            cashfreeTransferId = data?.data?.transfer_id || data?.transfer_id || wr.id;
-            autoPaid = true;
-            wr.cashfreeTransferId = cashfreeTransferId;
-          } catch (e) {
-            cashfreeError = e.message;
-            // Don't block approval — admin can still manually pay
-          }
-        }
-
-        wr.status = 'approved';
-        wr.reviewedAt = Date.now();
-        wr.reviewNote = b.note || null;
-        wr.autoPaid = autoPaid;
-
-        // Record in payouts ledger
-        db.payouts.push({ id: uid('p_'), userId: wr.userId, amountPaise: wr.amountPaise, status: autoPaid ? 'paid' : 'approved', ts: Date.now(), withdrawalRequestId: wr.id, cashfreeTransferId });
-        auditLog(user.id, autoPaid ? 'withdrawal_paid' : 'withdrawal_approved', { wrId: wr.id, userId: wr.userId, amountPaise: wr.amountPaise });
-        saveDB();
-
-        // Email earner
-        if (RESEND_API_KEY && earner?.email) {
-          fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              from: LAUNCH_EMAIL_FROM,
-              to: [earner.email],
-              subject: `✅ Your withdrawal of ₹${(wr.amountPaise/100).toFixed(2)} has been ${autoPaid ? 'processed' : 'approved'}`,
-              html: `<p>Hi ${earner.name||'there'},</p>
-                <p>Your withdrawal has been <b>${autoPaid ? 'automatically processed via Cashfree' : 'approved'}</b>.</p>
-                <table style="border-collapse:collapse;font-size:14px;margin:16px 0">
-                  <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Amount</td><td><b>₹${(wr.amountPaise/100).toFixed(2)}</b></td></tr>
-                  <tr><td style="padding:6px 12px 6px 0;color:#6B7185">Paid to</td><td>${wr.upiId || (earner.bankAccount?.accountNumber ? 'Bank account ending '+decrypt(earner.bankAccount.accountNumber).slice(-4) : '—')}</td></tr>
-                  ${autoPaid ? '<tr><td style="padding:6px 12px 6px 0;color:#6B7185">Status</td><td>Transferred — should arrive within minutes to a few hours</td></tr>' : '<tr><td style="padding:6px 12px 6px 0;color:#6B7185">ETA</td><td>2–3 business days</td></tr>'}
-                  ${wr.reviewNote ? `<tr><td style="padding:6px 12px 6px 0;color:#6B7185">Note</td><td>${wr.reviewNote}</td></tr>` : ''}
-                </table>
-                <p>— WaitJI AI Team</p>`,
-            }),
-          }).catch(() => {});
-        }
-
+        const result = await approveOneWithdrawal(wr, user.id, b.note || null);
         return send(res, 200, {
           withdrawal: wr,
-          autoPaid,
-          cashfreeTransferId,
-          cashfreeError,
-          message: autoPaid ? 'Approved and auto-paid via Cashfree.' : cashfreeError ? `Approved (Cashfree error: ${cashfreeError} — please pay manually).` : 'Approved — Cashfree not configured, pay manually.',
+          autoPaid: result.autoPaid,
+          cashfreeTransferId: result.cashfreeTransferId,
+          cashfreeError: result.cashfreeError,
+          message: result.autoPaid ? 'Approved and auto-paid via Cashfree.' : result.cashfreeError ? `Approved (Cashfree error: ${result.cashfreeError} — please pay manually).` : 'Approved — Cashfree not configured, pay manually.',
+        });
+      }
+
+      // approve ALL pending withdrawal requests for one user in a single click (admin.html "approve all for user" button)
+      // Was previously dead — frontend called this but no handler existed, so the button silently did nothing.
+      if (method === 'POST' && url === '/v1/admin/withdrawals/approve-all-for-user') {
+        const b = await getBody(req);
+        if (!b.userId) return send(res, 400, { error: 'userId is required' });
+        const pending = db.withdrawalRequests.filter(r => r.userId === b.userId && r.status === 'pending');
+        if (pending.length === 0) return send(res, 200, { success: true, approved: 0, message: 'No pending withdrawals for this user.' });
+
+        const results = [];
+        for (const wr of pending) {
+          const r = await approveOneWithdrawal(wr, user.id, b.note || null);
+          results.push({ id: wr.id, amountPaise: wr.amountPaise, autoPaid: r.autoPaid, cashfreeError: r.cashfreeError });
+        }
+        const paidCount = results.filter(r => r.autoPaid).length;
+        return send(res, 200, {
+          success: true,
+          approved: results.length,
+          autoPaidCount: paidCount,
+          results,
+          message: `Approved ${results.length} withdrawal(s), ${paidCount} auto-paid.`,
         });
       }
 
