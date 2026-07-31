@@ -156,6 +156,7 @@ tr:last-child td{border-bottom:none;}
     <button class="tab" data-tab="tracking" onclick="showTab('tracking')">📡 Ad Tracking</button>
     <button class="tab" data-tab="email" onclick="showTab('email')">✉️ Email Tools</button>
     <button class="tab" data-tab="social" onclick="showTab('social')">📱 Social & Promo</button>
+    <button class="tab" data-tab="live" onclick="showTab('live')">🟢 Live Sessions</button>
     <button class="tab" data-tab="auditlog" onclick="showTab('auditlog')">📋 Audit Log</button>
     <button class="tab" data-tab="ipblock" onclick="showTab('ipblock')">🚫 IP Block</button>
   </div>
@@ -202,6 +203,7 @@ async function render(){
     if(curTab==='tracking')   return renderTracking(await get('/v1/admin/overview'));
     if(curTab==='email')      return renderEmail(await get('/v1/admin/waitlist'));
     if(curTab==='social')     return renderSocial();
+    if(curTab==='live')      return renderLive(await get('/v1/admin/live-sessions'));
     if(curTab==='auditlog')  return renderAuditLog(await get('/v1/admin/audit-log'));
     if(curTab==='ipblock')   return renderIpBlock(await get('/v1/admin/ip-block'));
   }catch(e){ document.getElementById('tabContent').innerHTML='<div class="loading">Error loading data. <a href="" onclick="render();return false">retry</a></div>'; console.error(e); }
@@ -432,90 +434,194 @@ function filterCusts(){
 }
 
 async function viewEarner(id){
-  const u=(window._custs||[]).find(x=>x.id===id)||{};
-  // Fetch full ad log from backend
-  let logData = null;
-  try { logData = await get('/v1/admin/earners/'+id+'/adlog'); } catch(e) {}
-  const logs = logData?.logs || [];
-  const summary = logData?.summary || {};
-  const ps=u.profileStatus||{};
   const m=document.createElement('div'); m.className='modal-bg';
-  m.innerHTML=`<div class="modal" style="max-width:640px;">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
-      <div><h2>${esc(u.name||'Developer')}</h2><div class="modal-sub">${esc(u.email)} · joined ${u.createdAt?new Date(u.createdAt).toLocaleDateString('en-IN'):'—'}</div></div>
+  m.innerHTML='<div class="modal" style="max-width:940px;"><div style="padding:40px;text-align:center;color:#9AA896;">Loading full profile…</div></div>';
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{if(e.target===m)m.remove();});
+
+  let d=null;
+  try { d = await get('/v1/admin/earners/'+id+'/full'); }
+  catch(e){ m.querySelector('.modal').innerHTML='<div style="padding:40px;text-align:center;color:#DC2626;">Could not load profile — <a href="" onclick="location.reload();return false" style="color:#2A7A4F;">retry</a></div>'; return; }
+
+  const u=d.user||{}, e=d.earnings||{}, a=d.activity||{}, b=d.breakdowns||{};
+  const statusColor={active:'#047857',idle:'#C9901A',inactive:'#6B7568',never_connected:'#DC2626'}[a.status]||'#6B7568';
+  const statusLabel={active:'● Active now',idle:'◌ Idle',inactive:'○ Inactive',never_connected:'✗ Never connected'}[a.status]||a.status;
+  const total=x=>Object.values(x||{}).reduce((s,v)=>s+v,0)||1;
+
+  const bar=(obj,colors)=>Object.entries(obj||{}).sort((x,y)=>y[1]-x[1]).map(([k,v],i)=>{
+    const pct=Math.round(v/total(obj)*100);
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;">
+      <div style="width:88px;text-transform:capitalize;">${esc(k)}</div>
+      <div style="flex:1;height:5px;background:#F3F4F6;border-radius:100px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${colors[i%colors.length]};border-radius:100px;"></div></div>
+      <div style="width:58px;text-align:right;font-family:var(--mono);color:#6B7568;">${fmt(v)} · ${pct}%</div>
+    </div>`;}).join('')||'<div style="font-size:12px;color:#9AA896;">No data yet</div>';
+
+  const maxDaily=Math.max(1,...(d.daily||[]).map(x=>x.impressions));
+
+  m.querySelector('.modal').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+      <div>
+        <h2 style="display:flex;align-items:center;gap:10px;">${esc(u.name||'Developer')}
+          <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:100px;background:${statusColor}18;color:${statusColor};">${statusLabel}</span>
+        </h2>
+        <div class="modal-sub">${esc(u.email||'—')} · <span class="mono" style="font-size:11px;">${esc(u.userId||'')}</span></div>
+        <div style="font-size:11.5px;color:#9AA896;margin-top:3px;">
+          Joined ${u.createdAt?new Date(u.createdAt).toLocaleDateString('en-IN'):'—'}
+          · ${u.loginCount||0} logins
+          · Last login ${u.lastLoginAt?new Date(u.lastLoginAt).toLocaleString('en-IN'):'never'}
+          · via ${esc(u.provider||'email')}
+          ${u.referralCount?` · ${u.referralCount} referrals`:''}
+        </div>
+      </div>
       <button class="mini-btn" onclick="this.closest('.modal-bg').remove()">✕</button>
     </div>
 
-    <div class="cards" style="grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
-      <div class="card"><div class="card-label">Total earned</div><div class="card-val" style="font-size:18px;color:#047857;">₹${summary.totalEarnedPaise?(summary.totalEarnedPaise/100).toFixed(2):(u.earnedRupees||'0.00')}</div></div>
-      <div class="card"><div class="card-label">Available</div><div class="card-val" style="font-size:18px;color:#D97706;">₹${u.pendingRupees||'0.00'}</div></div>
-      <div class="card"><div class="card-label">Paid out</div><div class="card-val" style="font-size:18px;">₹${u.paidOutRupees||'0.00'}</div></div>
-      <div class="card"><div class="card-label">Impressions</div><div class="card-val" style="font-size:18px;">${fmt(summary.totalImpressions||u.impressions||0)}</div></div>
+    <div style="display:flex;gap:6px;margin:14px 0;border-bottom:1px solid #E5E7EB;">
+      ${['Overview','Sessions','Ad log','Withdrawals','Logins'].map((t,i)=>
+        `<button class="etab ${i===0?'active':''}" data-etab="${i}" onclick="switchETab(${i},this)" style="padding:8px 14px;font-size:12.5px;font-weight:600;background:none;border:none;border-bottom:2px solid ${i===0?'#2A7A4F':'transparent'};color:${i===0?'#0B0F0A':'#6B7568'};cursor:pointer;">${t}</button>`).join('')}
     </div>
-    ${(u.recentWithdrawals||[]).length?`
-    <div style="background:#F8F5EE;border-radius:10px;padding:14px;margin-bottom:14px;">
-      <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Withdrawal history</div>
-      ${(u.recentWithdrawals||[]).map(w=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #E5E7EB;font-size:13px;">
-        <div><span style="font-weight:600;">₹${((w.amountPaise||0)/100).toFixed(2)}</span> <span style="color:#9AA896;font-size:11px;">· ${w.upiId||'Bank'}</span></div>
-        <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:11px;color:#9AA896;">${w.requestedAt?new Date(w.requestedAt).toLocaleDateString('en-IN'):'—'}</span><span style="font-size:11px;padding:2px 8px;border-radius:100px;font-weight:600;background:${w.status==='paid'||w.status==='approved'?'#DCFCE7':w.status==='pending'?'#FEF9EC':'#FEE2E2'};color:${w.status==='paid'||w.status==='approved'?'#047857':w.status==='pending'?'#C9901A':'#DC2626'};">${w.status}</span></div>
-      </div>`).join('')}
-    </div>`:''}
 
+    <!-- TAB 0: OVERVIEW -->
+    <div class="epane" data-epane="0">
+      <div class="cards" style="grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
+        <div class="card"><div class="card-label">Total earned</div><div class="card-val" style="font-size:17px;color:#047857;">₹${e.totalEarnedRupees||'0.00'}</div><div class="card-sub">${fmt(a.totalImpressions||0)} imps</div></div>
+        <div class="card"><div class="card-label">Available</div><div class="card-val" style="font-size:17px;color:#D97706;">₹${e.availableRupees||'0.00'}</div><div class="card-sub">withdrawable</div></div>
+        <div class="card"><div class="card-label">Paid out</div><div class="card-val" style="font-size:17px;">₹${e.paidOutRupees||'0.00'}</div><div class="card-sub">${(d.withdrawals||[]).filter(w=>['paid','approved'].includes(w.status)).length} payouts</div></div>
+        <div class="card"><div class="card-label">Pending</div><div class="card-val" style="font-size:17px;">₹${e.pendingWdRupees||'0.00'}</div><div class="card-sub">awaiting review</div></div>
+      </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-      <div style="background:#F8F5EE;border-radius:10px;padding:14px;">
-        <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Contact info</div>
-        <div style="font-size:13px;display:flex;flex-direction:column;gap:6px;">
-          <div><b>Email:</b> ${esc(u.email)}</div>
-          <div><b>Phone:</b> ${esc(u.phone||'—')}</div>
-          <div><b>User ID:</b> <span style="font-family:monospace;font-size:11px;">${esc(u.id)}</span></div>
-          <div><b>Last seen:</b> ${timeAgo(u.lastSeen)}</div>
-          <div><b>Extension:</b> <span style="color:${u.extensionConnected?'#047857':'#DC2626'}">${u.extensionConnected?'✓ Connected':'✗ Not connected'}</span></div>
+      <div class="cards" style="grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
+        <div class="card"><div class="card-label">Active time</div><div class="card-val" style="font-size:17px;">${a.totalActiveHours||0}h</div><div class="card-sub">${a.totalSessions||0} sessions</div></div>
+        <div class="card"><div class="card-label">Avg session</div><div class="card-val" style="font-size:17px;">${a.avgSessionMin||0}m</div><div class="card-sub">${a.avgImpsPerSession||0} imps avg</div></div>
+        <div class="card"><div class="card-label">CTR</div><div class="card-val" style="font-size:17px;">${a.ctr||'0.00'}%</div><div class="card-sub">${a.validClicks||0} valid clicks</div></div>
+        <div class="card"><div class="card-label">Last seen</div><div class="card-val" style="font-size:14px;">${esc(a.lastImpressionAgo||'never')}</div><div class="card-sub">${a.impressionsLast24h||0} imps / 24h</div></div>
+      </div>
+
+      ${a.liveSession&&a.liveSession.isLive?`<div style="background:#DCFCE7;border:1px solid #86EFAC;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:#047857;">
+        <b>● Live session in progress</b> — started ${new Date(a.liveSession.startedAt).toLocaleTimeString('en-IN')}, ${a.liveSession.impressions} impressions so far
+      </div>`:''}
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+        <div style="background:#F8F5EE;border-radius:10px;padding:14px;">
+          <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Surface breakdown</div>
+          ${bar(b.bySurface,['#2A7A4F','#3B82F6','#F0B429'])}
+        </div>
+        <div style="background:#F8F5EE;border-radius:10px;padding:14px;">
+          <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Ad type breakdown</div>
+          ${bar(b.byAdType,['#F0B429','#3B82F6'])}
         </div>
       </div>
+
+      <div style="background:#F8F5EE;border-radius:10px;padding:14px;margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Daily activity — last 30 days</div>
+        <div style="display:flex;align-items:flex-end;gap:2px;height:70px;">
+          ${(d.daily||[]).map(x=>`<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;" title="${x.label}: ${x.impressions} imps · ₹${((x.earnedPaise||0)/100).toFixed(2)}">
+            <div style="background:${x.impressions?'#2A7A4F':'#E5E7EB'};border-radius:2px 2px 0 0;min-height:2px;height:${Math.max(2,Math.round(x.impressions/maxDaily*62))}px;"></div>
+          </div>`).join('')}
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#9AA896;margin-top:5px;"><span>30 days ago</span><span>Today</span></div>
+      </div>
+
       <div style="background:#F8F5EE;border-radius:10px;padding:14px;">
-        <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Payout info</div>
-        <div style="font-size:13px;display:flex;flex-direction:column;gap:6px;">
-          <div><b>Method:</b> ${u.payoutMode==='bank'?'Bank account':'UPI'}</div>
-          ${u.upiId&&u.payoutMode!=='bank'?`<div><b>UPI:</b> <span style="font-family:monospace;">${esc(u.upiId)}</span></div>`:''}
-          ${u.bankAccount?.accountNumber?`<div><b>Account:</b> ••••${esc(u.bankAccount.accountNumber.slice(-4))}</div><div><b>IFSC:</b> ${esc(u.bankAccount.ifsc||'—')}</div>`:''}
-          <div><b>Verified:</b> <span style="color:${u.payoutVerified||u.bankVerified?'#047857':'#DC2626'}">${u.payoutVerified||u.bankVerified?'✓ Yes':'✗ No'}</span></div>
+        <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Payout method &amp; fraud</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:12.5px;">
+          <div><span style="color:#9AA896;">Method:</span> <b style="text-transform:capitalize;">${esc(u.payoutMode||'not set')}</b></div>
+          <div><span style="color:#9AA896;">Verified:</span> <b style="color:${u.payoutVerified?'#047857':'#DC2626'};">${u.payoutVerified?'Yes':'No'}</b></div>
+          <div><span style="color:#9AA896;">Fraud flags:</span> <b style="color:${(d.fraudFlags||[]).length?'#DC2626':'#047857'};">${(d.fraudFlags||[]).length}</b></div>
         </div>
       </div>
     </div>
 
-    <div style="background:#F8F5EE;border-radius:10px;padding:14px;margin-bottom:14px;">
-      <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Profile completion</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        ${['name','phone','email','payout'].map(k=>`<span style="font-size:12px;padding:3px 10px;border-radius:100px;background:${ps.checks?.[k]?.done?'#DCFCE7':'#FEE2E2'};color:${ps.checks?.[k]?.done?'#047857':'#DC2626'};font-weight:600;">${ps.checks?.[k]?.done?'✓':'✗'} ${k}</span>`).join('')}
-      </div>
+    <!-- TAB 1: SESSIONS -->
+    <div class="epane" data-epane="1" style="display:none;">
+      <div style="font-size:12px;color:#6B7568;margin-bottom:10px;">Sessions derived from impression activity (15-min inactivity = new session)</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+        <thead><tr style="background:#F8F5EE;">${['Started','Duration','Impressions','Earned','Surfaces'].map(h=>`<th style="text-align:left;padding:8px 12px;font-size:10.5px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;">${h}</th>`).join('')}</tr></thead>
+        <tbody>${(d.sessions||[]).map(s=>`<tr style="border-bottom:1px solid #F3F4F6;">
+          <td style="padding:8px 12px;">${new Date(s.start).toLocaleString('en-IN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
+          <td style="padding:8px 12px;" class="mono">${s.durationMin}m</td>
+          <td style="padding:8px 12px;" class="mono">${fmt(s.impressions)}</td>
+          <td style="padding:8px 12px;" class="mono" style="color:#047857;">₹${s.earnedRupees}</td>
+          <td style="padding:8px 12px;font-size:11px;color:#6B7568;">${Object.entries(s.surfaces||{}).map(([k,v])=>k+' '+v).join(' · ')}</td>
+        </tr>`).join('')||'<tr><td colspan="5" style="text-align:center;padding:28px;color:#9AA896;">No sessions recorded yet</td></tr>'}</tbody>
+      </table>
     </div>
 
-    <div style="margin-bottom:14px;">
-      <div style="font-size:12px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Ad impression log (last 50)</div>
-      <div style="max-height:220px;overflow-y:auto;border:1px solid #E5E7EB;border-radius:8px;">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;">
-          <thead><tr style="background:#F8F5EE;position:sticky;top:0;"><th style="padding:7px 10px;text-align:left;color:#9AA896;font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:.5px;">Time</th><th style="padding:7px 10px;text-align:left;color:#9AA896;font-weight:600;text-transform:uppercase;font-size:10px;">Ad</th><th style="padding:7px 10px;text-align:left;color:#9AA896;font-weight:600;text-transform:uppercase;font-size:10px;">Type</th><th style="padding:7px 10px;text-align:left;color:#9AA896;font-weight:600;text-transform:uppercase;font-size:10px;">Surface</th><th style="padding:7px 10px;text-align:right;color:#9AA896;font-weight:600;text-transform:uppercase;font-size:10px;">Earned</th><th style="padding:7px 10px;text-align:center;color:#9AA896;font-weight:600;text-transform:uppercase;font-size:10px;">Clicked</th></tr></thead>
-          <tbody>${logs.length?logs.slice(0,50).map(l=>`<tr style="border-bottom:1px solid #F3F4F6;">
-            <td style="padding:6px 10px;color:#9AA896;font-family:monospace;font-size:11px;">${new Date(l.ts).toLocaleString('en-IN',{hour12:true,hour:'numeric',minute:'2-digit',month:'short',day:'numeric'})}</td>
-            <td style="padding:6px 10px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(l.adText)}">${esc((l.adText||'—').slice(0,30))} <span style="font-size:10px;color:#C4B5A0;">${esc(l.advertiser||'')}</span></td>
-            <td style="padding:6px 10px;"><span style="font-size:10px;padding:2px 6px;border-radius:4px;background:${l.adType==='spotlight'?'#FEF9EC':'#EFF6FF'};color:${l.adType==='spotlight'?'#C9901A':'#1D4ED8'};font-weight:600;">${l.isHouseAd?'house':l.adType||'—'}</span></td>
-            <td style="padding:6px 10px;font-size:11px;color:#6B7568;">${l.surface||'terminal'}</td>
-            <td style="padding:6px 10px;text-align:right;font-family:monospace;font-size:12px;font-weight:600;color:#047857;">+₹${((l.earnedPaise||0)/100).toFixed(3)}</td>
-            <td style="padding:6px 10px;text-align:center;">${l.clicked?'<span style="color:#047857;font-size:12px;">✓</span>':'<span style="color:#D4D9CF;font-size:12px;">—</span>'}</td>
-          </tr>`).join(''):'<tr><td colspan="6" style="text-align:center;padding:20px;color:#9AA896;">No impressions yet</td></tr>'}</tbody>
+    <!-- TAB 2: AD LOG -->
+    <div class="epane" data-epane="2" style="display:none;">
+      <div style="background:#F8F5EE;border-radius:10px;padding:14px;margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Ads shown to this developer</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+          <thead><tr>${['Advertiser','Type','Impressions','Clicks','CTR','Earned'].map(h=>`<th style="text-align:left;padding:6px 10px;font-size:10px;font-weight:700;color:#9AA896;text-transform:uppercase;">${h}</th>`).join('')}</tr></thead>
+          <tbody>${(d.adBreakdown||[]).map(x=>`<tr style="border-bottom:1px solid #E5E7EB;">
+            <td style="padding:7px 10px;font-weight:600;">${esc(x.advertiser)}</td>
+            <td style="padding:7px 10px;"><span style="font-size:10px;padding:2px 7px;border-radius:4px;background:${x.adType==='spotlight'?'#FEF9EC':'#EFF6FF'};color:${x.adType==='spotlight'?'#C9901A':'#3B82F6'};">${x.adType==='spotlight'?'★ Spotlight':'◎ Stream'}</span></td>
+            <td style="padding:7px 10px;" class="mono">${fmt(x.impressions)}</td>
+            <td style="padding:7px 10px;" class="mono">${fmt(x.clicks)}</td>
+            <td style="padding:7px 10px;" class="mono">${x.ctr}%</td>
+            <td style="padding:7px 10px;" class="mono" style="color:#047857;">₹${x.earnedRupees}</td>
+          </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;padding:24px;color:#9AA896;">No ads served yet</td></tr>'}</tbody>
         </table>
       </div>
+      <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Last 100 impressions</div>
+      <div style="max-height:280px;overflow-y:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr style="background:#F8F5EE;position:sticky;top:0;">${['Time','Advertiser','Ad text','Type','Surface','Geo','Earned','Click'].map(h=>`<th style="text-align:left;padding:7px 10px;font-size:10px;font-weight:700;color:#6B7568;text-transform:uppercase;">${h}</th>`).join('')}</tr></thead>
+        <tbody>${(d.recentImpressions||[]).map(i=>`<tr style="border-bottom:1px solid #F3F4F6;">
+          <td style="padding:6px 10px;" class="mono" style="font-size:11px;">${new Date(i.ts).toLocaleString('en-IN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
+          <td style="padding:6px 10px;">${esc(i.advertiser)}</td>
+          <td style="padding:6px 10px;font-size:11px;color:#6B7568;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(i.adText||'—')}</td>
+          <td style="padding:6px 10px;font-size:11px;">${i.adType==='spotlight'?'★':'◎'}</td>
+          <td style="padding:6px 10px;font-size:11px;text-transform:capitalize;">${esc(i.surface)}</td>
+          <td style="padding:6px 10px;" class="mono" style="font-size:11px;">${esc(i.country)}</td>
+          <td style="padding:6px 10px;" class="mono" style="font-size:11px;color:#047857;">₹${((i.earnedPaise||0)/100).toFixed(2)}</td>
+          <td style="padding:6px 10px;">${i.clicked?'<span style="color:#047857;">✓</span>':'<span style="color:#D1D5DB;">—</span>'}</td>
+        </tr>`).join('')||'<tr><td colspan="8" style="text-align:center;padding:24px;color:#9AA896;">No impressions yet</td></tr>'}</tbody>
+      </table>
+      </div>
     </div>
-    <div style="display:flex;gap:8px;">
-      <button class="mini-btn green" onclick="sendAdminEmail('${esc(u.email)}','${esc(u.name||'')}')">✉️ Email earner</button>
-      <button class="mini-btn" onclick="approveWithdrawalForUser('${u.id}')">💸 Process payout</button>
-      ${u.banned?`<button class="mini-btn green" onclick="banUser('${u.id}',false)">Unban</button>`:`<button class="mini-btn red" onclick="banUser('${u.id}',true)">Ban</button>`}
+
+    <!-- TAB 3: WITHDRAWALS -->
+    <div class="epane" data-epane="3" style="display:none;">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+        <thead><tr style="background:#F8F5EE;">${['Requested','Amount','Method','Status','Paid at','Reference'].map(h=>`<th style="text-align:left;padding:8px 12px;font-size:10.5px;font-weight:700;color:#6B7568;text-transform:uppercase;">${h}</th>`).join('')}</tr></thead>
+        <tbody>${(d.withdrawals||[]).map(w=>`<tr style="border-bottom:1px solid #F3F4F6;">
+          <td style="padding:8px 12px;">${w.requestedAt?new Date(w.requestedAt).toLocaleString('en-IN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}</td>
+          <td style="padding:8px 12px;" class="mono" style="font-weight:600;">₹${((w.amountPaise||0)/100).toFixed(2)}${w.paypalUsd?` <span style="color:#9AA896;font-size:11px;">($${w.paypalUsd})</span>`:''}</td>
+          <td style="padding:8px 12px;font-size:11.5px;">${esc(w.upiId||w.paypalEmail||'Bank')}</td>
+          <td style="padding:8px 12px;"><span style="font-size:11px;padding:2px 8px;border-radius:100px;font-weight:600;background:${['paid','approved'].includes(w.status)?'#DCFCE7':w.status==='pending'?'#FEF9EC':'#FEE2E2'};color:${['paid','approved'].includes(w.status)?'#047857':w.status==='pending'?'#C9901A':'#DC2626'};">${esc(w.status)}</span></td>
+          <td style="padding:8px 12px;font-size:11.5px;">${w.reviewedAt?new Date(w.reviewedAt).toLocaleDateString('en-IN'):'—'}</td>
+          <td style="padding:8px 12px;" class="mono" style="font-size:10.5px;color:#9AA896;">${esc(w.cashfreeTransferId||w.paypalBatchId||'—')}</td>
+        </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;padding:28px;color:#9AA896;">No withdrawals yet</td></tr>'}</tbody>
+      </table>
     </div>
-  </div>`;
-  m.addEventListener('click',e=>{if(e.target===m)m.remove();});
-  document.body.appendChild(m);
+
+    <!-- TAB 4: LOGINS -->
+    <div class="epane" data-epane="4" style="display:none;">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+        <thead><tr style="background:#F8F5EE;">${['Time','IP','Device / browser'].map(h=>`<th style="text-align:left;padding:8px 12px;font-size:10.5px;font-weight:700;color:#6B7568;text-transform:uppercase;">${h}</th>`).join('')}</tr></thead>
+        <tbody>${(d.logins||[]).map(l=>`<tr style="border-bottom:1px solid #F3F4F6;">
+          <td style="padding:8px 12px;">${new Date(l.ts).toLocaleString('en-IN')}</td>
+          <td style="padding:8px 12px;" class="mono" style="font-size:11px;">${esc(l.ip||'—')}</td>
+          <td style="padding:8px 12px;font-size:11px;color:#6B7568;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(l.ua||'—')}</td>
+        </tr>`).join('')||'<tr><td colspan="3" style="text-align:center;padding:28px;color:#9AA896;">No login records yet</td></tr>'}</tbody>
+      </table>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid #E5E7EB;">
+      ${e.availablePaise>0?`<button class="mini-btn green" onclick="approveWithdrawalForUser('${esc(u.userId)}')">Approve pending payout</button>`:''}
+      <button class="mini-btn ${u.banned?'green':'red'}" onclick="banUser('${esc(u.userId)}',${!u.banned})">${u.banned?'Unban user':'Ban user'}</button>
+      <button class="mini-btn" onclick="this.closest('.modal-bg').remove()">Close</button>
+    </div>`;
 }
+
+function switchETab(i, btn){
+  const modal = btn.closest('.modal');
+  modal.querySelectorAll('.etab').forEach(b=>{b.style.borderBottomColor='transparent';b.style.color='#6B7568';});
+  btn.style.borderBottomColor='#2A7A4F'; btn.style.color='#0B0F0A';
+  modal.querySelectorAll('.epane').forEach(p=>{p.style.display = p.dataset.epane==String(i) ? '' : 'none';});
+}
+
 async function banUser(id,banned){ await ptch('/v1/admin/users/'+id,{banned}); toast(banned?'✓ User banned':'✓ User unbanned'); document.querySelector('.modal-bg')?.remove(); render(); }
 async function approveWithdrawalForUser(userId){ toast('Processing…'); const r=await post('/v1/admin/withdrawals/approve-all-for-user',{userId}); toast(r.success?'✓ Payout initiated':'⚠️ '+r.error); }
 
@@ -702,24 +808,74 @@ async function saveNote(id){
 }
 
 // ── AUDIT LOG ──────────────────────────────────────────────────────────────
+function renderLive(d){
+  const el=document.getElementById('tabContent'); if(!el) return;
+  const live=d.live||[];
+  el.innerHTML=`
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <div>
+      <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;">🟢 Live developer sessions</h2>
+      <p style="font-size:13px;color:#6B7568;margin-top:2px;">Developers who generated an impression in the last 15 minutes. Auto-refreshes every 20s.</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="font-family:var(--mono);font-size:24px;font-weight:700;color:${live.length?'#047857':'#9AA896'};">${live.length}</span>
+      <span style="font-size:12px;color:#6B7568;">online now</span>
+      <button class="mini-btn" onclick="render()">↻</button>
+    </div>
+  </div>
+  <div class="panel" style="padding:0;">
+    <table><thead><tr><th>Developer</th><th>Session started</th><th>Duration</th><th>Impressions</th><th>Last activity</th><th>Action</th></tr></thead><tbody>
+    ${live.map(s=>`<tr>
+      <td><div style="font-weight:600;font-size:13px;">${esc(s.name||'—')}</div><div style="font-size:11px;color:#9AA896;">${esc(s.email)}</div></td>
+      <td style="font-size:12.5px;">${new Date(s.startedAt).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</td>
+      <td class="mono">${s.durationMin}m</td>
+      <td class="mono" style="font-weight:600;">${fmt(s.impressions)}</td>
+      <td><span style="font-size:11px;padding:2px 9px;border-radius:100px;background:${s.idleSec<120?'#DCFCE7':'#FEF9EC'};color:${s.idleSec<120?'#047857':'#C9901A'};font-weight:600;">${s.idleSec<60?'just now':s.idleSec<120?'1 min ago':Math.round(s.idleSec/60)+' min ago'}</span></td>
+      <td><button class="mini-btn" onclick="viewEarner('${esc(s.userId)}')">View profile</button></td>
+    </tr>`).join('')||'<tr><td colspan="6" class="empty">No developers active right now.<br><span style="font-size:12px;color:#9AA896;">Sessions appear here when a developer generates an impression via Claude Code.</span></td></tr>'}
+    </tbody></table>
+  </div>`;
+}
+
 function renderAuditLog(d){
   const el=document.getElementById('tabContent'); if(!el) return;
   const logs=d.logs||[];
+  const actionColors={
+    user_ban:'#DC2626', user_unban:'#047857', user_role_change:'#C9901A',
+    campaign_approved:'#047857', campaign_rejected:'#DC2626', campaign_paused:'#6B7568',
+    campaign_duplicate:'#3B82F6', withdrawal_approved:'#047857', withdrawal_paid:'#047857',
+    ip_block:'#DC2626', ip_unblock:'#047857', discount_created:'#C9901A',
+    house_ad_created:'#3B82F6', bulk_email_sent:'#7E22CE',
+  };
+  const counts={};
+  logs.forEach(l=>{counts[l.action]=(counts[l.action]||0)+1;});
+
   el.innerHTML=`
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-    <div style="font-size:16px;font-weight:500;">Admin audit log</div>
-    <span style="font-size:12px;color:#9AA896;">${logs.length} recent actions</span>
+    <div>
+      <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;">📋 Admin audit log</h2>
+      <p style="font-size:13px;color:#6B7568;margin-top:2px;">Every admin action is recorded. Last ${logs.length} entries.</p>
+    </div>
+    <button class="mini-btn" onclick="render()">↻ Refresh</button>
   </div>
+
+  ${logs.length?`<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px;">
+    ${Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([act,n])=>`
+      <div class="card"><div class="card-label">${esc(act.replace(/_/g,' '))}</div><div class="card-val" style="font-size:20px;color:${actionColors[act]||'#0B0F0A'};">${n}</div></div>`).join('')}
+  </div>`:''}
+
   <div class="panel" style="padding:0;">
-  <table><thead><tr><th>Time</th><th>Admin</th><th>Action</th><th>Detail</th></tr></thead><tbody>
-  ${logs.map(l=>`<tr>
-    <td class="mono" style="font-size:11px;">${new Date(l.ts).toLocaleString('en-IN')}</td>
-    <td class="mono" style="font-size:11px;">${esc(l.adminId||'—').slice(0,14)}</td>
-    <td><span style="font-size:12px;padding:2px 8px;border-radius:4px;background:#F3F4F6;">${esc(l.action||'—')}</span></td>
-    <td style="font-size:12px;color:#6B7568;">${esc(JSON.stringify(l.detail||{}).slice(0,60))}</td>
-  </tr>`).join('')||'<tr><td colspan="4" class="empty">No audit entries yet</td></tr>'}
-  </tbody></table></div>`;
+    <table><thead><tr><th>Time</th><th>Admin</th><th>Action</th><th>Details</th></tr></thead><tbody>
+    ${logs.map(l=>`<tr>
+      <td class="mono" style="font-size:11px;white-space:nowrap;">${new Date(l.ts).toLocaleString('en-IN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'})}</td>
+      <td style="font-size:12px;">${esc(l.adminEmail||l.adminId||'—')}</td>
+      <td><span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:5px;background:${(actionColors[l.action]||'#6B7568')}15;color:${actionColors[l.action]||'#6B7568'};">${esc((l.action||'').replace(/_/g,' '))}</span></td>
+      <td style="font-size:11.5px;color:#6B7568;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(JSON.stringify(l.detail||{}))}">${esc(Object.entries(l.detail||{}).map(([k,v])=>k+': '+String(v).slice(0,40)).join(' · ')||'—')}</td>
+    </tr>`).join('')||'<tr><td colspan="4" class="empty">No admin actions recorded yet.<br><span style="font-size:12px;color:#9AA896;">Actions like approving campaigns, banning users, or blocking IPs will appear here.</span></td></tr>'}
+    </tbody></table>
+  </div>`;
 }
+
 
 // ── IP BLOCK LIST ──────────────────────────────────────────────────────────
 function renderIpBlock(d){
@@ -727,18 +883,34 @@ function renderIpBlock(d){
   const blocked=d.blocked||[];
   el.innerHTML=`
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-    <div style="font-size:16px;font-weight:500;">IP block list</div>
-    <button class="mini-btn red" onclick="blockIp()">+ Block IP</button>
+    <div>
+      <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;">🚫 IP block list</h2>
+      <p style="font-size:13px;color:#6B7568;margin-top:2px;">Blocked IPs are rejected on every API request. ${blocked.length} currently blocked.</p>
+    </div>
+    <button class="mini-btn red" onclick="blockIp()">+ Block an IP</button>
   </div>
+
   <div class="panel" style="padding:0;">
-  <table><thead><tr><th>IP Address</th><th>Reason</th><th>Blocked at</th><th>Actions</th></tr></thead><tbody>
-  ${blocked.map(b=>`<tr>
-    <td class="mono">${esc(b.ip)}</td>
-    <td style="font-size:13px;">${esc(b.reason||'—')}</td>
-    <td style="font-size:12px;">${b.blockedAt?new Date(b.blockedAt).toLocaleDateString('en-IN'):'—'}</td>
-    <td><button class="mini-btn green" onclick="unblockIp('${esc(b.ip)}')">Unblock</button></td>
-  </tr>`).join('')||'<tr><td colspan="4" class="empty">No IPs blocked</td></tr>'}
-  </tbody></table></div>`;
+    <table><thead><tr><th>IP address</th><th>Reason</th><th>Blocked at</th><th>Blocked by</th><th>Action</th></tr></thead><tbody>
+    ${blocked.map(b=>`<tr>
+      <td class="mono" style="font-weight:600;">${esc(b.ip)}</td>
+      <td style="font-size:12.5px;">${esc(b.reason||'—')}</td>
+      <td style="font-size:12px;">${b.blockedAt?new Date(b.blockedAt).toLocaleString('en-IN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}</td>
+      <td style="font-size:11.5px;color:#6B7568;">${esc(b.blockedBy||'—')}</td>
+      <td><button class="mini-btn green" onclick="unblockIp('${esc(b.ip)}')">Unblock</button></td>
+    </tr>`).join('')||'<tr><td colspan="5" class="empty">No IPs blocked.<br><span style="font-size:12px;color:#9AA896;">Block an IP if you detect click fraud or abuse from a specific address.</span></td></tr>'}
+    </tbody></table>
+  </div>
+
+  <div class="panel">
+    <div class="panel-h">💡 When to block an IP</div>
+    <div style="padding:14px 18px;font-size:13px;color:#6B7568;line-height:1.7;">
+      • A single IP generating impressions far above the 50/hour rate limit<br>
+      • Repeated invalid clicks from the same address (visible in Security tab)<br>
+      • Multiple accounts created from the same IP within a short window<br>
+      • Known VPN or datacenter ranges being used to fake developer activity
+    </div>
+  </div>`;
 }
 
 async function blockIp(){
