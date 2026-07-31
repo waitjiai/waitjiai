@@ -344,6 +344,7 @@ let db = {
   withdrawalRequests: [], // { id, userId, amountPaise, upiId, status, requestedAt, reviewedAt, reviewNote }
   discountCodes: [],      // { id, code, discountPct, maxUses, usedCount, expiresAt, createdAt, active, description }
   waitlist: [],           // { email, source, joinedAt } — public waitlist signups (blog + status page forms)
+  disputes: [],            // { id, userId, flagId, message, status, createdAt, resolvedAt, adminNote }
 };
 const HOUSE_AD_RATE_PAISE = 5000; // ₹50 per 1000 impressions, founder-funded
 
@@ -403,6 +404,7 @@ async function loadDB() {
         db.withdrawalRequests ||= [];
         db.discountCodes ||= [];
         db.waitlist ||= [];
+        db.disputes ||= [];
         console.log(`Loaded DB from Postgres: ${Object.keys(db.users).length} users, ${Object.keys(db.campaigns).length} campaigns`);
       } else {
         console.log('No existing DB row in Postgres — starting fresh (first boot).');
@@ -424,6 +426,7 @@ async function loadDB() {
       db.sentLaunchEmails ||= {};
       db.houseAds ||= [];
       db.waitlist ||= [];
+      db.disputes ||= [];
     }
   } catch (e) { console.error('Local DB load error:', e.message); }
 }
@@ -1158,6 +1161,20 @@ const server = http.createServer(async (req, res) => {
           campaignName: b.campaignName || b.adText.slice(0, 40),
           ctaText: b.ctaText || '',
           paymentId: null, orderId: null, paidAt: null, refunded: false,
+          // ── Scheduling: optional auto start/stop (ms epoch timestamps) ──
+          // If scheduledStartAt is set and in the future, campaign stays 'scheduled'
+          // even after payment, and the scheduler flips it to 'active' automatically.
+          // If scheduledEndAt passes while active, the scheduler auto-completes it.
+          scheduledStartAt: b.scheduledStartAt || null,
+          scheduledEndAt: b.scheduledEndAt || null,
+          // ── Multi-creative rotation: additional ad text/url variants tested alongside the primary one ──
+          // Each variant tracks its own impression/click counts so the advertiser can see which wins.
+          creatives: Array.isArray(b.creatives) ? b.creatives.slice(0, 4).map(cr => ({
+            id: uid('cr_'), adText: (cr.adText || b.adText).slice(0, 200), url: cr.url || b.url,
+            impressions: 0, clicks: 0,
+          })) : [],
+          // ── Zero-impression alert tracking (avoid re-sending the same alert repeatedly) ──
+          zeroImpressionAlertSentAt: null,
         };
         saveDB();
         return send(res, 201, { campaign: db.campaigns[id] });
@@ -1800,12 +1817,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         }
         if (!user.upiId && !user.bankAccount) return send(res, 400, { error: 'Add a verified UPI ID or bank account before withdrawing.' });
 
-        const imps = db.impressions.filter(i => i.userId === user.id);
-        const total = imps.reduce((s, i) => s + (i.earnedPaise||0), 0);
-        const alreadyPaidOrPending = db.withdrawalRequests
-          .filter(r => r.userId === user.id && ['pending','approved','paid'].includes(r.status))
-          .reduce((s, r) => s + r.amountPaise, 0);
-        const available = total - alreadyPaidOrPending;
+        const available = computeAvailableBalance(user.id);
 
         const minPaise = user.payoutMode === 'paypal' ? 85000 : 10000; // ₹850 for PayPal (~$10), ₹100 for UPI/bank
         if (available < minPaise) return send(res, 400, { error: `Minimum withdrawal is ₹${(minPaise/100).toFixed(0)}${user.payoutMode === 'paypal' ? ' (~$10) for PayPal payouts' : ''}. Your available balance is ₹${(available/100).toFixed(2)}.` });
@@ -1860,6 +1872,61 @@ if (method === 'GET' && url === '/v1/customer/projection') {
           .filter(r => r.userId === user.id)
           .sort((a, b) => b.requestedAt - a.requestedAt);
         return send(res, 200, { withdrawals: mine });
+      }
+
+      // ── FEATURE: auto-payout toggle ──
+      // When enabled, the daily runAutoPayoutSweep() will automatically request AND
+      // approve a withdrawal once the earner's balance clears the minimum — no manual click needed.
+      if (method === 'POST' && url === '/v1/customer/auto-payout') {
+        const b = await getBody(req);
+        user.autoPayoutEnabled = !!b.enabled;
+        saveDB();
+        return send(res, 200, {
+          autoPayoutEnabled: user.autoPayoutEnabled,
+          message: user.autoPayoutEnabled
+            ? 'Auto-payout enabled. Once your balance clears the minimum, a withdrawal will be requested and paid automatically.'
+            : 'Auto-payout disabled. You will need to request withdrawals manually.',
+        });
+      }
+      if (method === 'GET' && url === '/v1/customer/auto-payout') {
+        return send(res, 200, { autoPayoutEnabled: !!user.autoPayoutEnabled });
+      }
+
+      // ── FEATURE: dispute a fraud flag ──
+      // A genuine earner who got flagged (e.g. a shared office IP triggering
+      // ip_abuse, or a fast connection triggering impression_velocity) can now
+      // explain themselves instead of having no recourse at all.
+      if (method === 'POST' && url === '/v1/customer/dispute-flag') {
+        const b = await getBody(req);
+        if (!b.flagId || !b.message) return send(res, 400, { error: 'flagId and message are required' });
+        const flag = db.fraudFlags.find(f => f.id === b.flagId && f.userId === user.id);
+        if (!flag) return send(res, 404, { error: 'Fraud flag not found for your account' });
+        const already = db.disputes.find(d => d.flagId === b.flagId && d.status === 'pending');
+        if (already) return send(res, 400, { error: 'You already have a pending dispute for this flag.' });
+
+        const dispute = {
+          id: uid('disp_'), userId: user.id, flagId: b.flagId, message: b.message.slice(0, 1000),
+          status: 'pending', createdAt: Date.now(), resolvedAt: null, adminNote: null,
+        };
+        db.disputes.push(dispute);
+        saveDB();
+
+        if (RESEND_API_KEY) {
+          fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: LAUNCH_EMAIL_FROM, to: ['admin@waitjiai.in'],
+              subject: `🚩 New fraud-flag dispute from ${user.name || user.email}`,
+              html: `<p><b>Dispute filed</b></p><p>User: ${user.name||user.email}</p><p>Flag type: ${flag.type}</p><p>Their explanation: ${dispute.message}</p>`,
+            }),
+          }).catch(() => {});
+        }
+        return send(res, 201, { dispute, message: 'Dispute submitted. Admin will review within 1–2 business days.' });
+      }
+      if (method === 'GET' && url === '/v1/customer/disputes') {
+        const mine = db.disputes.filter(d => d.userId === user.id).sort((a,b) => b.createdAt - a.createdAt);
+        return send(res, 200, { disputes: mine });
       }
 
       // update UPI — already handled above but keeping for backward compat (legacy path)
@@ -2602,14 +2669,6 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         });
       }
 
-      // ── Customer: extension health ────────────────────────────────────
-
-      // ── Customer: earnings projection ────────────────────────────────
-
-      // all campaigns
-        return send(res, 200, { campaigns: Object.values(db.campaigns) });
-      }
-
       // single-campaign detailed stats — daily breakdown + unique users reached
       if (method === 'GET' && url.match(/^\/v1\/admin\/campaigns\/[^/]+\/stats$/)) {
         const cid = url.split('/')[4];
@@ -2638,7 +2697,14 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         const b = await getBody(req);
         if (b.status === 'active') {
           if (c.status !== 'pending_review') return send(res, 400, { error: `Cannot activate — campaign status is "${c.status}", payment not yet verified.` });
-          c.status = 'active';
+          // Scheduling: if the advertiser set a future start date, land the campaign in
+          // 'scheduled' instead of 'active' — the scheduler (see runScheduledCampaignSweep)
+          // flips it to 'active' automatically once that time arrives.
+          if (c.scheduledStartAt && c.scheduledStartAt > Date.now()) {
+            c.status = 'scheduled';
+          } else {
+            c.status = 'active';
+          }
           auditLog(user.id, 'campaign_approved', { campId: cid, adText: c.adText?.slice(0,40), advertiserId: c.advertiserId });
         } else if (b.status === 'rejected') {
           if (c.paymentId && !c.refunded) {
@@ -2812,6 +2878,92 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         });
       }
 
+      // ── FEATURE: list fraud-flag disputes for admin review ──
+      if (method === 'GET' && url === '/v1/admin/disputes') {
+        const list = db.disputes.slice().sort((a,b) => b.createdAt - a.createdAt).map(d => {
+          const flag = db.fraudFlags.find(f => f.id === d.flagId);
+          const disputeUser = db.users[d.userId];
+          return { ...d, userEmail: disputeUser?.email || d.userId, flagType: flag?.type || 'unknown', flagDetail: flag?.detail || '', flagSeverity: flag?.severity || 'unknown' };
+        });
+        return send(res, 200, {
+          disputes: list,
+          pendingCount: list.filter(d => d.status === 'pending').length,
+        });
+      }
+
+      // ── FEATURE: resolve a dispute (uphold the flag, or clear it — clearing removes the flag entirely) ──
+      if (method === 'POST' && url.match(/^\/v1\/admin\/disputes\/[^/]+\/resolve$/)) {
+        const did = url.split('/')[4];
+        const dispute = db.disputes.find(d => d.id === did);
+        if (!dispute) return send(res, 404, { error: 'Dispute not found' });
+        if (dispute.status !== 'pending') return send(res, 400, { error: `Already resolved — status is "${dispute.status}"` });
+        const b = await getBody(req);
+        if (!['upheld', 'cleared'].includes(b.decision)) return send(res, 400, { error: 'decision must be "upheld" or "cleared"' });
+
+        dispute.status = b.decision;
+        dispute.resolvedAt = Date.now();
+        dispute.adminNote = b.note || null;
+
+        if (b.decision === 'cleared') {
+          db.fraudFlags = db.fraudFlags.filter(f => f.id !== dispute.flagId);
+        }
+        auditLog(user.id, 'dispute_resolved', { disputeId: did, decision: b.decision, userId: dispute.userId });
+        saveDB();
+
+        const disputeUser = db.users[dispute.userId];
+        if (RESEND_API_KEY && disputeUser?.email) {
+          fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: LAUNCH_EMAIL_FROM, to: [disputeUser.email],
+              subject: b.decision === 'cleared' ? '✅ Your fraud-flag dispute was upheld — flag removed' : 'Your fraud-flag dispute was reviewed',
+              html: b.decision === 'cleared'
+                ? `<p>Hi ${disputeUser.name||'there'},</p><p>We reviewed your dispute and cleared the flag from your account. Sorry for the friction — thanks for the explanation.</p><p>— WaitJI AI Team</p>`
+                : `<p>Hi ${disputeUser.name||'there'},</p><p>We reviewed your dispute, but the flag remains on your account.${b.note ? ' Note: ' + b.note : ''}</p><p>If you believe this is wrong, reply to this email.</p><p>— WaitJI AI Team</p>`,
+            }),
+          }).catch(() => {});
+        }
+        return send(res, 200, { dispute, message: `Dispute ${b.decision}.` });
+      }
+
+      // ── FEATURE: founder-level revenue dashboard ──
+      // Separate from the operational admin panels (which show per-user/per-campaign
+      // detail) — this answers the founder question "how is the business doing"
+      // in one call: gross revenue, payouts issued, margin, active campaign count.
+      if (method === 'GET' && url === '/v1/admin/revenue-dashboard') {
+        const allCampaigns = Object.values(db.campaigns);
+        const grossRevenuePaise = allCampaigns.reduce((s, c) => s + (c.spentPaise || 0), 0);
+        const totalPayoutsPaise = db.payouts.filter(p => p.status === 'paid').reduce((s, p) => s + p.amountPaise, 0);
+        const pendingPayoutsPaise = db.withdrawalRequests.filter(r => r.status === 'pending').reduce((s, r) => s + r.amountPaise, 0);
+        const grossMarginPaise = grossRevenuePaise - totalPayoutsPaise;
+        const activeCampaigns = allCampaigns.filter(c => c.status === 'active').length;
+        const scheduledCampaigns = allCampaigns.filter(c => c.status === 'scheduled').length;
+
+        // Last-30-day revenue trend (daily), useful for a lightweight "is this growing" read
+        const dayMs = 864e5;
+        const days = [];
+        for (let i = 29; i >= 0; i--) {
+          const dayStart = Date.now() - i * dayMs;
+          const dayEnd = dayStart + dayMs;
+          const dayImps = db.impressions.filter(im => im.ts >= dayStart && im.ts < dayEnd && !im.isHouseAd);
+          const dayRevenuePaise = dayImps.reduce((s, im) => s + (im.costPaise || 0), 0);
+          days.push({ date: new Date(dayStart).toISOString().slice(0,10), revenueRupees: (dayRevenuePaise/100).toFixed(2) });
+        }
+
+        return send(res, 200, {
+          grossRevenueRupees: (grossRevenuePaise/100).toFixed(2),
+          totalPayoutsRupees: (totalPayoutsPaise/100).toFixed(2),
+          pendingPayoutsRupees: (pendingPayoutsPaise/100).toFixed(2),
+          grossMarginRupees: (grossMarginPaise/100).toFixed(2),
+          grossMarginPct: grossRevenuePaise > 0 ? ((grossMarginPaise/grossRevenuePaise)*100).toFixed(1) : '0.0',
+          activeCampaigns, scheduledCampaigns,
+          totalAdvertisers: Object.values(db.users).filter(u => u.role === 'advertiser').length,
+          totalEarners: Object.values(db.users).filter(u => u.role === 'customer').length,
+          dailyTrend: days,
+        });
+      }
+
       // ban / unban user (with optional reason — e.g. "ad policy violation", "nudity")
       if (method === 'PATCH' && url.match(/^\/v1\/admin\/users\/[^/]+$/)) {
         const uidToBan = url.split('/').pop();
@@ -2831,6 +2983,9 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         saveDB();
         return send(res, 200, { user: publicUser(target) });
       }
+    } // ← closes `if (url.startsWith('/v1/admin'))` — this brace was MISSING (was
+      //   incorrectly closing ~230 lines earlier), which had silently ejected every
+      //   route below this point out of the admin-auth gate. See fix notes.
 
     // ── Public: list active jobs (for careers.html) ──
     if (method === 'GET' && url === '/v1/public/jobs') {
@@ -3233,8 +3388,130 @@ function publicUser(u) {
   };
 }
 
+// ── Shared balance calculation (used by manual withdrawal request + auto-payout sweep) ──
+function computeAvailableBalance(userId) {
+  const imps = db.impressions.filter(i => i.userId === userId);
+  const total = imps.reduce((s, i) => s + (i.earnedPaise || 0), 0);
+  const alreadyPaidOrPending = db.withdrawalRequests
+    .filter(r => r.userId === userId && ['pending', 'approved', 'paid'].includes(r.status))
+    .reduce((s, r) => s + r.amountPaise, 0);
+  return total - alreadyPaidOrPending;
+}
+
+// ── FEATURE: Campaign auto-scheduling ──────────────────────────────────────────
+// Runs every 5 minutes. Flips 'scheduled' campaigns to 'active' once their
+// scheduledStartAt passes, and 'active' campaigns to 'completed' once their
+// scheduledEndAt passes — so advertisers can set a date range once and walk away.
+async function runCampaignScheduleSweep() {
+  try {
+    const now = Date.now();
+    let changed = false;
+    for (const c of Object.values(db.campaigns)) {
+      if (c.status === 'scheduled' && c.scheduledStartAt && c.scheduledStartAt <= now) {
+        c.status = 'active';
+        changed = true;
+        auditLog('system', 'campaign_auto_started', { campId: c.id, advertiserId: c.advertiserId });
+      } else if (c.status === 'active' && c.scheduledEndAt && c.scheduledEndAt <= now) {
+        c.status = 'completed';
+        changed = true;
+        auditLog('system', 'campaign_auto_ended', { campId: c.id, advertiserId: c.advertiserId });
+      }
+    }
+    if (changed) saveDB();
+  } catch (e) { console.error('runCampaignScheduleSweep error:', e.message); }
+}
+
+// ── FEATURE: Zero-impression alert ─────────────────────────────────────────────
+// Runs hourly. If a campaign has been active for 6+ hours with zero impressions
+// (almost always a targeting mismatch — geo/time/IDE filters excluding everyone),
+// emails the advertiser once so they don't silently think the product is broken.
+async function runZeroImpressionAlertSweep() {
+  if (!RESEND_API_KEY) return; // best-effort feature only — no email configured, nothing to do
+  try {
+    const SIX_HOURS = 6 * 60 * 60 * 1000;
+    const now = Date.now();
+    let changed = false;
+    for (const c of Object.values(db.campaigns)) {
+      if (c.status !== 'active') continue;
+      if (c.zeroImpressionAlertSentAt) continue; // already alerted once for this campaign
+      if (now - c.createdAt < SIX_HOURS) continue;
+      const hasImpressions = db.impressions.some(i => i.campaignId === c.id);
+      if (hasImpressions) continue;
+
+      const advertiser = db.users[c.advertiserId];
+      if (!advertiser?.email) continue;
+
+      fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: LAUNCH_EMAIL_FROM,
+          to: [advertiser.email],
+          subject: `⚠️ Your campaign "${c.campaignName || c.adText.slice(0,30)}" hasn't served any impressions yet`,
+          html: `<p>Hi ${advertiser.name || 'there'},</p>
+            <p>Your campaign has been live for over 6 hours but hasn't shown to any developers yet. This is almost always caused by targeting that's too narrow — for example a country, time-of-day, or IDE filter that excludes everyone in your current audience.</p>
+            <p><b>What to check:</b></p>
+            <ul>
+              <li>Geo targeting — is your selected country matching where your intended developers actually are?</li>
+              <li>Time-of-day targeting — if set to a narrow window, try "all" temporarily</li>
+              <li>Bid amount — bids below the recommended minimum may lose every auction</li>
+            </ul>
+            <p>Reply to this email or reach admin@waitjiai.in if you'd like us to take a look with you.</p>
+            <p>— WaitJI AI Team</p>`,
+        }),
+      }).catch(() => {});
+
+      c.zeroImpressionAlertSentAt = now;
+      changed = true;
+    }
+    if (changed) saveDB();
+  } catch (e) { console.error('runZeroImpressionAlertSweep error:', e.message); }
+}
+
+// ── FEATURE: Auto-payout scheduling ────────────────────────────────────────────
+// Runs daily. For earners who've opted in (autoPayoutEnabled=true) and have a
+// verified payout method, automatically creates AND approves a withdrawal once
+// their available balance clears the minimum — no manual "request withdrawal"
+// click needed. Reuses the exact same approval path (approveOneWithdrawal) as
+// the admin's manual approve button, so Cashfree/PayPal payout logic is identical.
+async function runAutoPayoutSweep() {
+  try {
+    let changed = false;
+    for (const user of Object.values(db.users)) {
+      if (user.role !== 'customer' || !user.autoPayoutEnabled) continue;
+      if (!user.upiId && !user.bankAccount && !user.paypalEmail) continue;
+      const ps = profileStatus(user);
+      if (!ps.complete) continue;
+
+      const hasPending = db.withdrawalRequests.some(r => r.userId === user.id && r.status === 'pending');
+      if (hasPending) continue; // don't stack requests — let the existing one clear first
+
+      const available = computeAvailableBalance(user.id);
+      const minPaise = user.payoutMode === 'paypal' ? 85000 : 10000;
+      if (available < minPaise) continue;
+
+      const wr = {
+        id: uid('wr_'), userId: user.id, userName: user.name || user.email, userEmail: user.email,
+        upiId: user.upiId, amountPaise: available, status: 'pending',
+        requestedAt: Date.now(), reviewedAt: null, reviewNote: null, autoRequested: true,
+      };
+      db.withdrawalRequests.push(wr);
+      changed = true;
+      await approveOneWithdrawal(wr, 'system-auto-payout', 'Auto-payout — requested and approved automatically per your settings.');
+    }
+    if (changed) saveDB();
+  } catch (e) { console.error('runAutoPayoutSweep error:', e.message); }
+}
+
+
 (async () => {
   await loadDB();
   seed();
+  // Background schedulers for the new automation features. Staggered slightly on
+  // startup so they don't all fire in the same tick.
+  runCampaignScheduleSweep();
+  setInterval(runCampaignScheduleSweep, 5 * 60 * 1000);       // every 5 min
+  setTimeout(() => { runZeroImpressionAlertSweep(); setInterval(runZeroImpressionAlertSweep, 60 * 60 * 1000); }, 30 * 1000); // hourly, first run after 30s
+  setTimeout(() => { runAutoPayoutSweep(); setInterval(runAutoPayoutSweep, 24 * 60 * 60 * 1000); }, 60 * 1000); // daily, first run after 60s
   server.listen(PORT, () => console.log(`WaitJI AI API v3 running on port ${PORT} (storage: ${pgAvailable ? 'Postgres' : 'LOCAL DISK — NOT PERSISTENT'})`));
 })();
