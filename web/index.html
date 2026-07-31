@@ -54,11 +54,6 @@
       "addressRegion": "Rajasthan",
       "addressCountry": "IN"
     }
-  },
-  "aggregateRating": {
-    "@type": "AggregateRating",
-    "ratingValue": "4.8",
-    "reviewCount": "12"
   }
 }
 </script>
@@ -349,7 +344,7 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
     <a href="#bidding">Live bids</a>
     <a href="#pricing">Pricing</a>
     <a href="#earn">Earn</a>
-    <a href="advertiser.html">Advertise</a>
+    <a href="advertise.html">Advertise</a>
     <a href="careers.html">Careers</a>
     <a href="blog.html">Blog</a>
     <a href="faq.html">FAQ</a>
@@ -528,7 +523,7 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
         <div class="price-row"><span class="price-role price-row-label">Min. campaign budget</span><span class="price-row-val" id="spotMinBudget">₹5,000</span></div>
         <div class="price-row"><span class="price-role price-row-label">Fraud protection</span><span class="price-row-val">✓ Included</span></div>
         <div class="price-row"><span class="price-role price-row-label">Content review</span><span class="price-row-val">Within 24h</span></div>
-        <a href="advertiser.html" class="price-cta">Start Spotlight campaign →</a>
+        <a href="login.html?role=advertiser" class="price-cta">Start Spotlight campaign →</a>
       </div>
       <div class="price-card" id="streamPriceCard">
         <div class="pc-badge stream">◎ STREAM</div>
@@ -539,7 +534,7 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
         <div class="price-row"><span class="price-role price-row-label">Min. campaign budget</span><span class="price-row-val" id="streamMinBudget">₹2,000</span></div>
         <div class="price-row"><span class="price-role price-row-label">Fraud protection</span><span class="price-row-val">✓ Included</span></div>
         <div class="price-row"><span class="price-role price-row-label">Content review</span><span class="price-row-val">Within 24h</span></div>
-        <a href="advertiser.html" class="price-cta" style="background:var(--sage)">Start Stream campaign →</a>
+        <a href="login.html?role=advertiser" class="price-cta" style="background:var(--sage)">Start Stream campaign →</a>
       </div>
     </div>
   </div>
@@ -575,7 +570,7 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
   <p>One command. Two revenue streams. Zero workflow change.</p>
   <div class="cta-btns">
     <a href="login.html" class="btn-white">Create developer account →</a>
-    <a href="advertiser.html" class="btn-outline">Advertise to developers</a>
+    <a href="advertise.html" class="btn-outline">Advertise to developers</a>
   </div>
 </section>
 
@@ -691,7 +686,7 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
     <a href="faq.html">FAQ</a>
     <a href="careers.html">Careers</a>
     <a href="mailto:admin@waitjiai.in">Contact</a>
-    <a href="advertiser.html">Advertise</a>
+    <a href="advertise.html">Advertise</a>
   </div>
   <div style="font-size:11px">© 2026 QivaLabs LLP · Udaipur, India · LLPIN: ACV-6746</div>
 </footer>
@@ -717,7 +712,7 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 function renderAuction(campaigns,containerId,adTextId,adType){
   const el=document.getElementById(containerId);
   if(!campaigns||!campaigns.length){
-    el.innerHTML=`<div class="bid-empty">No active ${adType} campaigns yet — <a href="advertiser.html" style="color:var(--sage)">be the first</a></div>`;
+    el.innerHTML=`<div class="bid-empty">No active ${adType} campaigns yet — <a href="login.html?role=advertiser" style="color:var(--sage)">be the first</a></div>`;
     return;
   }
   el.innerHTML=campaigns.slice(0,5).map((c,i)=>`
