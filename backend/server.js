@@ -515,6 +515,39 @@ function verifyToken(token) {
 function b64url(s) { return Buffer.from(s).toString('base64url'); }
 function uid(prefix = '') { return prefix + crypto.randomBytes(8).toString('hex'); }
 
+// ── Real geo resolution from IP ────────────────────────────────────────────────
+// Previously every impression's `country` field silently defaulted to 'IN' —
+// the extension never sent a real country, and nothing ever looked one up from
+// the IP that was already being captured on every impression. All "geo stats"
+// were therefore 100% India regardless of where the developer actually was.
+// This resolves country from IP via a free lookup, cached in memory per IP so
+// we're not hitting the external API on every single impression — most
+// developers keep the same IP for a session/day, so the cache does the work
+// after the very first impression from a given address.
+const geoIpCache = new Map(); // ip -> { country, ts }
+const GEO_IP_CACHE_TTL = 24 * 60 * 60 * 1000; // 24h — IPs can change ISPs/locations over time
+
+function cachedCountryForIp(ip) {
+  if (!ip || ip === '::1' || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.')) return null; // local/dev traffic — no public geo
+  const hit = geoIpCache.get(ip);
+  if (hit && Date.now() - hit.ts < GEO_IP_CACHE_TTL) return hit.country;
+  return null;
+}
+
+async function resolveCountryForIpAsync(ip) {
+  if (!ip || ip === '::1' || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.')) return;
+  try {
+    const r = await fetch(`https://ipapi.co/${ip}/country/`, { signal: AbortSignal.timeout(4000) });
+    if (!r.ok) return;
+    const code = (await r.text()).trim().toUpperCase();
+    if (/^[A-Z]{2}$/.test(code)) {
+      geoIpCache.set(ip, { country: code, ts: Date.now() });
+    }
+  } catch {
+    // best-effort only — never let a geo lookup failure affect impression recording
+  }
+}
+
 // ── Fraud detection engine ─────────────────────────────────────────────────────
 const FRAUD = {
   // thresholds
@@ -970,6 +1003,10 @@ const server = http.createServer(async (req, res) => {
     if (method === 'POST' && url === '/v1/impression') {
       const b = await getBody(req);
       const userId = b.userId || 'anon';
+      // Resolve real country from IP (client rarely sends one) — falls back to
+      // 'IN' only for a brand-new IP not yet cached, self-corrects within the session.
+      const resolvedCountry = b.country || cachedCountryForIp(ip) || 'IN';
+      if (!b.country && !cachedCountryForIp(ip)) resolveCountryForIpAsync(ip); // fire-and-forget, populates cache for next time
 
       // House-ad impression — founder-funded, no real advertiser budget involved
       const houseAd = (db.houseAds || []).find(h => h.id === b.campaignId);
@@ -977,7 +1014,7 @@ const server = http.createServer(async (req, res) => {
         const check = validateImpression(userId, ip);
         if (!check.valid) return send(res, 200, { success: false, reason: check.reason, billed: false });
         const earnPaise = Math.floor(HOUSE_AD_RATE_PAISE / 1000); // full house rate goes to the developer
-        db.impressions.push({ id: uid('i_'), userId, campaignId: houseAd.id, earnedPaise: earnPaise, costPaise: 0, isHouseAd: true, ts: Date.now(), ip, clicked: false, country: b.country||'IN', surface: b.surface||'terminal' });
+        db.impressions.push({ id: uid('i_'), userId, campaignId: houseAd.id, earnedPaise: earnPaise, costPaise: 0, isHouseAd: true, ts: Date.now(), ip, clicked: false, country: resolvedCountry, surface: b.surface||'terminal' });
         saveDB();
         return send(res, 200, { success: true, earnedPaise: earnPaise, billed: true, isHouseAd: true });
       }
@@ -998,7 +1035,7 @@ const server = http.createServer(async (req, res) => {
       c.spentPaise += advCostPaise;
 
       // No frequency cap — earners earn unlimited impressions
-      db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, costPaise: advCostPaise, isHouseAd: false, ts: Date.now(), ip, clicked: false, country: b.country||'IN', surface: b.surface||'terminal', adType: c.adType || 'spotlight', advertiserName: c.advertiser || c.companyName || 'Unknown', adText: (c.adText||'').slice(0,60) });
+      db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, costPaise: advCostPaise, isHouseAd: false, ts: Date.now(), ip, clicked: false, country: resolvedCountry, surface: b.surface||'terminal', adType: c.adType || 'spotlight', advertiserName: c.advertiser || c.companyName || 'Unknown', adText: (c.adText||'').slice(0,60) });
 
       // Spend alert — notify advertiser at 80% budget
       const spentPct = c.spentPaise / c.budgetPaise;
@@ -1024,7 +1061,7 @@ const server = http.createServer(async (req, res) => {
         const referrer = db.users[db.users[userId].referredBy];
         if (referrer && !referrer.banned) {
           const refEarn = Math.floor(earnPaise * 0.10);
-          db.impressions.push({ id: uid('ref_'), userId: referrer.id, campaignId: c.id, earnedPaise: refEarn, costPaise: 0, isHouseAd: false, isReferralBonus: true, referredUser: userId, ts: Date.now(), ip: '', clicked: false, country: b.country||'IN', surface: 'referral' });
+          db.impressions.push({ id: uid('ref_'), userId: referrer.id, campaignId: c.id, earnedPaise: refEarn, costPaise: 0, isHouseAd: false, isReferralBonus: true, referredUser: userId, ts: Date.now(), ip: '', clicked: false, country: resolvedCountry, surface: 'referral' });
         }
       }
       saveDB();
