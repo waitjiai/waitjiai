@@ -208,6 +208,8 @@ a{color:var(--sage);text-decoration:none;}
 
 <script>
 const API='https://waitjiai-backend.onrender.com';
+// If an OAuth redirect lands here with tokens in the hash, forward to login.html
+if((window.location.hash||'').indexOf('access_token')!==-1){window.location.replace('/login.html'+window.location.search+window.location.hash);}
 const token=localStorage.getItem('waitji_token');
 if(!token||localStorage.getItem('waitji_role')!=='customer'){window.location.href='login.html';}
 const H={'Authorization':'Bearer '+token,'Content-Type':'application/json'};
