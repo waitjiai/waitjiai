@@ -27,6 +27,62 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIs
 const EXTENSION_ID = process.env.EXTENSION_ID || 'WaitJiai.waitji-ai';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || null;
 const RESEND_API_KEY = process.env.RESEND_API_KEY || null;
+
+// ── PayPal Payouts (international developer payouts) ────────────────────────
+const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID || null;
+const PAYPAL_SECRET = process.env.PAYPAL_SECRET || null;
+const PAYPAL_MODE = process.env.PAYPAL_MODE || 'live'; // 'live' or 'sandbox'
+const PAYPAL_BASE = PAYPAL_MODE === 'sandbox'
+  ? 'https://api-m.sandbox.paypal.com'
+  : 'https://api-m.paypal.com';
+const paypalEnabled = () => !!(PAYPAL_CLIENT_ID && PAYPAL_SECRET);
+
+let _ppToken = null, _ppTokenExp = 0;
+async function paypalToken() {
+  if (_ppToken && Date.now() < _ppTokenExp) return _ppToken;
+  const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_SECRET}`).toString('base64');
+  const r = await fetch(`${PAYPAL_BASE}/v1/oauth2/token`, {
+    method: 'POST',
+    headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=client_credentials',
+  });
+  if (!r.ok) throw new Error('PayPal auth failed: ' + (await r.text()).slice(0, 200));
+  const d = await r.json();
+  _ppToken = d.access_token;
+  _ppTokenExp = Date.now() + (d.expires_in - 60) * 1000;
+  return _ppToken;
+}
+
+// INR → USD conversion for international payouts
+const INR_TO_USD = Number(process.env.INR_TO_USD || 0.0119); // ~₹84/$
+
+async function paypalPayout(email, amountPaise, note) {
+  if (!paypalEnabled()) throw new Error('PayPal not configured');
+  const token = await paypalToken();
+  const usd = Math.max(1, (amountPaise / 100) * INR_TO_USD).toFixed(2);
+  const batchId = 'WJ_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  const r = await fetch(`${PAYPAL_BASE}/v1/payments/payouts`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sender_batch_header: {
+        sender_batch_id: batchId,
+        email_subject: 'WaitJI AI — your developer earnings',
+        email_message: note || 'Your WaitJI AI earnings payout. Thank you for being part of the marketplace.',
+      },
+      items: [{
+        recipient_type: 'EMAIL',
+        amount: { value: usd, currency: 'USD' },
+        receiver: email,
+        note: note || 'WaitJI AI developer earnings',
+        sender_item_id: batchId + '_1',
+      }],
+    }),
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error('PayPal payout failed: ' + JSON.stringify(d).slice(0, 300));
+  return { batchId: d.batch_header?.payout_batch_id, status: d.batch_header?.batch_status, usd };
+}
 const LAUNCH_EMAIL_FROM = process.env.LAUNCH_EMAIL_FROM || 'WaitJI AI <admin@waitjiai.in>';
 
 // ── Encryption helpers (AES-256-GCM) ─────────────────────────────────────────
@@ -70,9 +126,17 @@ setInterval(() => { const now = Date.now(); loginAttempts.forEach((v, k) => { if
 // ── Admin audit log ──────────────────────────────────────────────────────────
 function auditLog(adminId, action, detail) {
   db.auditLog = db.auditLog || [];
-  db.auditLog.push({ id: uid('audit_'), adminId, action, detail, ts: Date.now() });
-  if (db.auditLog.length > 500) db.auditLog = db.auditLog.slice(-500);
-  // no saveDB here — too frequent, will save on next natural write
+  const admin = db.users[adminId];
+  db.auditLog.push({
+    id: uid('audit_'),
+    adminId,
+    adminEmail: admin?.email || adminId,
+    action,
+    detail,
+    ts: Date.now(),
+  });
+  if (db.auditLog.length > 1000) db.auditLog = db.auditLog.slice(-1000);
+  try { saveDB(); } catch (e) { /* non-fatal */ }
 }
 
 
@@ -128,7 +192,7 @@ function profileCompletion(user) {
     name: !!(user.name && user.name.trim().length >= 2),
     phone: !!(user.phone && /^[6-9]\d{9}$/.test(user.phone.replace(/\D/g, ''))),
     emailVerified: !!user.emailVerified,
-    payoutMethod: !!(user.upiVerified && user.upiId) || !!(user.bankVerified && user.bankAccount?.accountNumber),
+    payoutMethod: !!(user.upiVerified && user.upiId) || !!(user.bankVerified && user.bankAccount?.accountNumber) || !!(user.paypalVerified && user.paypalEmail),
   };
   const completed = Object.values(checks).filter(Boolean).length;
   const total = Object.keys(checks).length;
@@ -277,6 +341,8 @@ async function loadDB() {
         db.jobs ||= [];
         db.auditLog ||= [];
         db.ipBlockList ||= [];
+        db.sessions ||= {};      // userId -> { start, lastSeen, impressions, sessionCount }
+        db.loginLog ||= [];      // { userId, email, role, ip, ua, ts }
         db.sentLaunchEmails ||= {};
         db.houseAds ||= [];
         db.withdrawalRequests ||= [];
@@ -460,6 +526,17 @@ function validateClick(userId, campaignId, ip) {
 
 function validateImpression(userId, ip) {
   const impsLastMin = recentCount(db.impressions, userId, 60_000);
+  // Track live session activity
+  db.sessions ||= {};
+  const now = Date.now();
+  const s = db.sessions[userId];
+  if (!s || now - s.lastSeen > 15 * 60_000) {
+    // New session (gap > 15 min)
+    db.sessions[userId] = { start: now, lastSeen: now, impressions: 1, sessionCount: (s?.sessionCount || 0) + 1 };
+  } else {
+    s.lastSeen = now;
+    s.impressions = (s.impressions || 0) + 1;
+  }
   if (impsLastMin >= FRAUD.MAX_IMPRESSIONS_PER_MIN) {
     flagFraud(userId, 'impression_velocity', `${impsLastMin} imp/min`, 'high');
     return { valid: false, reason: 'impression_velocity' };
@@ -654,24 +731,28 @@ const server = http.createServer(async (req, res) => {
       const sbUser = await validateSupabaseToken(b.access_token);
       if (!sbUser) return send(res, 401, { error: 'invalid or expired Supabase session' });
       // require verified email (Supabase enforces this too, double-check here)
-      if (!sbUser.emailVerified && !sbUser.phoneVerified) {
-        return send(res, 403, { error: 'please verify your email before continuing' });
+      // OAuth providers (Google/GitHub) verify the email themselves — trust them.
+      const oauthProvider = sbUser.provider && sbUser.provider !== 'email';
+      if (!oauthProvider && !sbUser.emailVerified && !sbUser.phoneVerified) {
+        return send(res, 403, { error: 'Please verify your email before continuing. Check your inbox (and spam folder) for the verification link.' });
       }
       const profileId = 'sb_' + sbUser.id;
       let user = db.users[profileId];
+      const isNewUser = !user;
       if (!user) {
-        // first login → create profile. Role is read from Supabase user_metadata
-        // (set at signup time) first, since the actual profile-creating exchange
-        // call often happens on the FIRST LOGIN after email verification, not
-        // at signup itself — by then the signup screen's role choice is long gone
-        // unless we persisted it into Supabase metadata. Body role is a fallback only.
+        // First login → create profile. Role comes from Supabase user_metadata
+        // (set at signup), falling back to the request body.
         let role = (sbUser.meta.role === 'advertiser' || b.role === 'advertiser') ? 'advertiser' : 'customer';
         user = {
           id: profileId, supabaseId: sbUser.id, email: sbUser.email, phone: sbUser.phone,
-          role, name: b.name || sbUser.meta.name || '', company: b.company || sbUser.meta.company || '',
+          role,
+          name: b.name || sbUser.meta.name || sbUser.meta.full_name || sbUser.meta.user_name || '',
+          company: b.company || sbUser.meta.company || '',
+          avatarUrl: sbUser.meta.avatar_url || sbUser.meta.picture || null,
           upiId: b.upiId || sbUser.meta.upiId || '',
-          provider: sbUser.provider, emailVerified: sbUser.emailVerified, phoneVerified: sbUser.phoneVerified,
-          createdAt: Date.now(), banned: false,
+          provider: sbUser.provider || 'email',
+          emailVerified: sbUser.emailVerified, phoneVerified: sbUser.phoneVerified,
+          createdAt: Date.now(), banned: false, loginCount: 0,
         };
         db.users[profileId] = user;
         // Referral tracking — credit referrer if ref param passed
@@ -679,15 +760,32 @@ const server = http.createServer(async (req, res) => {
           user.referredBy = b.ref;
           db.users[b.ref].referralCount = (db.users[b.ref].referralCount || 0) + 1;
         }
-        // existing → refresh verification status + contact, but NEVER change role here
+      } else {
+        // Existing user → refresh verification + contact, but NEVER change role here
         user.email = sbUser.email || user.email;
         user.phone = sbUser.phone || user.phone;
         user.emailVerified = sbUser.emailVerified;
         user.phoneVerified = sbUser.phoneVerified;
+        if (sbUser.provider && sbUser.provider !== 'email') user.provider = sbUser.provider;
+        if (!user.name && (sbUser.meta.name || sbUser.meta.full_name || sbUser.meta.user_name)) {
+          user.name = sbUser.meta.name || sbUser.meta.full_name || sbUser.meta.user_name;
+        }
+        if (!user.avatarUrl && (sbUser.meta.avatar_url || sbUser.meta.picture)) {
+          user.avatarUrl = sbUser.meta.avatar_url || sbUser.meta.picture;
+        }
       }
       if (user.banned) return send(res, 403, { error: 'account suspended' });
       saveDB();
       const token = signToken({ uid: user.id, role: user.role });
+      // Log the login for admin visibility
+      db.loginLog ||= [];
+      db.loginLog.push({
+        userId: user.id, email: user.email, role: user.role,
+        ip, ua: (req.headers['user-agent'] || '').slice(0, 160), ts: Date.now(),
+      });
+      if (db.loginLog.length > 2000) db.loginLog = db.loginLog.slice(-2000);
+      user.lastLoginAt = Date.now();
+      user.loginCount = (user.loginCount || 0) + 1;
       return send(res, 200, { token, user: publicUser(user) });
     }
 
@@ -706,6 +804,15 @@ const server = http.createServer(async (req, res) => {
       }
       if (user.banned) return send(res, 403, { error: 'account suspended' });
       const token = signToken({ uid: user.id, role: user.role });
+      // Log the login for admin visibility
+      db.loginLog ||= [];
+      db.loginLog.push({
+        userId: user.id, email: user.email, role: user.role,
+        ip, ua: (req.headers['user-agent'] || '').slice(0, 160), ts: Date.now(),
+      });
+      if (db.loginLog.length > 2000) db.loginLog = db.loginLog.slice(-2000);
+      user.lastLoginAt = Date.now();
+      user.loginCount = (user.loginCount || 0) + 1;
       return send(res, 200, { token, user: publicUser(user) });
     }
 
@@ -792,7 +899,8 @@ const server = http.createServer(async (req, res) => {
       }
       c.spentPaise += advCostPaise;
 
-      // No frequency cap — earners earn unlimited impressions      db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, costPaise: advCostPaise, isHouseAd: false, ts: Date.now(), ip, clicked: false, country: b.country||'IN', surface: b.surface||'terminal' });
+      // No frequency cap — earners earn unlimited impressions
+      db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, costPaise: advCostPaise, isHouseAd: false, ts: Date.now(), ip, clicked: false, country: b.country||'IN', surface: b.surface||'terminal', adType: c.adType || 'spotlight', advertiserName: c.advertiser || c.companyName || 'Unknown', adText: (c.adText||'').slice(0,60) });
 
       // Spend alert — notify advertiser at 80% budget
       const spentPct = c.spentPaise / c.budgetPaise;
@@ -1067,6 +1175,30 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { geo: Object.fromEntries(sorted), total: imps.length });
       }
 
+if (method === 'POST' && url === '/v1/advertiser/reach-estimate') {
+        const b = await getBody(req);
+        const { geo, adType, targeting } = b;
+        const countries = geo?.countries || ['IN'];
+        const totalDevs = Object.values(db.users).filter(u => u.role === 'customer').length;
+        // Estimate based on actual impression distribution
+        const recentImps = db.impressions.filter(i => i.ts > Date.now() - 7 * 864e5);
+        const activeDevs = new Set(recentImps.map(i => i.userId)).size;
+        const geoMatch = recentImps.filter(i => countries.includes(i.country || 'IN')).length;
+        const geoRatio = recentImps.length ? geoMatch / recentImps.length : 0.9;
+        const estimatedReach = Math.round(activeDevs * geoRatio);
+        const dailyImps = Math.round(recentImps.length / 7);
+        const shareOfVoice = db.campaigns && Object.values(db.campaigns).filter(c => c.status === 'active').length;
+        return send(res, 200, {
+          estimatedDailyReach: estimatedReach,
+          estimatedDailyImpressions: Math.round(dailyImps / Math.max(1, shareOfVoice + 1)),
+          totalActiveDevelopers: activeDevs,
+          totalRegisteredDevelopers: totalDevs,
+          geoMatchRatio: (geoRatio * 100).toFixed(0) + '%',
+          countries,
+          note: 'Estimates based on last 7 days of platform activity.',
+        });
+      }
+
       // single-campaign stats for the advertiser who owns it
       if (method === 'GET' && url.match(/^\/v1\/advertiser\/campaigns\/[^/]+\/stats$/)) {
         const cid = url.split('/')[4];
@@ -1234,6 +1366,44 @@ const server = http.createServer(async (req, res) => {
       // ── Customer: referral credit on signup ─────────────────────────
       // (handled in signup — credits referrer 10% of each impression)
 
+if (method === 'GET' && url === '/v1/customer/health') {
+        const imps = db.impressions.filter(i => i.userId === user.id);
+        const lastImp = imps.length ? Math.max(...imps.map(i => i.ts)) : null;
+        const hourAgo = Date.now() - 3600000;
+        return send(res, 200, {
+          connected: !!lastImp,
+          activeLastHour: lastImp && lastImp > hourAgo,
+          lastImpressionAt: lastImp,
+          lastImpressionAgo: lastImp ? Math.round((Date.now() - lastImp) / 60000) + ' min ago' : null,
+          status: lastImp && lastImp > hourAgo ? 'active' : lastImp ? 'idle' : 'not_connected',
+          message: lastImp && lastImp > hourAgo
+            ? 'Extension is active and earning'
+            : lastImp
+            ? 'Extension connected but idle — open Claude Code to earn'
+            : 'Extension not yet connected — paste your User ID in VS Code',
+        });
+      }
+
+if (method === 'GET' && url === '/v1/customer/projection') {
+        const imps = db.impressions.filter(i => i.userId === user.id);
+        const sevenDaysAgo = Date.now() - 7 * 864e5;
+        const last7Imps = imps.filter(i => i.ts > sevenDaysAgo);
+        const last7Earned = last7Imps.reduce((s, i) => s + (i.earnedPaise || 0), 0);
+        const dailyAvg = last7Earned / 7;
+        const monthlyProjection = dailyAvg * 30;
+        const totalEarned = imps.reduce((s, i) => s + (i.earnedPaise || 0), 0);
+        return send(res, 200, {
+          dailyAvgPaise: Math.round(dailyAvg),
+          weeklyPaise: last7Earned,
+          monthlyProjectionPaise: Math.round(monthlyProjection),
+          totalEarnedPaise: totalEarned,
+          last7Days: last7Imps.length,
+          message: monthlyProjection > 0
+            ? `At your current pace, you'll earn ₹${(monthlyProjection / 100).toFixed(0)} this month`
+            : 'Start using Claude Code to see your earnings projection',
+        });
+      }
+
       // ── Recent activity (real-time feed) ──────────────────────────
       if (method === 'GET' && url === '/v1/customer/activity') {
         const imps = db.impressions.filter(i => i.userId === user.id)
@@ -1344,6 +1514,32 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { success: true, message: 'Bank account saved', profileStatus: ps });
       }
 
+      // ── PayPal payout setup (international developers) ──
+      if (method === 'POST' && url === '/v1/customer/verify-paypal') {
+        const b = await getBody(req);
+        const email = (b.paypalEmail || '').trim().toLowerCase();
+        if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+          return send(res, 400, { error: 'Enter a valid PayPal email address' });
+        }
+        user.paypalEmail = email;
+        user.payoutMode = 'paypal';
+        user.paypalVerified = true;
+        user.payoutVerified = true;
+        user.upiId = null;
+        user.upiVerified = false;
+        user.bankAccount = null;
+        user.bankVerified = false;
+        saveDB();
+        return send(res, 200, {
+          success: true,
+          message: '✓ PayPal email saved — payouts will be sent in USD',
+          paypalEmail: email,
+          note: `Payouts convert at ~₹${(1/INR_TO_USD).toFixed(0)}/USD. Minimum withdrawal ₹850 (~$10) for PayPal.`,
+          user: publicUser(user),
+          profileStatus: profileStatus(user),
+        });
+      }
+
       // ── Save verified UPI to profile ──
       if (method === 'POST' && url === '/v1/customer/save-upi') {
         const b = await getBody(req);
@@ -1378,7 +1574,8 @@ const server = http.createServer(async (req, res) => {
           .reduce((s, r) => s + r.amountPaise, 0);
         const available = total - alreadyPaidOrPending;
 
-        if (available < 10000) return send(res, 400, { error: `Minimum withdrawal is ₹100. Your available balance is ₹${(available/100).toFixed(2)}.` });
+        const minPaise = user.payoutMode === 'paypal' ? 85000 : 10000; // ₹850 for PayPal (~$10), ₹100 for UPI/bank
+        if (available < minPaise) return send(res, 400, { error: `Minimum withdrawal is ₹${(minPaise/100).toFixed(0)}${user.payoutMode === 'paypal' ? ' (~$10) for PayPal payouts' : ''}. Your available balance is ₹${(available/100).toFixed(2)}.` });
 
         // Block if a pending request already exists
         const hasPending = db.withdrawalRequests.some(r => r.userId === user.id && r.status === 'pending');
@@ -1588,9 +1785,25 @@ const server = http.createServer(async (req, res) => {
         let cashfreeTransferId = null;
         let cashfreeError = null;
         let autoPaid = false;
+        let paypalBatchId = null;
+        let payoutRail = null;
 
-        // Auto-pay via Cashfree if keys are configured
-        if (CASHFREE_CLIENT_ID && CASHFREE_CLIENT_SECRET && earner) {
+        // ── PayPal route (international developers) ──
+        if (earner?.payoutMode === 'paypal' && earner.paypalEmail && paypalEnabled()) {
+          try {
+            const pp = await paypalPayout(earner.paypalEmail, wr.amountPaise, `WaitJI AI earnings — ${(wr.amountPaise/100).toFixed(2)} INR`);
+            paypalBatchId = pp.batchId;
+            autoPaid = true;
+            payoutRail = 'paypal';
+            wr.paypalBatchId = pp.batchId;
+            wr.paypalUsd = pp.usd;
+          } catch (e) {
+            cashfreeError = 'PayPal: ' + e.message;
+          }
+        }
+        // ── Cashfree route (Indian developers — UPI/bank) ──
+        else if (CASHFREE_CLIENT_ID && CASHFREE_CLIENT_SECRET && earner) {
+          payoutRail = 'cashfree';
           try {
             const transferBody = {
               transfer_id: wr.id,
@@ -1972,28 +2185,169 @@ const server = http.createServer(async (req, res) => {
       }
 
       // ── Advertiser: reach estimator ──────────────────────────────────
-      if (method === 'POST' && url === '/v1/advertiser/reach-estimate') {
-        const b = await getBody(req);
-        const { geo, adType, targeting } = b;
-        const countries = geo?.countries || ['IN'];
-        const totalDevs = Object.values(db.users).filter(u => u.role === 'customer').length;
-        // Estimate based on actual impression distribution
-        const recentImps = db.impressions.filter(i => i.ts > Date.now() - 7 * 864e5);
-        const activeDevs = new Set(recentImps.map(i => i.userId)).size;
-        const geoMatch = recentImps.filter(i => countries.includes(i.country || 'IN')).length;
-        const geoRatio = recentImps.length ? geoMatch / recentImps.length : 0.9;
-        const estimatedReach = Math.round(activeDevs * geoRatio);
-        const dailyImps = Math.round(recentImps.length / 7);
-        const shareOfVoice = db.campaigns && Object.values(db.campaigns).filter(c => c.status === 'active').length;
-        return send(res, 200, {
-          estimatedDailyReach: estimatedReach,
-          estimatedDailyImpressions: Math.round(dailyImps / Math.max(1, shareOfVoice + 1)),
-          totalActiveDevelopers: activeDevs,
-          totalRegisteredDevelopers: totalDevs,
-          geoMatchRatio: (geoRatio * 100).toFixed(0) + '%',
-          countries,
-          note: 'Estimates based on last 7 days of platform activity.',
+
+      // ── Admin: FULL earner detail (everything an admin needs) ────────
+      if (method === 'GET' && url.match(/^\/v1\/admin\/earners\/[^/]+\/full$/)) {
+        const eid = url.split('/')[4];
+        const u = db.users[eid];
+        if (!u) return send(res, 404, { error: 'User not found' });
+
+        const imps = db.impressions.filter(i => i.userId === eid);
+        const realImps = imps.filter(i => !i.isReferralBonus);
+        const refImps = imps.filter(i => i.isReferralBonus);
+        const clicks = db.clicks.filter(c => c.userId === eid);
+        const validClicks = clicks.filter(c => c.valid);
+        const flags = db.fraudFlags.filter(f => f.userId === eid);
+        const wds = db.withdrawalRequests.filter(w => w.userId === eid).sort((a,b)=>b.requestedAt-a.requestedAt);
+        const logins = (db.loginLog||[]).filter(l => l.userId === eid).sort((a,b)=>b.ts-a.ts).slice(0,50);
+        const sess = (db.sessions||{})[eid] || null;
+
+        const totalEarnedPaise = imps.reduce((s,i)=>s+(i.earnedPaise||0),0);
+        const paidOutPaise = wds.filter(w=>['paid','approved'].includes(w.status)).reduce((s,w)=>s+(w.amountPaise||0),0);
+        const pendingWdPaise = wds.filter(w=>w.status==='pending').reduce((s,w)=>s+(w.amountPaise||0),0);
+        const availablePaise = Math.max(0, totalEarnedPaise - paidOutPaise - pendingWdPaise);
+
+        // Derive sessions from impression gaps (>15 min = new session)
+        const sorted = [...realImps].sort((a,b)=>a.ts-b.ts);
+        const sessions = [];
+        let cur = null;
+        for (const i of sorted) {
+          if (!cur || i.ts - cur.end > 15*60_000) {
+            if (cur) sessions.push(cur);
+            cur = { start: i.ts, end: i.ts, impressions: 1, earnedPaise: i.earnedPaise||0, surfaces: {}, adTypes: {} };
+          } else {
+            cur.end = i.ts; cur.impressions++; cur.earnedPaise += (i.earnedPaise||0);
+          }
+          const sf = i.surface || 'terminal'; cur.surfaces[sf] = (cur.surfaces[sf]||0)+1;
+          const at = i.adType || 'spotlight'; cur.adTypes[at] = (cur.adTypes[at]||0)+1;
+        }
+        if (cur) sessions.push(cur);
+        const sessionList = sessions.reverse().slice(0,40).map(s => ({
+          start: s.start, end: s.end,
+          durationMin: Math.max(1, Math.round((s.end - s.start)/60000)),
+          impressions: s.impressions,
+          earnedPaise: s.earnedPaise,
+          earnedRupees: (s.earnedPaise/100).toFixed(2),
+          surfaces: s.surfaces, adTypes: s.adTypes,
+        }));
+        const totalActiveMin = sessions.reduce((s,x)=>s+Math.max(1,Math.round((x.end-x.start)/60000)),0);
+
+        // Ad breakdown — what ads were shown
+        const adBreakdown = {};
+        realImps.forEach(i => {
+          const key = i.advertiserName || db.campaigns[i.campaignId]?.advertiser || 'House ad';
+          if (!adBreakdown[key]) adBreakdown[key] = { impressions:0, clicks:0, earnedPaise:0, adType: i.adType||'spotlight', adText: i.adText||'' };
+          adBreakdown[key].impressions++;
+          adBreakdown[key].earnedPaise += (i.earnedPaise||0);
+          if (i.clicked) adBreakdown[key].clicks++;
         });
+
+        // Surface + geo + adType breakdowns
+        const bySurface={}, byGeo={}, byAdType={}, byHour={};
+        realImps.forEach(i=>{
+          bySurface[i.surface||'terminal']=(bySurface[i.surface||'terminal']||0)+1;
+          byGeo[i.country||'IN']=(byGeo[i.country||'IN']||0)+1;
+          byAdType[i.adType||'spotlight']=(byAdType[i.adType||'spotlight']||0)+1;
+          const h=new Date(i.ts).getHours(); byHour[h]=(byHour[h]||0)+1;
+        });
+
+        // 30-day daily activity
+        const dayMs=864e5, daily=[];
+        for(let d=29;d>=0;d--){
+          const ds=new Date(Date.now()-d*dayMs); ds.setHours(0,0,0,0);
+          const de=new Date(ds); de.setHours(23,59,59,999);
+          const di=realImps.filter(i=>i.ts>=ds.getTime()&&i.ts<=de.getTime());
+          daily.push({
+            date: ds.toISOString().slice(0,10),
+            label: ds.toLocaleDateString('en-IN',{month:'short',day:'numeric'}),
+            impressions: di.length,
+            clicks: validClicks.filter(c=>c.ts>=ds.getTime()&&c.ts<=de.getTime()).length,
+            earnedPaise: di.reduce((s,i)=>s+(i.earnedPaise||0),0),
+          });
+        }
+
+        const lastImp = realImps.length ? Math.max(...realImps.map(i=>i.ts)) : null;
+        const hourAgo = Date.now()-3600000, dayAgo = Date.now()-864e5;
+
+        return send(res, 200, {
+          user: {
+            ...publicUser(u),
+            userId: u.id,
+            createdAt: u.createdAt,
+            lastLoginAt: u.lastLoginAt || null,
+            loginCount: u.loginCount || 0,
+            referredBy: u.referredBy || null,
+            referralCount: Object.values(db.users).filter(x=>x.referredBy===u.id).length,
+          },
+          earnings: {
+            totalEarnedPaise, totalEarnedRupees: (totalEarnedPaise/100).toFixed(2),
+            paidOutPaise, paidOutRupees: (paidOutPaise/100).toFixed(2),
+            pendingWdPaise, pendingWdRupees: (pendingWdPaise/100).toFixed(2),
+            availablePaise, availableRupees: (availablePaise/100).toFixed(2),
+            referralEarnedPaise: refImps.reduce((s,i)=>s+(i.earnedPaise||0),0),
+          },
+          activity: {
+            totalImpressions: realImps.length,
+            referralImpressions: refImps.length,
+            totalClicks: clicks.length,
+            validClicks: validClicks.length,
+            invalidClicks: clicks.length - validClicks.length,
+            ctr: realImps.length ? (validClicks.length/realImps.length*100).toFixed(2) : '0.00',
+            totalSessions: sessions.length,
+            totalActiveMinutes: totalActiveMin,
+            totalActiveHours: (totalActiveMin/60).toFixed(1),
+            avgSessionMin: sessions.length ? Math.round(totalActiveMin/sessions.length) : 0,
+            avgImpsPerSession: sessions.length ? Math.round(realImps.length/sessions.length) : 0,
+            impressionsLastHour: realImps.filter(i=>i.ts>hourAgo).length,
+            impressionsLast24h: realImps.filter(i=>i.ts>dayAgo).length,
+            lastImpressionAt: lastImp,
+            lastImpressionAgo: lastImp ? Math.round((Date.now()-lastImp)/60000)+' min ago' : 'never',
+            status: lastImp && lastImp>hourAgo ? 'active' : lastImp && lastImp>dayAgo ? 'idle' : lastImp ? 'inactive' : 'never_connected',
+            liveSession: sess ? { startedAt: sess.start, lastSeen: sess.lastSeen, impressions: sess.impressions, isLive: Date.now()-sess.lastSeen < 15*60_000 } : null,
+          },
+          breakdowns: { bySurface, byGeo, byAdType, byHour },
+          adBreakdown: Object.entries(adBreakdown).map(([name,v])=>({
+            advertiser: name, ...v,
+            earnedRupees: (v.earnedPaise/100).toFixed(2),
+            ctr: v.impressions ? (v.clicks/v.impressions*100).toFixed(2) : '0.00',
+          })).sort((a,b)=>b.impressions-a.impressions),
+          sessions: sessionList,
+          daily,
+          withdrawals: wds,
+          logins,
+          fraudFlags: flags,
+          recentImpressions: realImps.slice(-100).reverse().map(i=>({
+            ts: i.ts, adType: i.adType||'spotlight', surface: i.surface||'terminal',
+            country: i.country||'IN', earnedPaise: i.earnedPaise||0,
+            clicked: !!i.clicked, advertiser: i.advertiserName || db.campaigns[i.campaignId]?.advertiser || 'House ad',
+            adText: i.adText || db.campaigns[i.campaignId]?.adText || '',
+          })),
+        });
+      }
+
+      // ── Admin: login log (all users) ─────────────────────────────────
+      if (method === 'GET' && url === '/v1/admin/login-log') {
+        const logs = (db.loginLog||[]).slice(-200).reverse();
+        return send(res, 200, { logs, total: (db.loginLog||[]).length });
+      }
+
+      // ── Admin: live sessions (who is active right now) ───────────────
+      if (method === 'GET' && url === '/v1/admin/live-sessions') {
+        const now = Date.now();
+        const live = Object.entries(db.sessions||{})
+          .filter(([, s]) => now - s.lastSeen < 15*60_000)
+          .map(([uid, s]) => ({
+            userId: uid,
+            email: db.users[uid]?.email || '—',
+            name: db.users[uid]?.name || '—',
+            startedAt: s.start,
+            lastSeen: s.lastSeen,
+            durationMin: Math.max(1, Math.round((s.lastSeen - s.start)/60000)),
+            impressions: s.impressions || 0,
+            idleSec: Math.round((now - s.lastSeen)/1000),
+          }))
+          .sort((a,b)=>b.lastSeen-a.lastSeen);
+        return send(res, 200, { live, count: live.length });
       }
 
       // ── Admin: audit log ─────────────────────────────────────────────
@@ -2079,44 +2433,8 @@ const server = http.createServer(async (req, res) => {
       }
 
       // ── Customer: extension health ────────────────────────────────────
-      if (method === 'GET' && url === '/v1/customer/health') {
-        const imps = db.impressions.filter(i => i.userId === user.id);
-        const lastImp = imps.length ? Math.max(...imps.map(i => i.ts)) : null;
-        const hourAgo = Date.now() - 3600000;
-        return send(res, 200, {
-          connected: !!lastImp,
-          activeLastHour: lastImp && lastImp > hourAgo,
-          lastImpressionAt: lastImp,
-          lastImpressionAgo: lastImp ? Math.round((Date.now() - lastImp) / 60000) + ' min ago' : null,
-          status: lastImp && lastImp > hourAgo ? 'active' : lastImp ? 'idle' : 'not_connected',
-          message: lastImp && lastImp > hourAgo
-            ? 'Extension is active and earning'
-            : lastImp
-            ? 'Extension connected but idle — open Claude Code to earn'
-            : 'Extension not yet connected — paste your User ID in VS Code',
-        });
-      }
 
       // ── Customer: earnings projection ────────────────────────────────
-      if (method === 'GET' && url === '/v1/customer/projection') {
-        const imps = db.impressions.filter(i => i.userId === user.id);
-        const sevenDaysAgo = Date.now() - 7 * 864e5;
-        const last7Imps = imps.filter(i => i.ts > sevenDaysAgo);
-        const last7Earned = last7Imps.reduce((s, i) => s + (i.earnedPaise || 0), 0);
-        const dailyAvg = last7Earned / 7;
-        const monthlyProjection = dailyAvg * 30;
-        const totalEarned = imps.reduce((s, i) => s + (i.earnedPaise || 0), 0);
-        return send(res, 200, {
-          dailyAvgPaise: Math.round(dailyAvg),
-          weeklyPaise: last7Earned,
-          monthlyProjectionPaise: Math.round(monthlyProjection),
-          totalEarnedPaise: totalEarned,
-          last7Days: last7Imps.length,
-          message: monthlyProjection > 0
-            ? `At your current pace, you'll earn ₹${(monthlyProjection / 100).toFixed(0)} this month`
-            : 'Start using Claude Code to see your earnings projection',
-        });
-      }
 
       // all campaigns
         return send(res, 200, { campaigns: Object.values(db.campaigns) });
@@ -2225,6 +2543,7 @@ const server = http.createServer(async (req, res) => {
         if (!b.text || !b.url) return send(res, 400, { error: 'text and url required' });
         const ad = { id: uid('house_'), text: b.text, url: b.url, active: b.active !== false, createdAt: Date.now() };
         db.houseAds.push(ad);
+        auditLog(user.id, 'house_ad_created', { text: (ad.text||'').slice(0,40) });
         saveDB();
         return send(res, 201, { houseAd: ad });
       }
@@ -2713,7 +3032,9 @@ function profileStatus(user) {
 
 function publicUser(u) {
   const ps = profileStatus(u);
-  const payoutMethod = u.payoutMode === 'bank' && u.bankAccount
+  const payoutMethod = u.payoutMode === 'paypal' && u.paypalEmail
+    ? { type: 'paypal', paypalEmail: u.paypalEmail }
+    : u.payoutMode === 'bank' && u.bankAccount
     ? { type: 'bank', last4: decrypt(u.bankAccount.accountNumber)?.slice(-4), bankIfsc: u.bankAccount.ifsc, bankName: u.bankAccount.accountHolder }
     : u.upiId ? { type: 'upi', upiId: u.upiId } : null;
   return {
