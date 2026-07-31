@@ -1,0 +1,111 @@
+{
+  "name": "waitji-ai",
+  "displayName": "WaitJI AI — Earn UPI income while Claude Code thinks",
+  "description": "India's first AI ad marketplace for VS Code developers. Earn passive UPI income from sponsored messages shown during Claude Code's AI thinking pauses. Two placements: Spotlight (spinner) + Stream (terminal). Direct UPI payout from ₹100.",
+  "version": "1.2.4",
+  "publisher": "WaitJiai",
+  "icon": "images/icon.png",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/waitjiai/waitjiai"
+  },
+  "homepage": "https://www.waitjiai.in",
+  "bugs": {
+    "url": "mailto:admin@waitjiai.in"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning",
+    "Education",
+    "Snippets",
+    "Visualization"
+  ],
+  "keywords": [
+    "claude code",
+    "passive income",
+    "upi",
+    "earn money coding",
+    "ai ads",
+    "india developer",
+    "vs code ads",
+    "developer earnings",
+    "waitji",
+    "qivalabs"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "WaitJI AI",
+      "properties": {
+        "waitjiAi.userId": {
+          "type": "string",
+          "default": "",
+          "description": "Your WaitJI AI user ID. Get it from your dashboard after signing up at waitjiai.in"
+        },
+        "waitjiAi.upiId": {
+          "type": "string",
+          "default": "",
+          "description": "Your UPI ID, used for earnings withdrawal (set this on waitjiai.in, not required here)"
+        },
+        "waitjiAi.showAds": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show sponsored messages during Claude Code wait-states"
+        },
+        "waitjiAi.apiEndpoint": {
+          "type": "string",
+          "default": "https://waitjiai-backend.onrender.com",
+          "description": "WaitJI AI API endpoint (advanced — do not change unless instructed)"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "waitjiAi.showDashboard",
+        "title": "WaitJI AI: Show Earnings Dashboard"
+      },
+      {
+        "command": "waitjiAi.toggleAds",
+        "title": "WaitJI AI: Toggle Ads On/Off"
+      },
+      {
+        "command": "waitjiAi.openPortal",
+        "title": "WaitJI AI: Open waitjiai.in"
+      },
+      {
+        "command": "waitjiAi.setup",
+        "title": "WaitJI AI: Connect Your Account"
+      },
+      {
+        "command": "waitjiAi.enableStatusLine",
+        "title": "WaitJI AI: Enable Terminal Status Line Ads"
+      },
+      {
+        "command": "waitjiAi.restoreClaudeCode",
+        "title": "WaitJI AI: Disable Terminal Status Line Ads (Restore)"
+      },
+      {
+        "command": "waitjiAi.testForceShowAd",
+        "title": "WaitJI AI (Test): Force Show Ad Now"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.9.2",
+    "typescript": "^5.9.3"
+  }
+}
