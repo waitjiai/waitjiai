@@ -300,42 +300,6 @@ async function verifyIFSC(ifsc) {
   } catch { return null; }
 }
 
-// ── Auto-payout via Cashfree ──────────────────────────────────────────────────
-async function disbursePayout(withdrawalRequest, user) {
-  const wid = withdrawalRequest.id;
-  const amountRupees = withdrawalRequest.amountPaise / 100;
-
-  try {
-    // Step 1: Create/update beneficiary
-    const beneId = 'bene_' + user.id.replace(/[^a-zA-Z0-9]/g, '');
-    const benePayload = user.upiVerified && user.upiId
-      ? { beneficiary_id: beneId, beneficiary_name: user.name, vpa: user.upiId }
-      : { beneficiary_id: beneId, beneficiary_name: user.name, bank_account: user.bankAccount?.accountNumber, ifsc: user.bankAccount?.ifsc };
-
-    try {
-      await cashfreeApi('POST', '/payout/v2/beneficiary', benePayload);
-    } catch (e) {
-      if (!e.message.includes('already exists') && !e.message.includes('409')) throw e;
-    }
-
-    // Step 2: Initiate transfer
-    const transferId = `waitji_${wid}_${Date.now()}`;
-    const transferPayload = {
-      transfer_id: transferId,
-      transfer_mode: user.upiVerified && user.upiId ? 'upi' : 'banktransfer',
-      beneficiary_id: beneId,
-      amount: amountRupees,
-      currency: 'INR',
-      remarks: `WaitJI AI earnings payout — ${wid}`,
-    };
-
-    const result = await cashfreeApi('POST', '/payout/v2/transfers', transferPayload);
-    return { success: true, cfTransferId: result.data?.transfer_id || transferId, mode: transferPayload.transfer_mode };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
-}
-
 let extensionStatsCache = { installCount: null, fetchedAt: 0 };
 
 // Pulls REAL install count from the public VS Code Marketplace API. Cached for
