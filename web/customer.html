@@ -584,6 +584,7 @@ function renderPayout(){
         <div class="payout-tabs">
           <button class="payout-tab ${pm!=='bank'?'active':''}" id="tabUpi" onclick="switchPayoutTab('upi')"><div style="font-size:14px;font-weight:700;">💳 UPI ID</div><div style="font-size:11px;opacity:.65;margin-top:3px;">Instant transfer</div></button>
           <button class="payout-tab ${pm==='bank'?'active':''}" id="tabBank" onclick="switchPayoutTab('bank')"><div style="font-size:14px;font-weight:700;">🏦 Bank Account</div><div style="font-size:11px;opacity:.65;margin-top:3px;">NEFT / IMPS</div></button>
+          <button class="payout-tab ${pm==='paypal'?'active':''}" id="tabPaypal" onclick="switchPayoutTab('paypal')"><div style="font-size:14px;font-weight:700;">🌍 PayPal</div><div style="font-size:11px;opacity:.65;margin-top:3px;">International</div></button>
         </div>
 
         <div id="upiTab" style="display:${pm!=='bank'?'block':'none'}">
@@ -611,7 +612,31 @@ function renderPayout(){
             <div style="font-size:12.5px;color:var(--muted);margin-top:4px;">${esc(me.bankAccount.ifsc||'')} · ${esc(me.bankAccount.accountHolder||'')}</div>
           </div>
           <button class="btn-ghost" onclick="document.getElementById('bankFormBox').style.display='block'">Change bank account</button>
-          <div id="bankFormBox" style="display:none;margin-top:12px;">${bankFormHtml()}</div>`
+          <div id="bankFormBox" style="display:none;margin-top:12px;">${bankFormHtml()}</div>
+
+        <div id="paypalTab" style="display:${pm==='paypal'?'block':'none'}">
+          ${me.paypalEmail&&pm==='paypal'?`
+          <div style="background:var(--sage-soft);border:1.5px solid #A7F3C8;border-radius:9px;padding:14px;margin-bottom:12px;">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">PayPal account</div>
+            <div style="font-weight:700;font-family:var(--mono);font-size:15px;">${esc(me.paypalEmail)}</div>
+            <div style="font-size:12px;color:var(--sage);margin-top:4px;">✓ Payouts sent in USD</div>
+          </div>`:''}
+          <div class="field">
+            <label>PayPal email address</label>
+            <div style="display:flex;gap:8px;">
+              <input id="paypalInput" type="email" placeholder="your@email.com" value="${esc(me.paypalEmail||'')}">
+              <button class="btn-solid" onclick="savePaypal()">Save</button>
+            </div>
+            <div id="paypalResult" style="font-size:12.5px;margin-top:6px;"></div>
+          </div>
+          <div style="background:var(--gold-soft);border:1px solid #FDE68A;border-radius:9px;padding:12px 14px;font-size:12.5px;color:#92400E;line-height:1.7;">
+            <b>For developers outside India</b><br>
+            • Earnings convert to USD at the current exchange rate<br>
+            • Minimum withdrawal: <b>₹850 (~$10)</b> — PayPal has higher fees than UPI<br>
+            • Payouts arrive in 1–3 business days<br>
+            • PayPal may deduct a receiving fee depending on your country
+          </div>
+        </div>`
           :bankFormHtml()}
         </div>
       </div>
@@ -631,11 +656,14 @@ function bankFormHtml(){
 }
 
 function switchPayoutTab(tab){
-  document.getElementById('upiTab').style.display=tab==='upi'?'block':'none';
-  document.getElementById('bankTab').style.display=tab==='bank'?'block':'none';
-  document.getElementById('tabUpi').classList.toggle('active',tab==='upi');
-  document.getElementById('tabBank').classList.toggle('active',tab==='bank');
+  ['upi','bank','paypal'].forEach(t=>{
+    const pane=document.getElementById(t+'Tab');
+    const btn=document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1));
+    if(pane) pane.style.display = t===tab ? 'block' : 'none';
+    if(btn) btn.classList.toggle('active', t===tab);
+  });
 }
+
 
 // ── WITHDRAW ──
 function renderWithdraw(){
@@ -762,6 +790,24 @@ async function verifyAndSaveUpi(){
     if(result)result.innerHTML='<span style="color:var(--red)">✗ '+(d.error||'Verification failed')+'</span>';
   }
 }
+async function savePaypal(){
+  const email=document.getElementById('paypalInput')?.value.trim();
+  const res=document.getElementById('paypalResult');
+  if(!email||!email.includes('@')){if(res){res.innerHTML='<span style="color:var(--red)">Enter a valid PayPal email</span>';}return;}
+  if(res) res.innerHTML='<span style="color:var(--muted)">Saving…</span>';
+  try{
+    const r=await fetch(API+'/v1/customer/verify-paypal',{method:'POST',headers:H,body:JSON.stringify({paypalEmail:email})});
+    const d=await r.json();
+    if(r.ok){
+      if(res) res.innerHTML='<span style="color:var(--sage)">'+esc(d.message||'✓ Saved')+'</span>';
+      toast('✓ PayPal email saved');
+      await load(); showTab('payout');
+    } else {
+      if(res) res.innerHTML='<span style="color:var(--red)">'+esc(d.error||'Could not save')+'</span>';
+    }
+  }catch(e){ if(res) res.innerHTML='<span style="color:var(--red)">Network error — try again</span>'; }
+}
+
 async function saveBank(){
   const holder=(document.getElementById('bankHolderInput')?.value||'').trim();
   const acc=(document.getElementById('bankAccInput')?.value||'').trim();
