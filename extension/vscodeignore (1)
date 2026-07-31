@@ -1,0 +1,12 @@
+.vscode/**
+.claude/**
+src/**
+chrome/**
+node_modules/**
+.gitignore
+.DS_Store
+*.vsix
+tsconfig.json
+package-lock.json
+marketing-video.html
+**/*.map
