@@ -643,6 +643,15 @@ const server = http.createServer(async (req, res) => {
     }
 
 
+    // ── Public: feature flags for the frontend (no secrets exposed) ──
+    if (method === 'GET' && url === '/v1/public/config') {
+      return send(res, 200, {
+        paypalEnabled: paypalEnabled(),
+        razorpayEnabled: !!(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET),
+        inrToUsd: INR_TO_USD,
+      });
+    }
+
     if (method === 'GET' && url === '/v1/public/status') {
       const dayAgo = Date.now() - 864e5;
       const impsToday = db.impressions.filter(i => i.ts > dayAgo).length;
@@ -1026,6 +1035,104 @@ const server = http.createServer(async (req, res) => {
         };
         saveDB();
         return send(res, 201, { campaign: db.campaigns[id] });
+      }
+
+      // ── PayPal: create order for campaign payment (international advertisers) ──
+      if (method === 'POST' && url.match(/^\/v1\/advertiser\/campaigns\/[^/]+\/create-paypal-order$/)) {
+        const cid = url.split('/')[4];
+        const c = db.campaigns[cid];
+        if (!c || c.advertiserId !== user.id) return send(res, 404, { error: 'campaign not found' });
+        if (c.status !== 'pending_payment') return send(res, 400, { error: 'This campaign is not awaiting payment.' });
+        if (!paypalEnabled()) return send(res, 503, { error: 'PayPal is not configured on this server yet.' });
+        const b = await getBody(req);
+
+        let finalAmountPaise = c.budgetPaise;
+        let discountApplied = null;
+        if (b.discountCode) {
+          const code = b.discountCode.trim().toUpperCase();
+          const dc = (db.discountCodes || []).find(d => d.code === code && d.active);
+          if (dc && (!dc.expiresAt || Date.now() <= dc.expiresAt) && (!dc.maxUses || dc.usedCount < dc.maxUses)) {
+            const discountPaise = Math.floor(c.budgetPaise * dc.discountPct / 100);
+            finalAmountPaise = Math.max(100, c.budgetPaise - discountPaise);
+            discountApplied = { code: dc.code, discountPct: dc.discountPct, savedPaise: discountPaise };
+            c.pendingDiscountCode = dc.code;
+          }
+        }
+
+        const usd = Math.max(1, finalAmountPaise / 100 * INR_TO_USD).toFixed(2);
+        try {
+          const token = await paypalToken();
+          const r = await fetch(`${PAYPAL_BASE}/v2/checkout/orders`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              intent: 'CAPTURE',
+              purchase_units: [{
+                reference_id: c.id,
+                description: `WaitJI AI ad campaign — ${(c.adText || '').slice(0, 60)}`,
+                amount: { currency_code: 'USD', value: usd },
+              }],
+              application_context: {
+                brand_name: 'WaitJI AI',
+                shipping_preference: 'NO_SHIPPING',
+                user_action: 'PAY_NOW',
+              },
+            }),
+          });
+          const order = await r.json();
+          if (!r.ok) return send(res, 502, { error: 'PayPal order creation failed: ' + JSON.stringify(order).slice(0, 300) });
+          c.paypalOrderId = order.id;
+          c.finalBudgetPaise = finalAmountPaise;
+          c.paypalUsd = usd;
+          saveDB();
+          return send(res, 200, {
+            orderId: order.id,
+            amountUsd: usd,
+            amountPaise: finalAmountPaise,
+            originalAmountPaise: c.budgetPaise,
+            discountApplied,
+            approveUrl: (order.links || []).find(l => l.rel === 'approve')?.href || null,
+          });
+        } catch (e) {
+          return send(res, 502, { error: 'PayPal error: ' + e.message });
+        }
+      }
+
+      // ── PayPal: capture order after buyer approval ──
+      if (method === 'POST' && url.match(/^\/v1\/advertiser\/campaigns\/[^/]+\/capture-paypal-order$/)) {
+        const cid = url.split('/')[4];
+        const c = db.campaigns[cid];
+        if (!c || c.advertiserId !== user.id) return send(res, 404, { error: 'campaign not found' });
+        if (c.status !== 'pending_payment') return send(res, 400, { error: 'This campaign is not awaiting payment.' });
+        const b = await getBody(req);
+        if (!b.orderId || b.orderId !== c.paypalOrderId) return send(res, 400, { error: 'Order mismatch' });
+
+        try {
+          const token = await paypalToken();
+          const r = await fetch(`${PAYPAL_BASE}/v2/checkout/orders/${b.orderId}/capture`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          });
+          const cap = await r.json();
+          if (!r.ok || cap.status !== 'COMPLETED') {
+            return send(res, 402, { error: 'Payment not completed: ' + (cap.status || JSON.stringify(cap).slice(0, 200)) });
+          }
+          c.status = 'pending_review';
+          c.paymentId = cap.id;
+          c.paymentRail = 'paypal';
+          c.paidAt = Date.now();
+          c.paidAmountPaise = c.finalBudgetPaise || c.budgetPaise;
+          if (c.pendingDiscountCode) {
+            const dc = (db.discountCodes || []).find(d => d.code === c.pendingDiscountCode);
+            if (dc) dc.usedCount = (dc.usedCount || 0) + 1;
+            c.discountCode = c.pendingDiscountCode;
+            delete c.pendingDiscountCode;
+          }
+          saveDB();
+          return send(res, 200, { campaign: c });
+        } catch (e) {
+          return send(res, 502, { error: 'PayPal capture error: ' + e.message });
+        }
       }
 
       // create a Razorpay order for this campaign's budget (only if unpaid and owned by this advertiser)
@@ -2473,11 +2580,21 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         } else if (b.status === 'rejected') {
           if (c.paymentId && !c.refunded) {
             try {
-              await razorpayApi('POST', `/payments/${c.paymentId}/refund`, { notes: { reason: b.reason || 'Campaign rejected — policy review' } });
+              if (c.paymentRail === 'paypal') {
+                const token = await paypalToken();
+                const rr = await fetch(`${PAYPAL_BASE}/v2/payments/captures/${c.paymentId}/refund`, {
+                  method: 'POST',
+                  headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ note_to_payer: (b.reason || 'Campaign rejected — policy review').slice(0, 255) }),
+                });
+                if (!rr.ok) throw new Error('PayPal refund failed: ' + (await rr.text()).slice(0, 200));
+              } else {
+                await razorpayApi('POST', `/payments/${c.paymentId}/refund`, { notes: { reason: b.reason || 'Campaign rejected — policy review' } });
+              }
               c.refunded = true;
             } catch (e) {
               saveDB();
-              return send(res, 502, { error: 'Refund failed: ' + e.message + '. Campaign NOT marked rejected — retry once Razorpay issue is resolved.' });
+              return send(res, 502, { error: 'Refund failed: ' + e.message + '. Campaign NOT marked rejected — retry once the payment gateway issue is resolved.' });
             }
           }
           c.status = 'rejected';
