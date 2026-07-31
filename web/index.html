@@ -320,6 +320,18 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
 .price-amount{font-weight:700;transition:.3s;}
 [data-price]{transition:opacity .2s;}
 </style>
+<script>
+// Safety net: if Supabase's OAuth redirect lands here instead of login.html
+// (usually because /login.html wasn't whitelisted in Supabase's Redirect URLs),
+// forward the auth tokens on to login.html so the session can still complete.
+(function(){
+  var h = window.location.hash || '';
+  var s = window.location.search || '';
+  if (h.indexOf('access_token') !== -1 || s.indexOf('code=') !== -1 || h.indexOf('error=') !== -1) {
+    window.location.replace('/login.html' + s + h);
+  }
+})();
+</script>
 </head>
 <body>
 <div class="currency-bar" id="currencyBar" style="min-height:38px;"><span style="color:rgba(255,255,255,.4)">Detecting your location…</span></div>
