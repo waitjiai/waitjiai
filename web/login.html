@@ -146,6 +146,12 @@ function setRole(r){
   document.getElementById('tabDev').classList.toggle('active',r==='customer');
   document.getElementById('tabAdv').classList.toggle('active',r==='advertiser');
 }
+// Deep-link support: advertise.html and other pages can link to login.html?role=advertiser
+// to land the visitor straight on the advertiser signup tab instead of the default developer one.
+(function(){
+  const qp = new URLSearchParams(window.location.search);
+  if (qp.get('role') === 'advertiser') setRole('advertiser');
+})();
 function toggleMode(){
   isSignIn=!isSignIn;
   document.getElementById('formTitle').textContent=isSignIn?'Welcome back':'Create account';
