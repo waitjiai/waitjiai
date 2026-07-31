@@ -163,6 +163,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1
 
 <script>
 const API='https://waitjiai-backend.onrender.com';
+// If an OAuth redirect lands here with tokens in the hash, forward to login.html
+if((window.location.hash||'').indexOf('access_token')!==-1){window.location.replace('/login.html'+window.location.search+window.location.hash);}
 const token=localStorage.getItem('waitji_token');
 if(!token||localStorage.getItem('waitji_role')!=='advertiser'){window.location.href='login.html';}
 const H={'Authorization':'Bearer '+token,'Content-Type':'application/json'};
@@ -704,6 +706,32 @@ async function createCampaign(){
 }
 
 async function payForCampaign(campaignId, amountPaise){
+  // If campaign is India-only, default straight to Razorpay (fewer clicks for the common case).
+  // Otherwise (or always, if the advertiser prefers), show a payment method chooser.
+  let cfg = window._payCfg;
+  if (!cfg) {
+    try { cfg = await fetch(API+'/v1/public/config').then(r=>r.json()); window._payCfg = cfg; }
+    catch(e) { cfg = { paypalEnabled: false }; }
+  }
+  if (!cfg.paypalEnabled) return payWithRazorpay(campaignId);
+
+  const m=document.createElement('div'); m.className='modal-bg';
+  m.innerHTML=`<div class="modal" style="max-width:420px;">
+    <div class="mh"><h2>Choose payment method</h2><button class="close-btn" onclick="this.closest('.modal-bg').remove()">✕</button></div>
+    <div class="mb" style="display:flex;flex-direction:column;gap:10px;">
+      <button class="btn btn-p btn-full" onclick="this.closest('.modal-bg').remove();payWithRazorpay('${campaignId}')" style="display:flex;align-items:center;justify-content:center;gap:8px;">
+        🇮🇳 Pay with Razorpay (INR — cards, UPI, netbanking)
+      </button>
+      <button class="btn btn-o btn-full" onclick="this.closest('.modal-bg').remove();payWithPaypal('${campaignId}')" style="display:flex;align-items:center;justify-content:center;gap:8px;">
+        🌍 Pay with PayPal (USD — international)
+      </button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{if(e.target===m)m.remove();});
+}
+
+async function payWithRazorpay(campaignId){
   const discountCode=appliedDiscount?.code||document.getElementById('discountCode')?.value.trim().toUpperCase()||'';
   toast('💳 Opening payment…');
   const r=await fetch(API+'/v1/advertiser/campaigns/'+campaignId+'/create-order',{method:'POST',headers:H,body:JSON.stringify({discountCode:discountCode||undefined})});
@@ -724,6 +752,39 @@ async function payForCampaign(campaignId, amountPaise){
     modal:{ondismiss:()=>{toast('Payment cancelled');}}
   });
   rzp.open();
+}
+
+async function payWithPaypal(campaignId){
+  const discountCode=appliedDiscount?.code||document.getElementById('discountCode')?.value.trim().toUpperCase()||'';
+  toast('🌍 Setting up PayPal…');
+  const r=await fetch(API+'/v1/advertiser/campaigns/'+campaignId+'/create-paypal-order',{method:'POST',headers:H,body:JSON.stringify({discountCode:discountCode||undefined})});
+  const d=await r.json();
+  if(!r.ok){toast('⚠️ '+(d.error||'Could not start PayPal checkout'));return;}
+  if(!d.approveUrl){toast('⚠️ PayPal did not return an approval link — contact support');return;}
+
+  // Store pending capture info, then send the advertiser to PayPal to approve
+  sessionStorage.setItem('_pp_pending', JSON.stringify({campaignId, orderId:d.orderId}));
+  toast(`Redirecting to PayPal (~$${d.amountUsd})…`);
+  window.location.href = d.approveUrl;
+}
+
+// On page load, if we're returning from a PayPal approval, capture the order
+async function checkPaypalReturn(){
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token'); // PayPal returns ?token=<order_id>&PayerID=...
+  const pending = sessionStorage.getItem('_pp_pending');
+  if (!token || !pending) return;
+  let info; try { info = JSON.parse(pending); } catch(e) { return; }
+  if (info.orderId !== token) return;
+  sessionStorage.removeItem('_pp_pending');
+  history.replaceState(null,'',window.location.pathname);
+  toast('Confirming PayPal payment…');
+  try{
+    const r=await fetch(API+'/v1/advertiser/campaigns/'+info.campaignId+'/capture-paypal-order',{method:'POST',headers:H,body:JSON.stringify({orderId:token})});
+    const d=await r.json();
+    if(r.ok){ toast('✅ Payment done — campaign under review (24h)'); await load(); goTo('campaigns'); }
+    else toast('⚠️ '+(d.error||'PayPal payment could not be confirmed — contact support'));
+  }catch(e){ toast('⚠️ Network error confirming PayPal payment'); }
 }
 
 // ── CAMPAIGNS ──
@@ -965,7 +1026,7 @@ async function renderBilling(){
   </div>`;
 }
 
-load();
+load().then(checkPaypalReturn);
 </script>
 </body>
 </html>
