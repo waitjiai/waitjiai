@@ -1,95 +1,115 @@
 /**
- * WaitJI AI — Buffer API Proxy
- * Deploy this to Vercel as /api/buffer.js
- * Handles CORS so the marketing agent can call Buffer from browser
+ * WaitJI AI — Buffer GraphQL API Proxy
+ * New Buffer API (2026) uses GraphQL at https://api.buffer.com
+ * Deploy to: waitjiai.in/api/buffer.js (Vercel)
  */
 
 export default async function handler(req, res) {
-  // ── CORS headers ──────────────────────────────────────────
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.status(200).end();
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  const token = req.headers.authorization?.replace('Bearer ', '').trim();
+  if (!token) return res.status(401).json({ error: 'No token' });
 
   const { action } = req.query;
-  const token = req.headers.authorization?.replace('Bearer ', '') || req.body?.token;
 
-  if (!token) {
-    return res.status(401).json({ error: 'No Buffer token provided' });
-  }
+  const gql = async (query, variables = {}) => {
+    const r = await fetch('https://api.buffer.com', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query, variables })
+    });
+    const data = await r.json();
+    if (data.errors) throw new Error(data.errors[0]?.message || 'GraphQL error');
+    return data.data;
+  };
 
   try {
-    // ── GET PROFILES ─────────────────────────────────────────
-    if (action === 'profiles' && req.method === 'GET') {
-      const r = await fetch('https://api.buffer.com/1/profiles.json', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+
+    // ── GET CHANNELS ─────────────────────────────────────────
+    if (action === 'channels') {
+      const data = await gql(`
+        query GetChannels {
+          account {
+            organizations {
+              id
+              name
+              channels {
+                id
+                name
+                service
+                serviceId
+                avatar
+              }
+            }
+          }
         }
+      `);
+      // Flatten all channels from all orgs
+      const channels = [];
+      data?.account?.organizations?.forEach(org => {
+        (org.channels || []).forEach(ch => {
+          channels.push({
+            id: ch.id,
+            service: ch.service,
+            username: ch.name,
+            formatted_username: ch.name,
+            formatted_service: ch.service,
+            avatar: ch.avatar,
+            organizationId: org.id,
+          });
+        });
       });
-
-      if (!r.ok) {
-        const err = await r.text();
-        return res.status(r.status).json({ error: err });
-      }
-
-      const data = await r.json();
-      return res.status(200).json(data);
+      return res.status(200).json(channels);
     }
 
-    // ── CREATE UPDATE (queue post) ────────────────────────────
+    // ── GET ORG ID (needed for creating posts) ────────────────
+    if (action === 'org') {
+      const data = await gql(`
+        query { account { organizations { id name } } }
+      `);
+      const orgs = data?.account?.organizations || [];
+      return res.status(200).json(orgs);
+    }
+
+    // ── CREATE POST ───────────────────────────────────────────
     if (action === 'create' && req.method === 'POST') {
-      const { text, profile_ids, scheduled_at, now } = req.body;
-
-      if (!text || !profile_ids?.length) {
-        return res.status(400).json({ error: 'text and profile_ids required' });
+      const { text, channel_ids, scheduled_at } = req.body;
+      if (!text || !channel_ids?.length) {
+        return res.status(400).json({ error: 'text and channel_ids required' });
       }
 
-      const body = new URLSearchParams();
-      body.append('text', text);
-      profile_ids.forEach(id => body.append('profile_ids[]', id));
+      const variables = {
+        input: {
+          text,
+          channelIds: channel_ids,
+          ...(scheduled_at ? { scheduledAt: scheduled_at } : {})
+        }
+      };
 
-      if (scheduled_at && !now) {
-        body.append('scheduled_at', scheduled_at);
-        body.append('now', 'false');
-      } else {
-        body.append('now', 'true');
-      }
+      const data = await gql(`
+        mutation CreatePost($input: PostInput!) {
+          createPost(input: $input) {
+            id
+            status
+            text
+            scheduledAt
+          }
+        }
+      `, variables);
 
-      const r = await fetch('https://api.buffer.com/1/updates/create.json', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: body.toString()
-      });
-
-      const data = await r.json();
-      if (!r.ok || data.code) {
-        return res.status(r.status).json({ error: data.message || 'Buffer API error', data });
-      }
-
-      return res.status(200).json(data);
-    }
-
-    // ── GET QUEUE (check scheduled posts) ────────────────────
-    if (action === 'queue' && req.method === 'GET') {
-      const { profile_id } = req.query;
-      const r = await fetch(`https://api.buffer.com/1/profiles/${profile_id}/updates/pending.json`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await r.json();
-      return res.status(200).json(data);
+      return res.status(200).json(data?.createPost || { success: true });
     }
 
     return res.status(400).json({ error: 'Unknown action: ' + action });
 
   } catch (e) {
-    console.error('Buffer proxy error:', e);
+    console.error('Buffer proxy error:', e.message);
     return res.status(500).json({ error: e.message });
   }
 }
