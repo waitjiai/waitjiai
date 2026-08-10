@@ -27,6 +27,10 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIs
 const EXTENSION_ID = process.env.EXTENSION_ID || 'WaitJiai.waitji-ai';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || null;
 const RESEND_API_KEY = process.env.RESEND_API_KEY || null;
+// Set QIVALABS_GSTIN in Render env vars ONLY once QivaLabs LLP is actually GST-registered.
+// Until then this stays null and invoices correctly show "Not GST registered" with
+// zero GST charged — charging GST without a valid GSTIN is not legally permitted in India.
+const QIVALABS_GSTIN = process.env.QIVALABS_GSTIN || null;
 
 // ── PayPal Payouts (international developer payouts) ────────────────────────
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID || null;
@@ -1219,6 +1223,14 @@ const server = http.createServer(async (req, res) => {
           })) : [],
           // ── Zero-impression alert tracking (avoid re-sending the same alert repeatedly) ──
           zeroImpressionAlertSentAt: null,
+          // ── FEATURE: public leaderboard opt-in (Kickbacks.ai-style social proof) ──
+          showOnLeaderboard: !!b.showOnLeaderboard,
+          brandIconUrl: (b.brandIconUrl || '').slice(0, 500),
+          // ── FEATURE: delivery speed preference — priority hint only, does not change price ──
+          // 'fast' = deliver ASAP (default), 'medium' = spread over ~6h, 'slow' = spread over ~2 days.
+          // Used only to sequence which pending campaign the ad-server favors when multiple
+          // campaigns are tied on bid — does not affect billing.
+          deliverySpeed: ['slow', 'medium', 'fast'].includes(b.deliverySpeed) ? b.deliverySpeed : 'fast',
         };
         saveDB();
         return send(res, 201, { campaign: db.campaigns[id] });
@@ -1577,15 +1589,17 @@ if (method === 'POST' && url === '/v1/advertiser/reach-estimate') {
         const camp = db.campaigns[campId];
         if (!camp || camp.advertiserId !== user.id) return send(res, 404, { error: 'Not found' });
         const spentRs = (camp.spentPaise || 0) / 100;
-        const gst = spentRs * 0.18;
+        const isGstRegistered = !!QIVALABS_GSTIN;
+        const gst = isGstRegistered ? spentRs * 0.18 : 0;
         return send(res, 200, {
           invoice: {
             invoiceNo: 'WAITJI-' + campId.slice(-8).toUpperCase(),
             date: new Date().toISOString().slice(0, 10),
-            seller: { name: 'QivaLabs LLP', address: 'Udaipur, Rajasthan, India' },
+            seller: { name: 'QivaLabs LLP', address: 'Udaipur, Rajasthan, India', gstin: isGstRegistered ? QIVALABS_GSTIN : 'Not GST registered', pan: 'AABFQ4385M' },
             buyer: { name: user.company || user.name, email: user.email },
             subtotal: spentRs, gst, total: spentRs + gst,
-            cgst: gst/2, sgst: gst/2,
+            cgst: isGstRegistered ? gst/2 : 0, sgst: isGstRegistered ? gst/2 : 0,
+            gstApplicable: isGstRegistered,
             items: [{ desc: 'Ad campaign: ' + (camp.campaignName || camp.adText || '').slice(0,40), amount: spentRs }],
             campaign: { id: campId, name: camp.campaignName || camp.adText, impressions: camp.impressions || 0 },
           },
@@ -2669,19 +2683,24 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         if (!camp) return send(res, 404, { error: 'Campaign not found' });
         const adv = db.users[camp.advertiserId];
         const spentRs = (camp.spentPaise || 0) / 100;
-        const gst = spentRs * 0.18;
+        // IMPORTANT: only charge/show GST if QivaLabs LLP actually has a GSTIN.
+        // Charging GST on an invoice without a valid GSTIN is not legally permitted
+        // in India — set QIVALABS_GSTIN in env once registered to switch this on.
+        const isGstRegistered = !!QIVALABS_GSTIN;
+        const gst = isGstRegistered ? spentRs * 0.18 : 0;
         const total = spentRs + gst;
         return send(res, 200, {
           invoice: {
             invoiceNo: 'WAITJI-' + campId.slice(-8).toUpperCase(),
             date: new Date().toISOString().slice(0, 10),
-            seller: { name: 'QivaLabs LLP', gstin: 'PENDING', address: 'Udaipur, Rajasthan', pan: 'PENDING' },
+            seller: { name: 'QivaLabs LLP', gstin: isGstRegistered ? QIVALABS_GSTIN : 'Not GST registered', address: 'Udaipur, Rajasthan', pan: 'AABFQ4385M' },
             buyer: { name: adv?.company || adv?.name || 'Advertiser', email: adv?.email || '', gstin: adv?.gstin || 'N/A' },
             items: [{ desc: `Ad campaign: ${camp.adText?.slice(0, 40)}`, hsn: '998361', rate: spentRs, qty: 1, amount: spentRs }],
             subtotal: spentRs,
-            cgst: gst / 2,
-            sgst: gst / 2,
+            cgst: isGstRegistered ? gst / 2 : 0,
+            sgst: isGstRegistered ? gst / 2 : 0,
             igst: 0,
+            gstApplicable: isGstRegistered,
             total,
             campaign: { id: campId, impressions: camp.impressions || 0, adType: camp.adType },
           },
@@ -3275,12 +3294,18 @@ if (method === 'GET' && url === '/v1/customer/projection') {
       const spotlight = allActive
         .filter(c => !c.adType || c.adType === 'spotlight')
         .sort((a, b) => b.bidPaise - a.bidPaise)
-        .map(c => ({ advertiser: c.advertiser, adText: c.adText, bidPaise: c.bidPaise, targetingCategory: c.targetingCategory, adType: 'spotlight' }));
+        .map(c => ({
+          advertiser: c.advertiser, adText: c.adText, bidPaise: c.bidPaise, targetingCategory: c.targetingCategory, adType: 'spotlight',
+          remainingImpressions: c.bidPaise > 0 ? Math.max(0, Math.floor(((c.budgetPaise || 0) - (c.spentPaise || 0)) / c.bidPaise * 1000)) : 0,
+        }));
 
       const stream = allActive
         .filter(c => c.adType === 'stream')
         .sort((a, b) => b.bidPaise - a.bidPaise)
-        .map(c => ({ advertiser: c.advertiser, adText: c.adText, bidPaise: c.bidPaise, targetingCategory: c.targetingCategory, adType: 'stream' }));
+        .map(c => ({
+          advertiser: c.advertiser, adText: c.adText, bidPaise: c.bidPaise, targetingCategory: c.targetingCategory, adType: 'stream',
+          remainingImpressions: c.bidPaise > 0 ? Math.max(0, Math.floor(((c.budgetPaise || 0) - (c.spentPaise || 0)) / c.bidPaise * 1000)) : 0,
+        }));
 
       const days = 14;
       const dayMs = 864e5;
@@ -3314,6 +3339,32 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         dailyBidding,
         updatedAt: Date.now(),
       });
+    }
+
+    // ── FEATURE: public ADVERTISER leaderboard (opt-in, Kickbacks.ai-style social proof) ──
+    // Named distinctly from /v1/public/leaderboard (which is the pre-existing DEVELOPER
+    // earnings leaderboard) to avoid a route collision — both existing at the same path
+    // would have silently made this one permanently unreachable dead code.
+    if (method === 'GET' && url === '/v1/public/advertiser-leaderboard') {
+      const entries = Object.values(db.campaigns)
+        .filter(c => c.showOnLeaderboard && (c.status === 'active' || c.status === 'completed'))
+        .map(c => {
+          const impressions = db.impressions.filter(i => i.campaignId === c.id).length;
+          const clicks = db.clicks.filter(cl => cl.campaignId === c.id && cl.valid).length;
+          return {
+            campaignId: c.id,
+            companyName: c.companyName || c.advertiser || 'Advertiser',
+            brandIconUrl: c.brandIconUrl || null,
+            adText: c.adText,
+            url: c.url,
+            impressions, clicks,
+            adType: c.adType,
+          };
+        })
+        .filter(e => e.impressions > 0) // don't show zero-activity entries — nothing to be proud of yet
+        .sort((a, b) => b.impressions - a.impressions)
+        .slice(0, 25);
+      return send(res, 200, { leaderboard: entries, updatedAt: Date.now() });
     }
 
     // ── public stats (for website ticker) ──
