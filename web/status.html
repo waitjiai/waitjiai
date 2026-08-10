@@ -10,15 +10,23 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Sora:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --ink:#0B0F0A;--sage:#2A7A4F;--sage-soft:#EBF5EE;
-  --cream:#F8F5EE;--cream2:#EEE9DD;--muted:#6B7568;--muted2:#9AA896;
-  --border:#D4D9CF;--surface:#fff;--bg:#F3F0E8;
+  --ink:#0A0A12;--sage:#4F46E5;--sage-soft:#EEF2FF;
+  --cream:#F6F5FA;--cream2:#E9E7F2;--muted:#6B6B7D;--muted2:#9C9CAE;
+  --border:#DEDCE8;--surface:#fff;--bg:#F0EFF7;
   --green:#047857;--green-soft:#DCFCE7;
   --red:#DC2626;--red-soft:#FEE2E2;
-  --gold:#D97706;--gold-soft:#FEF9EC;
+  --gold:#D97706;--gold-soft:#FFF1EC;
   --mono:'IBM Plex Mono',monospace;--body:'Inter',sans-serif;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
+@media (prefers-reduced-motion: no-preference) {
+  .fade-in{animation:fadeIn .28s ease-out both;}
+  .slide-up{animation:slideUp .3s cubic-bezier(.22,1,.36,1) both;}
+  button, .btn, a[class*="btn"], input, select, textarea{transition:transform .15s cubic-bezier(.22,1,.36,1), box-shadow .15s ease, background-color .15s ease, border-color .15s ease;}
+  button:active, .btn:active{transform:scale(.97);}
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);min-height:100vh;}
 
 nav{background:rgba(248,245,238,.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 40px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
@@ -37,7 +45,7 @@ nav{background:rgba(248,245,238,.95);backdrop-filter:blur(12px);border-bottom:1p
 .down{background:var(--red-soft);color:var(--red);}
 .dot{width:9px;height:9px;border-radius:50%;}
 .dot-green{background:var(--green);animation:pulse 1.6s infinite;}
-.dot-gold{background:#F0B429;}
+.dot-gold{background:#FF6B4A;}
 .dot-red{background:var(--red);}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(4,120,87,.4)}50%{box-shadow:0 0 0 6px rgba(4,120,87,0)}}
 .hero h1{font-family:'Sora',sans-serif;font-size:clamp(22px,4vw,38px);font-weight:800;letter-spacing:-1.5px;margin-bottom:8px;}
@@ -114,7 +122,7 @@ footer a{color:rgba(255,255,255,.5);text-decoration:none;}
 
 <nav>
   <a href="index.html" class="logo">
-    <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.4)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></div>
+    <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6L7.5 17L10.5 9L13.5 17L16.5 9L20 6" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="19.5" cy="5" r="2" fill="#FF6B4A"/></svg></div>
     WaitJI AI
   </a>
   <div class="nav-links">
