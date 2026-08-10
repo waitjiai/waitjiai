@@ -349,6 +349,7 @@ let db = {
   discountCodes: [],      // { id, code, discountPct, maxUses, usedCount, expiresAt, createdAt, active, description }
   waitlist: [],           // { email, source, joinedAt } — public waitlist signups (blog + status page forms)
   disputes: [],            // { id, userId, flagId, message, status, createdAt, resolvedAt, adminNote }
+  apiKeys: {},             // key string -> { userId, createdAt } — advertiser self-serve API auth (agentic ad-buying)
 };
 const HOUSE_AD_RATE_PAISE = 5000; // ₹50 per 1000 impressions, founder-funded
 
@@ -409,6 +410,7 @@ async function loadDB() {
         db.discountCodes ||= [];
         db.waitlist ||= [];
         db.disputes ||= [];
+        db.apiKeys ||= {};
         console.log(`Loaded DB from Postgres: ${Object.keys(db.users).length} users, ${Object.keys(db.campaigns).length} campaigns`);
       } else {
         console.log('No existing DB row in Postgres — starting fresh (first boot).');
@@ -431,6 +433,7 @@ async function loadDB() {
       db.houseAds ||= [];
       db.waitlist ||= [];
       db.disputes ||= [];
+      db.apiKeys ||= {};
     }
   } catch (e) { console.error('Local DB load error:', e.message); }
 }
@@ -719,6 +722,29 @@ function auth(req) {
     saveDB();
   }
   return user;
+}
+
+// ── FEATURE: advertiser self-serve API key auth (agentic ad-buying) ──────────
+// Lets an advertiser — or an AI agent acting on their behalf — authenticate with
+// X-WaitJI-Api-Key instead of a session token. Reporting (GET) works immediately
+// once a key exists; campaign-creating writes additionally require apiTermsAccepted.
+function apiKeyAuth(req) {
+  const key = req.headers['x-waitji-api-key'];
+  if (!key) return null;
+  const entry = db.apiKeys[key];
+  if (!entry) return null;
+  const user = db.users[entry.userId];
+  if (!user || user.banned || user.apiKeyRevoked) return null;
+  return user;
+}
+// Tries session-token auth first (dashboard use), falls back to API-key auth
+// (agent/programmatic use) — either is accepted anywhere an advertiser route
+// currently calls auth(req).
+function authAdvertiser(req) {
+  return auth(req) || apiKeyAuth(req);
+}
+function isApiKeyRequest(req) {
+  return !req.headers['authorization'] && !!req.headers['x-waitji-api-key'];
 }
 
 // ── Server ────────────────────────────────────────────────────────────────────
@@ -1157,11 +1183,54 @@ const server = http.createServer(async (req, res) => {
 
     // ═══════════ ADVERTISER ═══════════
     if (url.startsWith('/v1/advertiser')) {
-      const user = auth(req);
+      const user = authAdvertiser(req);
       if (!user || user.role !== 'advertiser') return send(res, 403, { error: 'advertiser access required' });
+
+      // ── FEATURE: self-serve API key management (agentic ad-buying) ──
+      if (method === 'GET' && url === '/v1/advertiser/api-key') {
+        return send(res, 200, {
+          active: !!user.apiKeyLast4 && !user.apiKeyRevoked,
+          last4: user.apiKeyLast4 || null,
+          createdAt: user.apiKeyCreatedAt || null,
+          apiTermsAccepted: !!user.apiTermsAccepted,
+          apiTermsAcceptedAt: user.apiTermsAcceptedAt || null,
+        });
+      }
+      if (method === 'POST' && (url === '/v1/advertiser/api-key/generate' || url === '/v1/advertiser/api-key/rotate')) {
+        // invalidate any existing key for this user first
+        for (const k of Object.keys(db.apiKeys)) {
+          if (db.apiKeys[k].userId === user.id) delete db.apiKeys[k];
+        }
+        const newKey = 'wj_live_' + crypto.randomBytes(24).toString('hex');
+        db.apiKeys[newKey] = { userId: user.id, createdAt: Date.now() };
+        user.apiKeyLast4 = newKey.slice(-4);
+        user.apiKeyCreatedAt = Date.now();
+        user.apiKeyRevoked = false;
+        saveDB();
+        auditLog(user.id, 'advertiser_api_key_generated', { userId: user.id });
+        // the full key is returned exactly once — WaitJI never stores or shows it again
+        return send(res, 200, { apiKey: newKey, last4: user.apiKeyLast4, message: 'Save this key now — it will not be shown again.' });
+      }
+      if (method === 'DELETE' && url === '/v1/advertiser/api-key') {
+        for (const k of Object.keys(db.apiKeys)) {
+          if (db.apiKeys[k].userId === user.id) delete db.apiKeys[k];
+        }
+        user.apiKeyRevoked = true;
+        saveDB();
+        return send(res, 200, { success: true, message: 'API key revoked.' });
+      }
+      if (method === 'POST' && url === '/v1/advertiser/api-terms/accept') {
+        user.apiTermsAccepted = true;
+        user.apiTermsAcceptedAt = Date.now();
+        saveDB();
+        return send(res, 200, { apiTermsAccepted: true, apiTermsAcceptedAt: user.apiTermsAcceptedAt });
+      }
 
       // create campaign — starts unpaid. Must complete Razorpay payment before it can go live.
       if (method === 'POST' && url === '/v1/advertiser/campaigns') {
+        if (isApiKeyRequest(req) && !user.apiTermsAccepted) {
+          return send(res, 403, { error: 'Campaign write access requires accepting the API terms first. POST /v1/advertiser/api-terms/accept, or accept from the dashboard.' });
+        }
         const b = await getBody(req);
         if (!b.adText || !b.url) return send(res, 400, { error: 'adText and url are required' });
 
