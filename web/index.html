@@ -117,6 +117,20 @@
   --body:'Inter',sans-serif;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
+
+/* ── Shared animation system (same rules as advertiser.html/leaderboard.html) ── */
+@media (prefers-reduced-motion: no-preference) {
+  .fade-in{animation:pageFadeIn .3s ease-out both;}
+  .slide-up{animation:pageSlideUp .35s cubic-bezier(.22,1,.36,1) both;}
+  .reveal{opacity:0;transform:translateY(14px);transition:opacity .5s cubic-bezier(.22,1,.36,1), transform .5s cubic-bezier(.22,1,.36,1);}
+  .reveal.in-view{opacity:1;transform:translateY(0);}
+  .btn-primary, .btn-outline, .btn-white, .price-cta, .install-copy, .adtype-card, .hero-stats .hstat{transition:transform .15s cubic-bezier(.22,1,.36,1), box-shadow .15s ease;}
+  .btn-primary:active, .btn-white:active, .install-copy:active{transform:scale(.97);}
+  .adtype-card:hover{transform:translateY(-3px);box-shadow:0 12px 32px rgba(0,0,0,.08);}
+}
+@keyframes pageFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pageSlideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
 html{scroll-behavior:smooth;}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.6;overflow-x:hidden;}
 a{color:inherit;text-decoration:none;}
@@ -345,6 +359,7 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
     <a href="#pricing">Pricing</a>
     <a href="#earn">Earn</a>
     <a href="advertise.html">Advertise</a>
+    <a href="leaderboard.html">Leaderboard</a>
     <a href="careers.html">Careers</a>
     <a href="blog.html">Blog</a>
     <a href="faq.html">FAQ</a>
@@ -354,7 +369,7 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
 </nav>
 
 <!-- HERO -->
-<header class="hero">
+<header class="hero fade-in">
   <div class="hero-eyebrow"><span class="live-dot"></span>India's first AI ad marketplace for VS Code + Claude Code developers</div>
   <h1>Claude Code bills your clients.<br>We pay <em>you</em> while it thinks.</h1>
   <p class="hero-sub">One extension. Two ad placements. Real UPI payouts. Every pause in your AI workflow is a revenue moment — for you.</p>
@@ -404,7 +419,7 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
 
   <div class="adtype-grid">
     <!-- SPOTLIGHT -->
-    <div class="adtype-card spotlight">
+    <div class="adtype-card spotlight reveal">
       <div class="card-head">
         <div class="adtype-badge badge-spotlight">★ Spotlight — Premium</div>
         <h3>Inside the thinking spinner</h3>
@@ -431,7 +446,7 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
     </div>
 
     <!-- STREAM -->
-    <div class="adtype-card stream">
+    <div class="adtype-card stream reveal" style="transition-delay:.08s">
       <div class="card-head">
         <div class="adtype-badge badge-stream">◎ Stream — Standard</div>
         <h3>Terminal status line</h3>
@@ -897,6 +912,21 @@ function buildPriceCard(type){
 
 // Run on load
 detectCountry();
+
+// ── Scroll-reveal (single IntersectionObserver, no scroll listeners — fast) ──
+if ('IntersectionObserver' in window) {
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in-view');
+        revealObserver.unobserve(entry.target); // animate once, then stop observing — saves work
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+} else {
+  document.querySelectorAll('.reveal').forEach(el => el.classList.add('in-view')); // no-JS/old-browser fallback
+}
 </script>
 </body>
 </html>
