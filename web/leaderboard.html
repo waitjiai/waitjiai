@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Advertiser Leaderboard — Real Campaigns, Real Reach | WaitJI AI</title>
+<meta name="description" content="See which campaigns are reaching the most developers on WaitJI AI right now — ranked by real, live impression counts.">
+<link rel="canonical" href="https://www.waitjiai.in/leaderboard.html">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;600;700;800&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0B0F0A; --ink2:#1C2119;
+  --sage:#2A7A4F; --sage-d:#1E5A3A; --sage-l:#3D9E68;
+  --gold:#F0B429; --gold-d:#C9901A; --gold-l:#F7D070;
+  --cream:#F8F5EE; --cream2:#EEE9DD;
+  --muted:#6B7568; --muted2:#9AA896;
+  --border:#D4D9CF; --border2:#BFC5B9;
+  --surface:#FFFFFF; --bg:#F3F0E8;
+  --display:'Sora',sans-serif; --mono:'IBM Plex Mono',monospace; --body:'Inter',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.6;}
+a{color:inherit;text-decoration:none;}
+
+/* shared animation system — same rules as advertiser.html: transform/opacity only, respects reduced-motion */
+@media (prefers-reduced-motion: no-preference) {
+  .fade-in{animation:fadeIn .28s ease-out both;}
+  .row-enter{animation:rowEnter .3s cubic-bezier(.22,1,.36,1) both;}
+  .stagger>*{animation:rowEnter .3s cubic-bezier(.22,1,.36,1) both;}
+  .stagger>*:nth-child(1){animation-delay:.02s} .stagger>*:nth-child(2){animation-delay:.05s}
+  .stagger>*:nth-child(3){animation-delay:.08s} .stagger>*:nth-child(4){animation-delay:.11s}
+  .stagger>*:nth-child(5){animation-delay:.14s} .stagger>*:nth-child(n+6){animation-delay:.17s}
+  .rank-row{transition:transform .15s cubic-bezier(.22,1,.36,1), box-shadow .15s ease;}
+  .rank-row:hover{transform:translateX(3px);box-shadow:0 2px 12px rgba(0,0,0,.06);}
+  .pulse-live{animation:pulseLive 1.8s ease-in-out infinite;}
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes rowEnter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulseLive{0%,100%{opacity:1}50%{opacity:.4}}
+.skeleton{background:linear-gradient(90deg,var(--cream2) 25%,var(--border) 37%,var(--cream2) 63%);background-size:400% 100%;animation:skeletonWave 1.4s ease infinite;border-radius:8px;height:64px;margin-bottom:10px;}
+@keyframes skeletonWave{0%{background-position:100% 50%}100%{background-position:0 50%}}
+
+.nav{position:sticky;top:0;z-index:100;background:rgba(243,240,232,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 40px;display:flex;align-items:center;justify-content:space-between;height:60px;}
+.nav-logo{font-family:var(--mono);font-size:15px;font-weight:600;}
+.nav-cta{background:var(--ink);color:#fff;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:600;}
+
+.hero{max-width:720px;margin:0 auto;padding:60px 24px 20px;text-align:center;}
+.eyebrow{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--sage);margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--sage);}
+h1{font-family:var(--display);font-size:clamp(26px,4.5vw,42px);font-weight:800;letter-spacing:-1px;margin-bottom:14px;}
+.lede{color:var(--muted);font-size:15.5px;max-width:520px;margin:0 auto;}
+
+.board{max-width:760px;margin:36px auto 90px;padding:0 24px;}
+.rank-row{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:10px;display:flex;align-items:center;gap:16px;}
+.rank-row.top1{border-color:var(--gold);background:linear-gradient(135deg,var(--gold-soft,#FEF9EC),var(--surface));}
+.rank-num{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--muted2);width:32px;flex-shrink:0;text-align:center;}
+.rank-row.top1 .rank-num{color:var(--gold-d);}
+.rank-icon{width:36px;height:36px;border-radius:8px;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:14px;color:var(--muted);flex-shrink:0;overflow:hidden;}
+.rank-icon img{width:100%;height:100%;object-fit:cover;}
+.rank-info{flex:1;min-width:0;}
+.rank-company{font-weight:700;font-size:14.5px;}
+.rank-adtext{font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rank-stats{text-align:right;flex-shrink:0;}
+.rank-imps{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--sage);}
+.rank-imps-label{font-size:10.5px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px;}
+.badge-type{font-family:var(--mono);font-size:9px;font-weight:600;padding:2px 7px;border-radius:100px;text-transform:uppercase;letter-spacing:.5px;margin-left:8px;}
+.badge-spotlight{background:#FEF3D6;color:var(--gold-d);}
+.badge-stream{background:var(--sage-soft,#EBF5EE);color:var(--sage-d);}
+
+.empty{text-align:center;padding:60px 24px;color:var(--muted);}
+.empty a{color:var(--sage);font-weight:600;}
+
+.cta-band{background:var(--ink);color:#fff;padding:50px 24px;text-align:center;}
+.cta-band h2{font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:10px;}
+.cta-band p{color:rgba(255,255,255,.6);font-size:14px;margin-bottom:20px;}
+.btn-gold{background:var(--gold);color:var(--ink);padding:12px 24px;border-radius:9px;font-size:14px;font-weight:700;display:inline-block;}
+
+footer{padding:30px;text-align:center;font-size:12px;color:var(--muted);}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-logo">WaitJI AI</div>
+  <a href="advertise.html" class="nav-cta">Join the leaderboard</a>
+</nav>
+
+<div class="hero fade-in">
+  <div class="eyebrow"><span class="live-dot pulse-live"></span> LIVE — real impressions, no estimates</div>
+  <h1>Advertiser leaderboard</h1>
+  <p class="lede">Campaigns that opted in to public ranking, sorted by real impressions served. Nothing here is projected or padded — it's pulled straight from the same database advertisers see in their own dashboard.</p>
+</div>
+
+<div class="board" id="board">
+  <div class="skeleton"></div>
+  <div class="skeleton"></div>
+  <div class="skeleton"></div>
+</div>
+
+<div class="cta-band">
+  <h2>Want your campaign here?</h2>
+  <p>Opt in when you create a campaign — visible the moment your first impression serves.</p>
+  <a href="advertise.html" class="btn-gold">Start a campaign</a>
+</div>
+
+<footer>WaitJI AI · by QivaLabs LLP · Udaipur, India</footer>
+
+<script>
+const API = 'https://waitjiai-backend.onrender.com';
+const boardEl = document.getElementById('board');
+
+fetch(API + '/v1/public/advertiser-leaderboard')
+  .then(r => r.json())
+  .then(d => {
+    const rows = d.leaderboard || [];
+    if (rows.length === 0) {
+      boardEl.innerHTML = `<div class="empty">No campaigns on the leaderboard yet — <a href="advertise.html">be the first</a>.</div>`;
+      return;
+    }
+    boardEl.className = 'board stagger';
+    boardEl.innerHTML = rows.map((r, i) => `
+      <div class="rank-row ${i===0?'top1':''}">
+        <div class="rank-num">${i+1}</div>
+        <div class="rank-icon">${r.brandIconUrl ? `<img src="${r.brandIconUrl}" alt="">` : (r.companyName||'?').charAt(0).toUpperCase()}</div>
+        <div class="rank-info">
+          <div class="rank-company">${escapeHtml(r.companyName)}<span class="badge-type ${r.adType==='spotlight'?'badge-spotlight':'badge-stream'}">${r.adType}</span></div>
+          <div class="rank-adtext">${escapeHtml(r.adText||'')}</div>
+        </div>
+        <div class="rank-stats">
+          <div class="rank-imps">${(r.impressions||0).toLocaleString('en-IN')}</div>
+          <div class="rank-imps-label">impressions</div>
+        </div>
+      </div>
+    `).join('');
+  })
+  .catch(() => {
+    boardEl.innerHTML = `<div class="empty">Leaderboard data temporarily unavailable — the API may be waking up (Render free tier). Refresh in a few seconds.</div>`;
+  });
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+
+</body>
+</html>
