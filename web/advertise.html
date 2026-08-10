@@ -29,13 +29,13 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;600;700;800&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --ink:#0B0F0A; --ink2:#1C2119;
-  --sage:#2A7A4F; --sage-d:#1E5A3A; --sage-l:#3D9E68;
-  --gold:#F0B429; --gold-d:#C9901A; --gold-l:#F7D070;
-  --cream:#F8F5EE; --cream2:#EEE9DD;
-  --muted:#6B7568; --muted2:#9AA896;
-  --border:#D4D9CF; --border2:#BFC5B9;
-  --surface:#FFFFFF; --bg:#F3F0E8;
+  --ink:#0A0A12; --ink2:#16161F;
+  --sage:#4F46E5; --sage-d:#3730A3; --sage-l:#818CF8;
+  --gold:#FF6B4A; --gold-d:#E1502F; --gold-l:#FFA588;
+  --cream:#F6F5FA; --cream2:#E9E7F2;
+  --muted:#6B6B7D; --muted2:#9C9CAE;
+  --border:#DEDCE8; --border2:#C7C4D6;
+  --surface:#FFFFFF; --bg:#F0EFF7;
   --red:#DC2626; --green:#15803D;
   --display:'Sora',sans-serif;
   --mono:'IBM Plex Mono',monospace;
@@ -83,13 +83,13 @@ a{color:inherit;text-decoration:none;}
 .adtype-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:44px;}
 .adtype-card{border-radius:18px;overflow:hidden;border:1px solid var(--border);}
 .adtype-card.spotlight{background:var(--ink);}
-.adtype-card.spotlight .card-head{background:linear-gradient(135deg,#1C2119,#2A3A2A);padding:28px 28px 20px;color:#fff;}
+.adtype-card.spotlight .card-head{background:linear-gradient(135deg,#16161F,#2A3A2A);padding:28px 28px 20px;color:#fff;}
 .adtype-badge{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:4px 10px;border-radius:100px;display:inline-flex;align-items:center;gap:5px;margin-bottom:14px;}
 .badge-spotlight{background:rgba(240,180,41,.15);color:var(--gold);border:1px solid rgba(240,180,41,.3);}
 .badge-stream{background:rgba(61,158,104,.15);color:var(--sage-l);border:1px solid rgba(61,158,104,.3);}
 .card-head h3{font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:6px;}
 .card-head p{font-size:13px;opacity:.7;line-height:1.55;}
-.card-preview{background:#0B0F0A;padding:20px 22px;border-top:1px solid rgba(255,255,255,.06);}
+.card-preview{background:#0A0A12;padding:20px 22px;border-top:1px solid rgba(255,255,255,.06);}
 .preview-editor{background:#131917;border-radius:9px;padding:14px 16px;font-family:var(--mono);font-size:12px;line-height:1.7;}
 .pe-thinking{color:rgba(255,255,255,.35);}
 .pe-ad{display:flex;align-items:center;gap:8px;background:rgba(240,180,41,.07);border-radius:6px;padding:8px 10px;margin-top:6px;border:1px solid rgba(240,180,41,.15);}
@@ -104,10 +104,10 @@ a{color:inherit;text-decoration:none;}
 .price-col.light .price-val{color:var(--ink);}
 .price-val .unit{font-size:11px;font-weight:400;opacity:.6;}
 .adtype-card.stream{background:var(--surface);}
-.adtype-card.stream .card-head{background:linear-gradient(135deg,#EBF5EE,#F5FAF6);padding:28px 28px 20px;}
+.adtype-card.stream .card-head{background:linear-gradient(135deg,#EEF2FF,#F5FAF6);padding:28px 28px 20px;}
 .adtype-card.stream .card-head h3{color:var(--ink);}
 .adtype-card.stream .card-head p{color:var(--muted);}
-.preview-terminal{background:#0B0F0A;border-radius:9px;padding:14px 16px;font-family:var(--mono);font-size:12px;line-height:1.7;color:rgba(255,255,255,.7);}
+.preview-terminal{background:#0A0A12;border-radius:9px;padding:14px 16px;font-family:var(--mono);font-size:12px;line-height:1.7;color:rgba(255,255,255,.7);}
 .pt-thinking{color:rgba(255,255,255,.25);}
 .pt-ad{color:var(--sage-l);}
 .stream-preview-wrap{background:#F5FAF6;padding:20px 22px;border-top:1px solid var(--border);}
@@ -150,7 +150,7 @@ footer a:hover{color:var(--ink);}
 
 <nav class="nav">
   <div class="nav-logo">
-    <div class="nav-logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.4)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></div>
+    <div class="nav-logo-mark"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6L7.5 17L10.5 9L13.5 17L16.5 9L20 6" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="19.5" cy="5" r="2" fill="#FF6B4A"/></svg></div>
     WaitJI AI
   </div>
   <div class="nav-links">
@@ -163,9 +163,9 @@ footer a:hover{color:var(--ink);}
 </nav>
 
 <header class="hero">
-  <div class="hero-eyebrow">For advertisers</div>
-  <h1>Reach developers <em>while they're building</em>, not while they're scrolling</h1>
-  <p class="hero-sub">Your message shown inside Claude Code's own thinking spinner and terminal status line — the moment a developer is actively at the keyboard, not in a banner they've learned to ignore.</p>
+  <div class="hero-eyebrow">India's developer ad marketplace</div>
+  <h1>Reach Indian developers <em>while they're building</em>, not while they're scrolling</h1>
+  <p class="hero-sub">Your message shown inside Claude Code's own thinking spinner and terminal status line — priced in rupees, billed with GST invoicing, no forex conversion or international payment friction.</p>
   <div class="hero-ctas">
     <a href="login.html?role=advertiser" class="btn btn-primary">Start a campaign — from ₹5,000</a>
     <a href="#pricing" class="btn btn-ghost">See pricing</a>
@@ -189,11 +189,27 @@ footer a:hover{color:var(--ink);}
     </div>
     <div class="why-card">
       <div class="why-num">03</div>
-      <h3>Real fraud protection</h3>
-      <p>Every impression and click is checked against velocity, IP-abuse, and CTR-anomaly rules before you're billed — invalid activity is never charged to your budget.</p>
+      <h3>Built and billed in India</h3>
+      <p>QivaLabs LLP is a DPIIT-recognised Indian startup — you get INR pricing, GST-compliant invoices, and a local team to talk to, not a support ticket queue in another timezone.</p>
     </div>
   </div>
 </section>
+
+<section class="why" style="padding-top:0">
+  <div class="why-grid" style="grid-template-columns:1fr 1fr">
+    <div class="why-card" style="background:var(--ink);color:#fff;border:none">
+      <div class="why-num" style="color:var(--gold-l)">Revenue share</div>
+      <h3 style="color:#fff">65% goes to the developer</h3>
+      <p style="color:rgba(255,255,255,.65)">Most ad-in-editor marketplaces split 50/50. We give developers a larger share — which means better retention, more active installs, and more real eyeballs for your campaign.</p>
+    </div>
+    <div class="why-card">
+      <div class="why-num">Payouts</div>
+      <h3>₹100 minimum, UPI, fast</h3>
+      <p>Developers get paid quickly and in a currency/method they already use daily — no waiting on a $10+ international payout threshold to clear.</p>
+    </div>
+  </div>
+</section>
+
 
 <section class="placements" id="placements">
   <div id="pricing"></div>
