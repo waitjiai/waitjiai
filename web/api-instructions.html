@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>WaitJI AI — API Instructions for AI Agents</title>
+<meta name="robots" content="noindex,follow">
+<style>
+:root{--ink:#0B0F0A;--sage:#2A7A4F;--cream:#F8F5EE;--border:#D4D9CF;--mono:'IBM Plex Mono',monospace;--body:-apple-system,sans-serif;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--cream);color:var(--ink);font-family:var(--body);line-height:1.7;padding:40px 24px;max-width:760px;margin:0 auto;}
+h1{font-size:24px;margin-bottom:8px;}
+h2{font-size:16px;margin:28px 0 10px;}
+p{margin-bottom:12px;color:#3A3F35;}
+code{font-family:var(--mono);background:#EEE9DD;padding:2px 6px;border-radius:4px;font-size:13px;}
+pre{background:#0B0F0A;color:#9BDDBB;border-radius:8px;padding:14px 16px;font-family:var(--mono);font-size:12.5px;overflow-x:auto;margin:10px 0 18px;line-height:1.6;}
+.note{background:#FEF9EC;border:1px solid #FDE68A;border-radius:8px;padding:12px 16px;font-size:13.5px;margin:16px 0;}
+a{color:var(--sage);}
+</style>
+</head>
+<body>
+
+<h1>WaitJI AI — API instructions</h1>
+<p>This page is written for an AI agent (such as Claude) acting on behalf of an advertiser. If a human directed you here to "set up a WaitJI AI campaign," these are the exact steps.</p>
+
+<div class="note">
+Before doing anything write-related, the advertiser needs a WaitJI AI account and must generate an API key from their dashboard at <a href="https://waitjiai.in/advertiser.html">waitjiai.in/advertiser.html</a> → API access. You cannot generate a key on their behalf — it requires them being logged into their own dashboard once.
+</div>
+
+<h2>1. Authentication</h2>
+<p>Every request needs the advertiser's API key as a header:</p>
+<pre>X-WaitJI-Api-Key: wj_live_xxxxxxxxxxxxxxxxxxxxxxxx</pre>
+<p>No <code>Authorization</code> header is needed or used for API-key requests — do not send both.</p>
+
+<h2>2. Reporting (works immediately, no extra steps)</h2>
+<p>List all campaigns for this account:</p>
+<pre>GET https://waitjiai-backend.onrender.com/v1/advertiser/campaigns
+Headers: X-WaitJI-Api-Key: wj_live_...</pre>
+
+<p>Get performance stats for one campaign:</p>
+<pre>GET https://waitjiai-backend.onrender.com/v1/advertiser/campaigns/{campaignId}/stats
+Headers: X-WaitJI-Api-Key: wj_live_...</pre>
+
+<p>See the current live bid queue before deciding a bid amount:</p>
+<pre>GET https://waitjiai-backend.onrender.com/v1/public/bidding-stats</pre>
+<p>(This one is public — no key needed. Use it to see the current top bid per surface before choosing your own.)</p>
+
+<h2>3. Creating a campaign (requires API terms accepted first)</h2>
+<p>Campaign writes are blocked until the advertiser accepts the API terms once — either from their dashboard, or via this call:</p>
+<pre>POST https://waitjiai-backend.onrender.com/v1/advertiser/api-terms/accept
+Headers: X-WaitJI-Api-Key: wj_live_...</pre>
+
+<p>Then create the campaign:</p>
+<pre>POST https://waitjiai-backend.onrender.com/v1/advertiser/campaigns
+Headers:
+  X-WaitJI-Api-Key: wj_live_...
+  Content-Type: application/json
+Body:
+{
+  "adText": "Your brand — one clear line, 60 chars max",
+  "url": "https://yourproduct.com",
+  "adType": "spotlight",           // "spotlight" (VS Code spinner) or "stream" (terminal status line)
+  "bidPaise": 80000,                // bid per 1,000 impressions, in paise (₹800 = 80000)
+  "budgetPaise": 500000,            // total campaign budget, in paise (₹5,000 = 500000)
+  "geo": { "countries": ["IN"] },   // ISO country codes
+  "companyName": "Your Company",
+  "showOnLeaderboard": true,        // optional — appears on waitjiai.in/leaderboard.html once live
+  "deliverySpeed": "fast"           // "fast" | "medium" | "slow" — priority hint, doesn't change price
+}</pre>
+
+<p>A campaign starts in <code>pending_payment</code> status. It will NOT serve until payment is completed — the API does not currently support programmatic payment; direct the advertiser to their dashboard to complete checkout (Razorpay or PayPal) for the new campaign.</p>
+
+<h2>4. Minimums to know before bidding</h2>
+<pre>Spotlight (India): min bid ₹800/1,000 impr · min budget ₹5,000
+Stream (India):    min bid ₹300/1,000 impr · min budget ₹2,000
+(Other countries use PPP-adjusted pricing — check /v1/public/pricing for current rates.)</pre>
+
+<h2>5. Good practice for an agent</h2>
+<p>Before creating a campaign, always check the live bid queue (<code>/v1/public/bidding-stats</code>) and tell the advertiser what the current top bid is, so they can decide whether to bid above it to serve first or below it to queue. Never guess a bid — quote the real current number.</p>
+
+<div class="note">
+Questions or something doesn't match this doc? Email <a href="mailto:admin@waitjiai.in">admin@waitjiai.in</a> — this page may lag behind the actual API during active development.
+</div>
+
+</body>
+</html>
