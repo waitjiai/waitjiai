@@ -181,6 +181,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1
     <div class="sb-section">Account</div>
     <div class="sb-item" id="nav-profile" onclick="goTo('profile')">🏢 Company profile</div>
     <div class="sb-item" id="nav-billing" onclick="goTo('billing')">💳 Billing</div>
+    <div class="sb-item" id="nav-api" onclick="goTo('api')">🔑 API access</div>
   </aside>
 
   <main class="main" id="mainContent">
@@ -318,6 +319,7 @@ function goTo(tab){
   else if(tab==='create') renderCreate();
   else if(tab==='profile') renderProfile();
   else if(tab==='billing') renderBilling();
+  else if(tab==='api') renderApiAccess();
 }
 
 // ── OVERVIEW ──
@@ -1128,6 +1130,83 @@ async function renderBilling(){
       </div>
     </div>
   </div>`;
+}
+
+// ── API ACCESS (self-serve, agentic ad-buying) ──
+async function renderApiAccess(){
+  document.getElementById('mainContent').innerHTML=`<div class="loading">Loading…</div>`;
+  const status = await fetch(API+'/v1/advertiser/api-key',{headers:H}).then(r=>r.json()).catch(()=>({active:false}));
+  document.getElementById('mainContent').innerHTML=`
+  <h1 style="font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:6px;">API access</h1>
+  <p style="font-size:13.5px;color:var(--muted);margin-bottom:22px;max-width:560px;">Manage campaigns programmatically — or let an AI agent do it for you. Reporting works immediately; creating campaigns needs the API terms accepted below.</p>
+  <div style="max-width:640px;">
+
+    <div class="panel">
+      <div class="ph"><div class="pt">Account status</div></div>
+      <div class="pb" style="display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:13.5px;font-weight:600;">API key</div>
+            <div style="font-size:12px;color:var(--muted);font-family:var(--mono);">${status.active?'•••• '+status.last4+' — created '+new Date(status.createdAt).toLocaleDateString('en-IN'):'No active key'}</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            ${status.active?`<button class="btn btn-o" style="font-size:12.5px;padding:6px 14px;" onclick="rotateApiKey()">Rotate</button><button class="btn btn-o" style="font-size:12.5px;padding:6px 14px;color:var(--red);" onclick="revokeApiKey()">Revoke</button>`
+            :`<button class="btn btn-p" style="font-size:12.5px;padding:6px 14px;" onclick="rotateApiKey()">Generate key</button>`}
+          </div>
+        </div>
+        <div id="newKeyBox" style="display:none;background:var(--gold-soft);border:1px solid #FDE68A;border-radius:9px;padding:12px 14px;">
+          <div style="font-size:11px;font-weight:700;color:#92400E;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">⚠️ Copy this now — shown only once</div>
+          <div id="newKeyValue" style="font-family:var(--mono);font-size:13px;background:#fff;padding:8px 10px;border-radius:6px;word-break:break-all;"></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border);">
+          <div>
+            <div style="font-size:13.5px;font-weight:600;">Campaign write access</div>
+            <div style="font-size:12px;color:var(--muted);">${status.apiTermsAccepted?'✓ Unlocked — accepted '+new Date(status.apiTermsAcceptedAt).toLocaleDateString('en-IN'):'Reporting only until API terms are accepted'}</div>
+          </div>
+          ${status.apiTermsAccepted?'<span style="color:var(--sage);font-weight:600;font-size:12.5px;">✓ Enabled</span>':`<button class="btn btn-p" style="font-size:12.5px;padding:6px 14px;" onclick="acceptApiTerms()">Accept API terms</button>`}
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px;">
+      <div class="ph"><div class="pt">Quick reference</div></div>
+      <div class="pb">
+        <div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">Send your key as a header on every request:</div>
+        <pre style="background:#0B0F0A;color:#9BDDBB;border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:12px;overflow-x:auto;">X-WaitJI-Api-Key: wj_live_••••••••••••••••</pre>
+        <div style="font-size:12.5px;color:var(--muted);margin:14px 0 6px;">List your campaigns:</div>
+        <pre style="background:#0B0F0A;color:#9BDDBB;border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:11.5px;overflow-x:auto;">curl ${API}/v1/advertiser/campaigns \\
+  -H "X-WaitJI-Api-Key: wj_live_..."</pre>
+        <div style="font-size:12.5px;color:var(--muted);margin:14px 0 6px;">Create a campaign (needs API terms accepted):</div>
+        <pre style="background:#0B0F0A;color:#9BDDBB;border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:11.5px;overflow-x:auto;">curl -X POST ${API}/v1/advertiser/campaigns \\
+  -H "X-WaitJI-Api-Key: wj_live_..." \\
+  -H "Content-Type: application/json" \\
+  -d '{"adText":"Your brand — one line","url":"https://you.com","budgetPaise":500000}'</pre>
+        <div style="margin-top:10px;">
+          <a href="api-instructions.html" target="_blank" style="color:var(--sage);font-weight:600;font-size:13px;">📄 Full instructions for AI agents (Claude, etc.) →</a>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+async function rotateApiKey(){
+  const r=await fetch(API+'/v1/advertiser/api-key/generate',{method:'POST',headers:H});
+  const d=await r.json();
+  if(d.error){toast('⚠️ '+d.error);return;}
+  const box=document.getElementById('newKeyBox');
+  const val=document.getElementById('newKeyValue');
+  if(box&&val){box.style.display='block';val.textContent=d.apiKey;}
+  toast('✓ New key generated — copy it now');
+}
+async function revokeApiKey(){
+  if(!confirm('Revoke your API key? Any integrations using it will stop working immediately.')) return;
+  await fetch(API+'/v1/advertiser/api-key',{method:'DELETE',headers:H});
+  toast('API key revoked');
+  renderApiAccess();
+}
+async function acceptApiTerms(){
+  await fetch(API+'/v1/advertiser/api-terms/accept',{method:'POST',headers:H});
+  toast('✓ API terms accepted — campaign writes unlocked');
+  renderApiAccess();
 }
 
 load().then(checkPaypalReturn);
