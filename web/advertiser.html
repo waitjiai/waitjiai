@@ -11,11 +11,11 @@
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <style>
 :root{
-  --ink:#0B0F0A;--sage:#2A7A4F;--sage-d:#1E5A3A;--sage-l:#3D9E68;--sage-soft:#EBF5EE;
-  --gold:#F0B429;--gold-soft:#FEF9EC;--gold-d:#C9901A;
+  --ink:#0A0A12;--sage:#4F46E5;--sage-d:#3730A3;--sage-l:#818CF8;--sage-soft:#EEF2FF;
+  --gold:#FF6B4A;--gold-soft:#FFF1EC;--gold-d:#E1502F;
   --red:#DC2626;--red-soft:#FEE2E2;--blue:#3B82F6;--blue-soft:#EFF6FF;
-  --cream:#F8F5EE;--cream2:#EEE9DD;--muted:#6B7568;--muted2:#9AA896;
-  --border:#D4D9CF;--surface:#fff;--bg:#F3F0E8;
+  --cream:#F6F5FA;--cream2:#E9E7F2;--muted:#6B6B7D;--muted2:#9C9CAE;
+  --border:#DEDCE8;--surface:#fff;--bg:#F0EFF7;
   --display:'Sora',sans-serif;--mono:'IBM Plex Mono',monospace;--body:'Inter',sans-serif;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -160,7 +160,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1
 
 <div class="topbar">
   <div class="logo">
-    <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.4)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></div>
+    <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6L7.5 17L10.5 9L13.5 17L16.5 9L20 6" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="19.5" cy="5" r="2" fill="#FF6B4A"/></svg></div>
     WaitJI AI
   </div>
   <div style="display:flex;align-items:center;gap:12px;">
@@ -410,7 +410,7 @@ function renderOverview(){
     const spotCount=camps.filter(c=>c.adType==='spotlight').length;
     const streamCount=camps.filter(c=>c.adType==='stream').length;
     const ctx2=document.getElementById('mixChart');
-    if(ctx2){const _ac2=new Chart(ctx2,{type:'doughnut',data:{labels:['★ Spotlight','◎ Stream'],datasets:[{data:[spotCount||1,streamCount||0],backgroundColor:['#F0B429','#3B82F6'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:10}}}}});(window._advCharts=window._advCharts||[]).push(_ac2);}
+    if(ctx2){const _ac2=new Chart(ctx2,{type:'doughnut',data:{labels:['★ Spotlight','◎ Stream'],datasets:[{data:[spotCount||1,streamCount||0],backgroundColor:['#FF6B4A','#3B82F6'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:10}}}}});(window._advCharts=window._advCharts||[]).push(_ac2);}
   },80);
 }
 
@@ -608,13 +608,13 @@ function renderCreate(){
         <div class="ph"><div class="pt">Live preview</div></div>
         <div class="pb">
           <div style="font-size:11px;color:var(--muted);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">★ Spinner preview</div>
-          <div style="background:#0B0F0A;border-radius:9px;padding:14px 16px;font-family:var(--mono);font-size:12.5px;margin-bottom:14px;">
+          <div style="background:#0A0A12;border-radius:9px;padding:14px 16px;font-family:var(--mono);font-size:12.5px;margin-bottom:14px;">
             <div style="color:rgba(255,255,255,.4);margin-bottom:6px;">⠸ <span id="prevText" style="color:#4EC9B0;">WaitJI: Your ad here</span></div>
             <div style="color:rgba(255,255,255,.25);font-size:11px;">⎯ Thinking · 3s · 245 tokens</div>
           </div>
           <div style="font-size:11px;color:var(--muted);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">◎ Status line preview</div>
-          <div style="background:#0B0F0A;border-radius:9px;padding:10px 14px;font-family:var(--mono);font-size:12px;">
-            <span id="prevStatus" style="color:#3D9E68;">WaitJI AI · Your ad here</span>
+          <div style="background:#0A0A12;border-radius:9px;padding:10px 14px;font-family:var(--mono);font-size:12px;">
+            <span id="prevStatus" style="color:#818CF8;">WaitJI AI · Your ad here</span>
           </div>
           <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px;">
             <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Geo targeting summary</div>
@@ -848,7 +848,7 @@ async function payWithRazorpay(campaignId){
     name:'WaitJI AI', description:'Developer ad campaign',
     order_id:d.orderId,
     prefill:{email:me.email,name:me.name||''},
-    theme:{color:'#2A7A4F'},
+    theme:{color:'#4F46E5'},
     handler:async function(resp){
       toast('Verifying…');
       const vr=await fetch(API+'/v1/advertiser/campaigns/'+campaignId+'/verify-payment',{method:'POST',headers:H,body:JSON.stringify({razorpay_order_id:resp.razorpay_order_id,razorpay_payment_id:resp.razorpay_payment_id,razorpay_signature:resp.razorpay_signature})});
@@ -1048,7 +1048,7 @@ function renderAnalytics(){
   setTimeout(()=>{
     const labels=Array.from({length:14},(_,i)=>{const d=new Date;d.setDate(d.getDate()-13+i);return d.toLocaleDateString('en-IN',{month:'short',day:'numeric'});});
     const ctx=document.getElementById('impChart');
-    if(ctx){const _ac=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'Impressions',data:Array(14).fill(0).map((_,i)=>i===13?a.totalImpressions||0:0),borderColor:'#2A7A4F',backgroundColor:'rgba(42,122,79,.1)',fill:true,tension:.4,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{grid:{color:'#F3F4F6'},ticks:{font:{size:10}}}}}});(window._advCharts=window._advCharts||[]).push(_ac);}
+    if(ctx){const _ac=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'Impressions',data:Array(14).fill(0).map((_,i)=>i===13?a.totalImpressions||0:0),borderColor:'#4F46E5',backgroundColor:'rgba(42,122,79,.1)',fill:true,tension:.4,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{grid:{color:'#F3F4F6'},ticks:{font:{size:10}}}}}});(window._advCharts=window._advCharts||[]).push(_ac);}
   },80);
 
   // Load real geo breakdown from backend
@@ -1172,12 +1172,12 @@ async function renderApiAccess(){
       <div class="ph"><div class="pt">Quick reference</div></div>
       <div class="pb">
         <div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">Send your key as a header on every request:</div>
-        <pre style="background:#0B0F0A;color:#9BDDBB;border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:12px;overflow-x:auto;">X-WaitJI-Api-Key: wj_live_••••••••••••••••</pre>
+        <pre style="background:#0A0A12;color:#9BDDBB;border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:12px;overflow-x:auto;">X-WaitJI-Api-Key: wj_live_••••••••••••••••</pre>
         <div style="font-size:12.5px;color:var(--muted);margin:14px 0 6px;">List your campaigns:</div>
-        <pre style="background:#0B0F0A;color:#9BDDBB;border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:11.5px;overflow-x:auto;">curl ${API}/v1/advertiser/campaigns \\
+        <pre style="background:#0A0A12;color:#9BDDBB;border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:11.5px;overflow-x:auto;">curl ${API}/v1/advertiser/campaigns \\
   -H "X-WaitJI-Api-Key: wj_live_..."</pre>
         <div style="font-size:12.5px;color:var(--muted);margin:14px 0 6px;">Create a campaign (needs API terms accepted):</div>
-        <pre style="background:#0B0F0A;color:#9BDDBB;border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:11.5px;overflow-x:auto;">curl -X POST ${API}/v1/advertiser/campaigns \\
+        <pre style="background:#0A0A12;color:#9BDDBB;border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:11.5px;overflow-x:auto;">curl -X POST ${API}/v1/advertiser/campaigns \\
   -H "X-WaitJI-Api-Key: wj_live_..." \\
   -H "Content-Type: application/json" \\
   -d '{"adText":"Your brand — one line","url":"https://you.com","budgetPaise":500000}'</pre>
