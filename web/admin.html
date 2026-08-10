@@ -143,6 +143,8 @@ tr:last-child td{border-bottom:none;}
   <p class="page-sub">Full visibility into advertisers, earners, campaigns & security</p>
   <div class="tabs">
     <button class="tab active" data-tab="overview" onclick="showTab('overview')">Overview</button>
+    <button class="tab" data-tab="revenue" onclick="showTab('revenue')">💰 Revenue</button>
+    <button class="tab" data-tab="disputes" onclick="showTab('disputes')">⚖️ Disputes</button>
     <button class="tab" data-tab="security" onclick="showTab('security')">🛡️ Security</button>
     <button class="tab" data-tab="campaigns" onclick="showTab('campaigns')">Campaigns</button>
     <button class="tab" data-tab="advertisers" onclick="showTab('advertisers')">Advertisers</button>
@@ -159,6 +161,7 @@ tr:last-child td{border-bottom:none;}
     <button class="tab" data-tab="live" onclick="showTab('live')">🟢 Live Sessions</button>
     <button class="tab" data-tab="auditlog" onclick="showTab('auditlog')">📋 Audit Log</button>
     <button class="tab" data-tab="ipblock" onclick="showTab('ipblock')">🚫 IP Block</button>
+    <button class="tab" data-tab="subadmins" onclick="showTab('subadmins')">👥 Sub-Admins</button>
   </div>
   <div id="tabContent"><div class="loading">Loading…</div></div>
 </div>
@@ -190,6 +193,8 @@ async function render(){
   }).catch(()=>{});
   try{
     if(curTab==='overview')   return renderOverview(await get('/v1/admin/overview'));
+    if(curTab==='revenue')    return renderRevenue(await get('/v1/admin/revenue-dashboard'));
+    if(curTab==='disputes')   return renderDisputes(await get('/v1/admin/disputes'));
     if(curTab==='security')   return renderSecurity(await get('/v1/admin/security'));
     if(curTab==='campaigns')  return renderCampaigns((await get('/v1/admin/campaigns')).campaigns);
     if(curTab==='advertisers')return renderAdvertisers(await get('/v1/admin/advertisers'));
@@ -206,6 +211,7 @@ async function render(){
     if(curTab==='live')      return renderLive(await get('/v1/admin/live-sessions'));
     if(curTab==='auditlog')  return renderAuditLog(await get('/v1/admin/audit-log'));
     if(curTab==='ipblock')   return renderIpBlock(await get('/v1/admin/ip-block'));
+    if(curTab==='subadmins') return renderSubAdmins(await get('/v1/admin/sub-admins'));
   }catch(e){ document.getElementById('tabContent').innerHTML='<div class="loading">Error loading data. <a href="" onclick="render();return false">retry</a></div>'; console.error(e); }
 }
 
@@ -835,6 +841,113 @@ function renderLive(d){
     </tr>`).join('')||'<tr><td colspan="6" class="empty">No developers active right now.<br><span style="font-size:12px;color:#9AA896;">Sessions appear here when a developer generates an impression via Claude Code.</span></td></tr>'}
     </tbody></table>
   </div>`;
+}
+
+function renderRevenue(d){
+  const el=document.getElementById('tabContent'); if(!el) return;
+  const maxDaily=Math.max(1,...d.dailyTrend.map(x=>parseFloat(x.revenueRupees)));
+  el.innerHTML=`
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <div>
+      <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;">💰 Revenue dashboard</h2>
+      <p style="font-size:13px;color:#6B7568;margin-top:2px;">Founder-level business health — gross revenue, payouts, and margin in one view.</p>
+    </div>
+    <button class="mini-btn" onclick="render()">↻ Refresh</button>
+  </div>
+  <div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:20px;">
+    <div class="card"><div class="card-label">Gross revenue</div><div class="card-val" style="color:#047857;">₹${d.grossRevenueRupees}</div></div>
+    <div class="card"><div class="card-label">Paid to developers</div><div class="card-val">₹${d.totalPayoutsRupees}</div></div>
+    <div class="card"><div class="card-label">Pending payouts</div><div class="card-val" style="color:#C9901A;">₹${d.pendingPayoutsRupees}</div></div>
+    <div class="card"><div class="card-label">Gross margin</div><div class="card-val">₹${d.grossMarginRupees} <span style="font-size:12px;color:#6B7568;">(${d.grossMarginPct}%)</span></div></div>
+    <div class="card"><div class="card-label">Active campaigns</div><div class="card-val">${d.activeCampaigns}</div></div>
+    <div class="card"><div class="card-label">Scheduled campaigns</div><div class="card-val">${d.scheduledCampaigns}</div></div>
+    <div class="card"><div class="card-label">Total advertisers</div><div class="card-val">${d.totalAdvertisers}</div></div>
+    <div class="card"><div class="card-label">Total earners</div><div class="card-val">${d.totalEarners}</div></div>
+  </div>
+  <div class="panel">
+    <div style="font-weight:600;font-size:13.5px;margin-bottom:12px;">Revenue — last 30 days</div>
+    <div style="display:flex;align-items:flex-end;gap:2px;height:120px;">
+      ${d.dailyTrend.map(x=>`<div title="${x.date}: ₹${x.revenueRupees}" style="flex:1;background:#2A7A4F;border-radius:3px 3px 0 0;height:${Math.max(2,(parseFloat(x.revenueRupees)/maxDaily)*100)}%;min-height:2px;"></div>`).join('')}
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:10.5px;color:#9AA896;margin-top:6px;">
+      <span>${d.dailyTrend[0]?.date||''}</span><span>${d.dailyTrend[d.dailyTrend.length-1]?.date||''}</span>
+    </div>
+  </div>`;
+}
+
+function renderDisputes(d){
+  const el=document.getElementById('tabContent'); if(!el) return;
+  const disputes=d.disputes||[];
+  el.innerHTML=`
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <div>
+      <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;">⚖️ Fraud-flag disputes</h2>
+      <p style="font-size:13px;color:#6B7568;margin-top:2px;">${d.pendingCount} pending review · ${disputes.length} total</p>
+    </div>
+    <button class="mini-btn" onclick="render()">↻ Refresh</button>
+  </div>
+  <div class="panel" style="padding:0;">
+    ${disputes.length===0?'<div style="padding:24px;text-align:center;color:#9AA896;font-size:13px;">No disputes filed yet.</div>':`
+    <table><thead><tr><th>Date</th><th>User</th><th>Flag type</th><th>Message</th><th>Status</th><th>Action</th></tr></thead><tbody>
+    ${disputes.map(disp=>`<tr>
+      <td class="mono" style="font-size:11px;white-space:nowrap;">${new Date(disp.createdAt).toLocaleDateString('en-IN')}</td>
+      <td style="font-size:12px;">${esc(disp.userEmail)}</td>
+      <td style="font-size:12px;">${esc((disp.flagType||'').replace(/_/g,' '))}</td>
+      <td style="font-size:12px;max-width:260px;">${esc(disp.message)}</td>
+      <td>${disp.status==='pending'?'<span style="color:#C9901A;font-weight:600;">⏳ Pending</span>':disp.status==='cleared'?'<span style="color:#047857;font-weight:600;">✓ Cleared</span>':'<span style="color:#DC2626;font-weight:600;">✗ Upheld</span>'}</td>
+      <td>${disp.status==='pending'?`
+        <button class="mini-btn" style="background:#DCFCE7;color:#047857;" onclick="resolveDispute('${disp.id}','cleared')">Clear flag</button>
+        <button class="mini-btn" style="background:#FEE2E2;color:#DC2626;" onclick="resolveDispute('${disp.id}','upheld')">Uphold</button>
+      `:'—'}</td>
+    </tr>`).join('')}
+    </tbody></table>`}
+  </div>`;
+}
+async function resolveDispute(id,decision){
+  const note=decision==='upheld'?prompt('Optional note for the developer:')||'':'';
+  await post(`/v1/admin/disputes/${id}/resolve`,{decision,note});
+  render();
+}
+
+function renderSubAdmins(d){
+  const el=document.getElementById('tabContent'); if(!el) return;
+  const subs=d.subAdmins||[];
+  el.innerHTML=`
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <div>
+      <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;">👥 Sub-admin accounts</h2>
+      <p style="font-size:13px;color:#6B7568;margin-top:2px;">Give support/finance/moderation staff scoped access without full admin control.</p>
+    </div>
+    <button class="mini-btn" onclick="showCreateSubAdmin()">+ New sub-admin</button>
+  </div>
+  <div class="panel" style="padding:0;">
+    ${subs.length===0?'<div style="padding:24px;text-align:center;color:#9AA896;font-size:13px;">No sub-admins yet.</div>':`
+    <table><thead><tr><th>Email</th><th>Name</th><th>Scopes</th><th>Created</th><th>Action</th></tr></thead><tbody>
+    ${subs.map(s=>`<tr>
+      <td style="font-size:12.5px;">${esc(s.email)}</td>
+      <td style="font-size:12.5px;">${esc(s.name||'')}</td>
+      <td style="font-size:12px;">${(Array.isArray(s.adminScope)?s.adminScope:[s.adminScope]).map(sc=>`<span class="mini-btn" style="background:#EFF6FF;color:#3B82F6;pointer-events:none;">${esc(sc)}</span>`).join(' ')}</td>
+      <td class="mono" style="font-size:11px;">${new Date(s.createdAt).toLocaleDateString('en-IN')}</td>
+      <td><button class="mini-btn" style="background:#FEE2E2;color:#DC2626;" onclick="removeSubAdmin('${s.id}','${esc(s.email)}')">Remove</button></td>
+    </tr>`).join('')}
+    </tbody></table>`}
+  </div>`;
+}
+function showCreateSubAdmin(){
+  const email=prompt('Sub-admin email:'); if(!email) return;
+  const password=prompt('Temporary password (they should change it later):'); if(!password) return;
+  const scopesInput=prompt('Scopes — comma separated, choose from: support, finance, moderation');
+  const scopes=(scopesInput||'').split(',').map(s=>s.trim()).filter(Boolean);
+  if(scopes.length===0){alert('At least one scope is required.');return;}
+  post('/v1/admin/sub-admins',{email,password,scopes}).then(d=>{
+    if(d.error){alert('⚠️ '+d.error);return;}
+    render();
+  });
+}
+async function removeSubAdmin(id,email){
+  if(!confirm(`Remove sub-admin ${email}? This cannot be undone.`)) return;
+  await del('/v1/admin/sub-admins/'+id);
+  render();
 }
 
 function renderAuditLog(d){
