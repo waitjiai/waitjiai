@@ -7,13 +7,13 @@
 
 <style>
 :root{
-  --ink:#0B0F0A;--ink2:#1C2119;
-  --sage:#2A7A4F;--sage-d:#1E5A3A;--sage-l:#3D9E68;--sage-soft:#EBF5EE;
-  --gold:#F0B429;--gold-d:#C9901A;--gold-l:#F7D070;--gold-soft:#FEF9EC;
-  --cream:#F8F5EE;--cream2:#EEE9DD;
-  --muted:#6B7568;--muted2:#9AA896;
-  --border:#D4D9CF;--border2:#BFC5B9;
-  --surface:#FFFFFF;--surface2:#F8F5EE;--bg:#F3F0E8;
+  --ink:#0A0A12;--ink2:#16161F;
+  --sage:#4F46E5;--sage-d:#3730A3;--sage-l:#818CF8;--sage-soft:#EEF2FF;
+  --gold:#FF6B4A;--gold-d:#E1502F;--gold-l:#FFA588;--gold-soft:#FFF1EC;
+  --cream:#F6F5FA;--cream2:#E9E7F2;
+  --muted:#6B6B7D;--muted2:#9C9CAE;
+  --border:#DEDCE8;--border2:#C7C4D6;
+  --surface:#FFFFFF;--surface2:#F6F5FA;--bg:#F0EFF7;
   --red:#DC2626;--red-soft:#FEE2E2;
   --green:#15803D;--green-soft:#DCFCE7;
   --amber:#D97706;--amber-soft:#FEF3C7;
@@ -33,12 +33,12 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1
 .topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:var(--ink);border-bottom:1px solid #1A1F3D;}
 .logo{font-family:var(--mono);font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
 .logo-mark{width:28px;height:28px;border-radius:7px;background:var(--sage),var(--sky));display:flex;align-items:center;justify-content:center;}
-.logo-mark svg{width:17px;height:17px;}.logo em{color:#3D9E68;font-style:normal;}
+.logo-mark svg{width:17px;height:17px;}.logo em{color:#818CF8;font-style:normal;}
 .topbar-r{display:flex;align-items:center;gap:14px;}
 .role-pill{font-size:11px;font-weight:600;padding:5px 12px;border-radius:100px;background:rgba(129,140,248,.2);color:#A5B4FC;font-family:var(--mono);}
 .user-email{font-size:13px;color:#9AA0B4;}
 .btn-out{background:transparent;border:1px solid #2A2F4D;color:#fff;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--body);}
-.btn-out:hover{border-color:#3D9E68;}
+.btn-out:hover{border-color:#818CF8;}
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;}
 .modal{background:var(--surface);border:1px solid var(--border2);border-radius:18px;padding:28px;max-width:480px;width:100%;max-height:88vh;overflow-y:auto;}
 .modal h2{font-family:var(--sans);font-size:19px;font-weight:700;margin-bottom:4px;}
@@ -311,7 +311,7 @@ function renderSecurity(d){
     <td>${esc(f.type||'—')}</td>
     <td><span class="sev ${f.severity||'medium'}">${f.severity||'medium'}</span></td>
     <td class="mono">${esc(f.ip||'—')}</td>
-    <td style="font-size:12px;color:#6B7568;">${esc(String(f.detail||'—')).slice(0,60)}</td>
+    <td style="font-size:12px;color:#6B6B7D;">${esc(String(f.detail||'—')).slice(0,60)}</td>
   </tr>`).join('')||'<tr><td colspan="6" class="empty">No fraud flags</td></tr>'}
   </tbody></table></div>`;
 }
@@ -328,7 +328,7 @@ function filterCamps(){
   const q=(document.getElementById('campSearch')?.value||'').toLowerCase();
   const rows=(window._camps||[]).filter(c=>!q||esc(c.adText+c.advertiser).toLowerCase().includes(q));
   document.getElementById('campBody').innerHTML=rows.map(c=>`<tr>
-    <td><div style="font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.campaignName||c.adText)}</div><div style="font-size:11px;color:#9AA896;">"${esc(c.adText).slice(0,35)}"</div></td>
+    <td><div style="font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.campaignName||c.adText)}</div><div style="font-size:11px;color:#9C9CAE;">"${esc(c.adText).slice(0,35)}"</div></td>
     <td>${esc(c.advertiser||'—')}</td>
     <td><span class="status ${c.adType==='spotlight'?'active':'pending'}">${c.adType==='spotlight'?'★ Spot':'◎ Stream'}</span></td>
     <td style="font-size:11px;">${(c.geo?.countries||['IN']).join(',')}${c.geo?.cities?.length?' +'+c.geo.cities.length+'c':''}</td>
@@ -365,7 +365,7 @@ function renderAdvertisers(d){
   <div class="panel"><div class="panel-h">All Advertisers</div>
   <table><thead><tr><th>Company</th><th>Email</th><th>Total Spend</th><th>Campaigns</th><th>Joined</th><th>Actions</th></tr></thead><tbody>
   ${advs.map(a=>`<tr>
-    <td><div style="font-weight:600;">${esc(a.company||a.name||'—')}</div><div style="font-size:11px;color:#9AA896;">${esc(a.industry||'')}</div></td>
+    <td><div style="font-weight:600;">${esc(a.company||a.name||'—')}</div><div style="font-size:11px;color:#9C9CAE;">${esc(a.industry||'')}</div></td>
     <td class="mono" style="font-size:12px;">${esc(a.email)}</td>
     <td class="mono" style="color:#047857;font-weight:600;">${fmtRs(a.totalSpentPaise||0)}</td>
     <td class="mono">${a.totalCampaigns||0} total · ${a.activeCampaigns||0} active</td>
@@ -390,12 +390,12 @@ function viewAdvertiser(id){
       <div class="card"><div class="card-label">Impressions</div><div class="card-val" style="font-size:18px;">${fmt(a.totalImpressions||0)}</div></div>
     </div>
     <div style="margin-bottom:14px;">
-      <div style="font-size:12px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Campaign history</div>
-      ${camps.length?camps.map(c=>`<div style="background:#F8F5EE;border-radius:8px;padding:10px 14px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-size:12px;font-weight:700;color:#6B6B7D;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Campaign history</div>
+      ${camps.length?camps.map(c=>`<div style="background:#F6F5FA;border-radius:8px;padding:10px 14px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;">
         <div><div style="font-weight:600;font-size:13px;">"${esc(c.adText||'').slice(0,40)}"</div>
-        <div style="font-size:11px;color:#9AA896;">${c.adType} · ${fmtRs(c.budgetPaise)} · ${c.status}</div></div>
+        <div style="font-size:11px;color:#9C9CAE;">${c.adType} · ${fmtRs(c.budgetPaise)} · ${c.status}</div></div>
         <div style="font-family:monospace;font-size:13px;font-weight:700;color:#047857;">${fmt(c.impressions||0)} imps</div>
-      </div>`).join(''):'<div style="color:#9AA896;font-size:13px;padding:12px;">No campaigns yet</div>'}
+      </div>`).join(''):'<div style="color:#9C9CAE;font-size:13px;padding:12px;">No campaigns yet</div>'}
     </div>
     <div style="display:flex;gap:8px;">
       <button class="mini-btn green" onclick="sendAdminEmail('${esc(a.email)}','${esc(a.name||a.company||'')}')">✉️ Email advertiser</button>
@@ -428,7 +428,7 @@ function filterCusts(){
   const q=(document.getElementById('custSearch')?.value||'').toLowerCase();
   const rows=(window._custs||[]).filter(u=>!q||(u.email+' '+(u.name||'')).toLowerCase().includes(q));
   document.getElementById('custBody').innerHTML=rows.map(u=>`<tr>
-    <td><div style="font-weight:600;">${esc(u.name||'—')}</div><div style="font-size:11px;color:#9AA896;">${u.phone||''}</div></td>
+    <td><div style="font-weight:600;">${esc(u.name||'—')}</div><div style="font-size:11px;color:#9C9CAE;">${u.phone||''}</div></td>
     <td class="mono" style="font-size:12px;">${esc(u.email)}</td>
     <td class="mono" style="color:#047857;font-weight:600;">₹${u.earnedRupees||'0.00'}</td>
     <td class="mono">${u.pendingPaise?'₹'+((u.pendingPaise||0)/100).toFixed(2):'₹0.00'}</td>
@@ -441,16 +441,16 @@ function filterCusts(){
 
 async function viewEarner(id){
   const m=document.createElement('div'); m.className='modal-bg';
-  m.innerHTML='<div class="modal" style="max-width:940px;"><div style="padding:40px;text-align:center;color:#9AA896;">Loading full profile…</div></div>';
+  m.innerHTML='<div class="modal" style="max-width:940px;"><div style="padding:40px;text-align:center;color:#9C9CAE;">Loading full profile…</div></div>';
   document.body.appendChild(m);
   m.addEventListener('click',e=>{if(e.target===m)m.remove();});
 
   let d=null;
   try { d = await get('/v1/admin/earners/'+id+'/full'); }
-  catch(e){ m.querySelector('.modal').innerHTML='<div style="padding:40px;text-align:center;color:#DC2626;">Could not load profile — <a href="" onclick="location.reload();return false" style="color:#2A7A4F;">retry</a></div>'; return; }
+  catch(e){ m.querySelector('.modal').innerHTML='<div style="padding:40px;text-align:center;color:#DC2626;">Could not load profile — <a href="" onclick="location.reload();return false" style="color:#4F46E5;">retry</a></div>'; return; }
 
   const u=d.user||{}, e=d.earnings||{}, a=d.activity||{}, b=d.breakdowns||{};
-  const statusColor={active:'#047857',idle:'#C9901A',inactive:'#6B7568',never_connected:'#DC2626'}[a.status]||'#6B7568';
+  const statusColor={active:'#047857',idle:'#E1502F',inactive:'#6B6B7D',never_connected:'#DC2626'}[a.status]||'#6B6B7D';
   const statusLabel={active:'● Active now',idle:'◌ Idle',inactive:'○ Inactive',never_connected:'✗ Never connected'}[a.status]||a.status;
   const total=x=>Object.values(x||{}).reduce((s,v)=>s+v,0)||1;
 
@@ -459,8 +459,8 @@ async function viewEarner(id){
     return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;">
       <div style="width:88px;text-transform:capitalize;">${esc(k)}</div>
       <div style="flex:1;height:5px;background:#F3F4F6;border-radius:100px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${colors[i%colors.length]};border-radius:100px;"></div></div>
-      <div style="width:58px;text-align:right;font-family:var(--mono);color:#6B7568;">${fmt(v)} · ${pct}%</div>
-    </div>`;}).join('')||'<div style="font-size:12px;color:#9AA896;">No data yet</div>';
+      <div style="width:58px;text-align:right;font-family:var(--mono);color:#6B6B7D;">${fmt(v)} · ${pct}%</div>
+    </div>`;}).join('')||'<div style="font-size:12px;color:#9C9CAE;">No data yet</div>';
 
   const maxDaily=Math.max(1,...(d.daily||[]).map(x=>x.impressions));
 
@@ -471,7 +471,7 @@ async function viewEarner(id){
           <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:100px;background:${statusColor}18;color:${statusColor};">${statusLabel}</span>
         </h2>
         <div class="modal-sub">${esc(u.email||'—')} · <span class="mono" style="font-size:11px;">${esc(u.userId||'')}</span></div>
-        <div style="font-size:11.5px;color:#9AA896;margin-top:3px;">
+        <div style="font-size:11.5px;color:#9C9CAE;margin-top:3px;">
           Joined ${u.createdAt?new Date(u.createdAt).toLocaleDateString('en-IN'):'—'}
           · ${u.loginCount||0} logins
           · Last login ${u.lastLoginAt?new Date(u.lastLoginAt).toLocaleString('en-IN'):'never'}
@@ -484,7 +484,7 @@ async function viewEarner(id){
 
     <div style="display:flex;gap:6px;margin:14px 0;border-bottom:1px solid #E5E7EB;">
       ${['Overview','Sessions','Ad log','Withdrawals','Logins'].map((t,i)=>
-        `<button class="etab ${i===0?'active':''}" data-etab="${i}" onclick="switchETab(${i},this)" style="padding:8px 14px;font-size:12.5px;font-weight:600;background:none;border:none;border-bottom:2px solid ${i===0?'#2A7A4F':'transparent'};color:${i===0?'#0B0F0A':'#6B7568'};cursor:pointer;">${t}</button>`).join('')}
+        `<button class="etab ${i===0?'active':''}" data-etab="${i}" onclick="switchETab(${i},this)" style="padding:8px 14px;font-size:12.5px;font-weight:600;background:none;border:none;border-bottom:2px solid ${i===0?'#4F46E5':'transparent'};color:${i===0?'#0A0A12':'#6B6B7D'};cursor:pointer;">${t}</button>`).join('')}
     </div>
 
     <!-- TAB 0: OVERVIEW -->
@@ -508,81 +508,81 @@ async function viewEarner(id){
       </div>`:''}
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-        <div style="background:#F8F5EE;border-radius:10px;padding:14px;">
-          <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Surface breakdown</div>
-          ${bar(b.bySurface,['#2A7A4F','#3B82F6','#F0B429'])}
+        <div style="background:#F6F5FA;border-radius:10px;padding:14px;">
+          <div style="font-size:11px;font-weight:700;color:#6B6B7D;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Surface breakdown</div>
+          ${bar(b.bySurface,['#4F46E5','#3B82F6','#FF6B4A'])}
         </div>
-        <div style="background:#F8F5EE;border-radius:10px;padding:14px;">
-          <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Ad type breakdown</div>
-          ${bar(b.byAdType,['#F0B429','#3B82F6'])}
+        <div style="background:#F6F5FA;border-radius:10px;padding:14px;">
+          <div style="font-size:11px;font-weight:700;color:#6B6B7D;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Ad type breakdown</div>
+          ${bar(b.byAdType,['#FF6B4A','#3B82F6'])}
         </div>
       </div>
 
-      <div style="background:#F8F5EE;border-radius:10px;padding:14px;margin-bottom:14px;">
-        <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Daily activity — last 30 days</div>
+      <div style="background:#F6F5FA;border-radius:10px;padding:14px;margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:700;color:#6B6B7D;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Daily activity — last 30 days</div>
         <div style="display:flex;align-items:flex-end;gap:2px;height:70px;">
           ${(d.daily||[]).map(x=>`<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;" title="${x.label}: ${x.impressions} imps · ₹${((x.earnedPaise||0)/100).toFixed(2)}">
-            <div style="background:${x.impressions?'#2A7A4F':'#E5E7EB'};border-radius:2px 2px 0 0;min-height:2px;height:${Math.max(2,Math.round(x.impressions/maxDaily*62))}px;"></div>
+            <div style="background:${x.impressions?'#4F46E5':'#E5E7EB'};border-radius:2px 2px 0 0;min-height:2px;height:${Math.max(2,Math.round(x.impressions/maxDaily*62))}px;"></div>
           </div>`).join('')}
         </div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:#9AA896;margin-top:5px;"><span>30 days ago</span><span>Today</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#9C9CAE;margin-top:5px;"><span>30 days ago</span><span>Today</span></div>
       </div>
 
-      <div style="background:#F8F5EE;border-radius:10px;padding:14px;">
-        <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Payout method &amp; fraud</div>
+      <div style="background:#F6F5FA;border-radius:10px;padding:14px;">
+        <div style="font-size:11px;font-weight:700;color:#6B6B7D;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Payout method &amp; fraud</div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:12.5px;">
-          <div><span style="color:#9AA896;">Method:</span> <b style="text-transform:capitalize;">${esc(u.payoutMode||'not set')}</b></div>
-          <div><span style="color:#9AA896;">Verified:</span> <b style="color:${u.payoutVerified?'#047857':'#DC2626'};">${u.payoutVerified?'Yes':'No'}</b></div>
-          <div><span style="color:#9AA896;">Fraud flags:</span> <b style="color:${(d.fraudFlags||[]).length?'#DC2626':'#047857'};">${(d.fraudFlags||[]).length}</b></div>
+          <div><span style="color:#9C9CAE;">Method:</span> <b style="text-transform:capitalize;">${esc(u.payoutMode||'not set')}</b></div>
+          <div><span style="color:#9C9CAE;">Verified:</span> <b style="color:${u.payoutVerified?'#047857':'#DC2626'};">${u.payoutVerified?'Yes':'No'}</b></div>
+          <div><span style="color:#9C9CAE;">Fraud flags:</span> <b style="color:${(d.fraudFlags||[]).length?'#DC2626':'#047857'};">${(d.fraudFlags||[]).length}</b></div>
         </div>
       </div>
     </div>
 
     <!-- TAB 1: SESSIONS -->
     <div class="epane" data-epane="1" style="display:none;">
-      <div style="font-size:12px;color:#6B7568;margin-bottom:10px;">Sessions derived from impression activity (15-min inactivity = new session)</div>
+      <div style="font-size:12px;color:#6B6B7D;margin-bottom:10px;">Sessions derived from impression activity (15-min inactivity = new session)</div>
       <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
-        <thead><tr style="background:#F8F5EE;">${['Started','Duration','Impressions','Earned','Surfaces'].map(h=>`<th style="text-align:left;padding:8px 12px;font-size:10.5px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;">${h}</th>`).join('')}</tr></thead>
+        <thead><tr style="background:#F6F5FA;">${['Started','Duration','Impressions','Earned','Surfaces'].map(h=>`<th style="text-align:left;padding:8px 12px;font-size:10.5px;font-weight:700;color:#6B6B7D;text-transform:uppercase;letter-spacing:.5px;">${h}</th>`).join('')}</tr></thead>
         <tbody>${(d.sessions||[]).map(s=>`<tr style="border-bottom:1px solid #F3F4F6;">
           <td style="padding:8px 12px;">${new Date(s.start).toLocaleString('en-IN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
           <td style="padding:8px 12px;" class="mono">${s.durationMin}m</td>
           <td style="padding:8px 12px;" class="mono">${fmt(s.impressions)}</td>
           <td style="padding:8px 12px;" class="mono" style="color:#047857;">₹${s.earnedRupees}</td>
-          <td style="padding:8px 12px;font-size:11px;color:#6B7568;">${Object.entries(s.surfaces||{}).map(([k,v])=>k+' '+v).join(' · ')}</td>
-        </tr>`).join('')||'<tr><td colspan="5" style="text-align:center;padding:28px;color:#9AA896;">No sessions recorded yet</td></tr>'}</tbody>
+          <td style="padding:8px 12px;font-size:11px;color:#6B6B7D;">${Object.entries(s.surfaces||{}).map(([k,v])=>k+' '+v).join(' · ')}</td>
+        </tr>`).join('')||'<tr><td colspan="5" style="text-align:center;padding:28px;color:#9C9CAE;">No sessions recorded yet</td></tr>'}</tbody>
       </table>
     </div>
 
     <!-- TAB 2: AD LOG -->
     <div class="epane" data-epane="2" style="display:none;">
-      <div style="background:#F8F5EE;border-radius:10px;padding:14px;margin-bottom:14px;">
-        <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Ads shown to this developer</div>
+      <div style="background:#F6F5FA;border-radius:10px;padding:14px;margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:700;color:#6B6B7D;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Ads shown to this developer</div>
         <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
-          <thead><tr>${['Advertiser','Type','Impressions','Clicks','CTR','Earned'].map(h=>`<th style="text-align:left;padding:6px 10px;font-size:10px;font-weight:700;color:#9AA896;text-transform:uppercase;">${h}</th>`).join('')}</tr></thead>
+          <thead><tr>${['Advertiser','Type','Impressions','Clicks','CTR','Earned'].map(h=>`<th style="text-align:left;padding:6px 10px;font-size:10px;font-weight:700;color:#9C9CAE;text-transform:uppercase;">${h}</th>`).join('')}</tr></thead>
           <tbody>${(d.adBreakdown||[]).map(x=>`<tr style="border-bottom:1px solid #E5E7EB;">
             <td style="padding:7px 10px;font-weight:600;">${esc(x.advertiser)}</td>
-            <td style="padding:7px 10px;"><span style="font-size:10px;padding:2px 7px;border-radius:4px;background:${x.adType==='spotlight'?'#FEF9EC':'#EFF6FF'};color:${x.adType==='spotlight'?'#C9901A':'#3B82F6'};">${x.adType==='spotlight'?'★ Spotlight':'◎ Stream'}</span></td>
+            <td style="padding:7px 10px;"><span style="font-size:10px;padding:2px 7px;border-radius:4px;background:${x.adType==='spotlight'?'#FFF1EC':'#EFF6FF'};color:${x.adType==='spotlight'?'#E1502F':'#3B82F6'};">${x.adType==='spotlight'?'★ Spotlight':'◎ Stream'}</span></td>
             <td style="padding:7px 10px;" class="mono">${fmt(x.impressions)}</td>
             <td style="padding:7px 10px;" class="mono">${fmt(x.clicks)}</td>
             <td style="padding:7px 10px;" class="mono">${x.ctr}%</td>
             <td style="padding:7px 10px;" class="mono" style="color:#047857;">₹${x.earnedRupees}</td>
-          </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;padding:24px;color:#9AA896;">No ads served yet</td></tr>'}</tbody>
+          </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;padding:24px;color:#9C9CAE;">No ads served yet</td></tr>'}</tbody>
         </table>
       </div>
-      <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Last 100 impressions</div>
+      <div style="font-size:11px;font-weight:700;color:#6B6B7D;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Last 100 impressions</div>
       <div style="max-height:280px;overflow-y:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
-        <thead><tr style="background:#F8F5EE;position:sticky;top:0;">${['Time','Advertiser','Ad text','Type','Surface','Geo','Earned','Click'].map(h=>`<th style="text-align:left;padding:7px 10px;font-size:10px;font-weight:700;color:#6B7568;text-transform:uppercase;">${h}</th>`).join('')}</tr></thead>
+        <thead><tr style="background:#F6F5FA;position:sticky;top:0;">${['Time','Advertiser','Ad text','Type','Surface','Geo','Earned','Click'].map(h=>`<th style="text-align:left;padding:7px 10px;font-size:10px;font-weight:700;color:#6B6B7D;text-transform:uppercase;">${h}</th>`).join('')}</tr></thead>
         <tbody>${(d.recentImpressions||[]).map(i=>`<tr style="border-bottom:1px solid #F3F4F6;">
           <td style="padding:6px 10px;" class="mono" style="font-size:11px;">${new Date(i.ts).toLocaleString('en-IN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
           <td style="padding:6px 10px;">${esc(i.advertiser)}</td>
-          <td style="padding:6px 10px;font-size:11px;color:#6B7568;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(i.adText||'—')}</td>
+          <td style="padding:6px 10px;font-size:11px;color:#6B6B7D;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(i.adText||'—')}</td>
           <td style="padding:6px 10px;font-size:11px;">${i.adType==='spotlight'?'★':'◎'}</td>
           <td style="padding:6px 10px;font-size:11px;text-transform:capitalize;">${esc(i.surface)}</td>
           <td style="padding:6px 10px;" class="mono" style="font-size:11px;">${esc(i.country)}</td>
           <td style="padding:6px 10px;" class="mono" style="font-size:11px;color:#047857;">₹${((i.earnedPaise||0)/100).toFixed(2)}</td>
           <td style="padding:6px 10px;">${i.clicked?'<span style="color:#047857;">✓</span>':'<span style="color:#D1D5DB;">—</span>'}</td>
-        </tr>`).join('')||'<tr><td colspan="8" style="text-align:center;padding:24px;color:#9AA896;">No impressions yet</td></tr>'}</tbody>
+        </tr>`).join('')||'<tr><td colspan="8" style="text-align:center;padding:24px;color:#9C9CAE;">No impressions yet</td></tr>'}</tbody>
       </table>
       </div>
     </div>
@@ -590,27 +590,27 @@ async function viewEarner(id){
     <!-- TAB 3: WITHDRAWALS -->
     <div class="epane" data-epane="3" style="display:none;">
       <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
-        <thead><tr style="background:#F8F5EE;">${['Requested','Amount','Method','Status','Paid at','Reference'].map(h=>`<th style="text-align:left;padding:8px 12px;font-size:10.5px;font-weight:700;color:#6B7568;text-transform:uppercase;">${h}</th>`).join('')}</tr></thead>
+        <thead><tr style="background:#F6F5FA;">${['Requested','Amount','Method','Status','Paid at','Reference'].map(h=>`<th style="text-align:left;padding:8px 12px;font-size:10.5px;font-weight:700;color:#6B6B7D;text-transform:uppercase;">${h}</th>`).join('')}</tr></thead>
         <tbody>${(d.withdrawals||[]).map(w=>`<tr style="border-bottom:1px solid #F3F4F6;">
           <td style="padding:8px 12px;">${w.requestedAt?new Date(w.requestedAt).toLocaleString('en-IN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}</td>
-          <td style="padding:8px 12px;" class="mono" style="font-weight:600;">₹${((w.amountPaise||0)/100).toFixed(2)}${w.paypalUsd?` <span style="color:#9AA896;font-size:11px;">($${w.paypalUsd})</span>`:''}</td>
+          <td style="padding:8px 12px;" class="mono" style="font-weight:600;">₹${((w.amountPaise||0)/100).toFixed(2)}${w.paypalUsd?` <span style="color:#9C9CAE;font-size:11px;">($${w.paypalUsd})</span>`:''}</td>
           <td style="padding:8px 12px;font-size:11.5px;">${esc(w.upiId||w.paypalEmail||'Bank')}</td>
-          <td style="padding:8px 12px;"><span style="font-size:11px;padding:2px 8px;border-radius:100px;font-weight:600;background:${['paid','approved'].includes(w.status)?'#DCFCE7':w.status==='pending'?'#FEF9EC':'#FEE2E2'};color:${['paid','approved'].includes(w.status)?'#047857':w.status==='pending'?'#C9901A':'#DC2626'};">${esc(w.status)}</span></td>
+          <td style="padding:8px 12px;"><span style="font-size:11px;padding:2px 8px;border-radius:100px;font-weight:600;background:${['paid','approved'].includes(w.status)?'#DCFCE7':w.status==='pending'?'#FFF1EC':'#FEE2E2'};color:${['paid','approved'].includes(w.status)?'#047857':w.status==='pending'?'#E1502F':'#DC2626'};">${esc(w.status)}</span></td>
           <td style="padding:8px 12px;font-size:11.5px;">${w.reviewedAt?new Date(w.reviewedAt).toLocaleDateString('en-IN'):'—'}</td>
-          <td style="padding:8px 12px;" class="mono" style="font-size:10.5px;color:#9AA896;">${esc(w.cashfreeTransferId||w.paypalBatchId||'—')}</td>
-        </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;padding:28px;color:#9AA896;">No withdrawals yet</td></tr>'}</tbody>
+          <td style="padding:8px 12px;" class="mono" style="font-size:10.5px;color:#9C9CAE;">${esc(w.cashfreeTransferId||w.paypalBatchId||'—')}</td>
+        </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;padding:28px;color:#9C9CAE;">No withdrawals yet</td></tr>'}</tbody>
       </table>
     </div>
 
     <!-- TAB 4: LOGINS -->
     <div class="epane" data-epane="4" style="display:none;">
       <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
-        <thead><tr style="background:#F8F5EE;">${['Time','IP','Device / browser'].map(h=>`<th style="text-align:left;padding:8px 12px;font-size:10.5px;font-weight:700;color:#6B7568;text-transform:uppercase;">${h}</th>`).join('')}</tr></thead>
+        <thead><tr style="background:#F6F5FA;">${['Time','IP','Device / browser'].map(h=>`<th style="text-align:left;padding:8px 12px;font-size:10.5px;font-weight:700;color:#6B6B7D;text-transform:uppercase;">${h}</th>`).join('')}</tr></thead>
         <tbody>${(d.logins||[]).map(l=>`<tr style="border-bottom:1px solid #F3F4F6;">
           <td style="padding:8px 12px;">${new Date(l.ts).toLocaleString('en-IN')}</td>
           <td style="padding:8px 12px;" class="mono" style="font-size:11px;">${esc(l.ip||'—')}</td>
-          <td style="padding:8px 12px;font-size:11px;color:#6B7568;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(l.ua||'—')}</td>
-        </tr>`).join('')||'<tr><td colspan="3" style="text-align:center;padding:28px;color:#9AA896;">No login records yet</td></tr>'}</tbody>
+          <td style="padding:8px 12px;font-size:11px;color:#6B6B7D;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(l.ua||'—')}</td>
+        </tr>`).join('')||'<tr><td colspan="3" style="text-align:center;padding:28px;color:#9C9CAE;">No login records yet</td></tr>'}</tbody>
       </table>
     </div>
 
@@ -623,8 +623,8 @@ async function viewEarner(id){
 
 function switchETab(i, btn){
   const modal = btn.closest('.modal');
-  modal.querySelectorAll('.etab').forEach(b=>{b.style.borderBottomColor='transparent';b.style.color='#6B7568';});
-  btn.style.borderBottomColor='#2A7A4F'; btn.style.color='#0B0F0A';
+  modal.querySelectorAll('.etab').forEach(b=>{b.style.borderBottomColor='transparent';b.style.color='#6B6B7D';});
+  btn.style.borderBottomColor='#4F46E5'; btn.style.color='#0A0A12';
   modal.querySelectorAll('.epane').forEach(p=>{p.style.display = p.dataset.epane==String(i) ? '' : 'none';});
 }
 
@@ -678,10 +678,10 @@ function renderDiscounts(data){
   el.innerHTML=`
   <div class="panel"><div class="panel-h">Create discount code</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:end;">
-      <div><label style="font-size:11px;font-weight:600;color:#6B7568;text-transform:uppercase;margin-bottom:4px;display:block;">Code</label><input id="dcCode" placeholder="LAUNCH50" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%;outline:none;text-transform:uppercase;"></div>
-      <div><label style="font-size:11px;font-weight:600;color:#6B7568;text-transform:uppercase;margin-bottom:4px;display:block;">Discount %</label><input id="dcPct" type="number" min="1" max="100" value="20" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%;outline:none;"></div>
-      <div><label style="font-size:11px;font-weight:600;color:#6B7568;text-transform:uppercase;margin-bottom:4px;display:block;">Max uses</label><input id="dcMax" type="number" value="50" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%;outline:none;"></div>
-      <div><label style="font-size:11px;font-weight:600;color:#6B7568;text-transform:uppercase;margin-bottom:4px;display:block;">Expiry (days)</label><input id="dcDays" type="number" value="30" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%;outline:none;"></div>
+      <div><label style="font-size:11px;font-weight:600;color:#6B6B7D;text-transform:uppercase;margin-bottom:4px;display:block;">Code</label><input id="dcCode" placeholder="LAUNCH50" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%;outline:none;text-transform:uppercase;"></div>
+      <div><label style="font-size:11px;font-weight:600;color:#6B6B7D;text-transform:uppercase;margin-bottom:4px;display:block;">Discount %</label><input id="dcPct" type="number" min="1" max="100" value="20" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%;outline:none;"></div>
+      <div><label style="font-size:11px;font-weight:600;color:#6B6B7D;text-transform:uppercase;margin-bottom:4px;display:block;">Max uses</label><input id="dcMax" type="number" value="50" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%;outline:none;"></div>
+      <div><label style="font-size:11px;font-weight:600;color:#6B6B7D;text-transform:uppercase;margin-bottom:4px;display:block;">Expiry (days)</label><input id="dcDays" type="number" value="30" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;width:100%;outline:none;"></div>
       <button class="mini-btn green" onclick="createDiscount()" style="white-space:nowrap;padding:8px 16px;">+ Create</button>
     </div>
   </div>
@@ -731,7 +731,7 @@ function renderWaitlist(w){
     <div style="display:flex;gap:8px;align-items:center;">
       <button class="mini-btn green" onclick="sendWaitlistEmail()">Send to ${notJoined.length} not-yet-joined</button>
       <button class="mini-btn" onclick="sendWaitlistEmail(true)">Send to all ${entries.length}</button>
-      <span style="font-size:12px;color:#9AA896;">via Resend</span>
+      <span style="font-size:12px;color:#9C9CAE;">via Resend</span>
     </div>
     <div class="modal-err" id="wErr"></div><div class="modal-ok" id="wOk"></div>
   </div>
@@ -740,7 +740,7 @@ function renderWaitlist(w){
   ${entries.slice(0,50).map(e=>`<tr>
     <td class="mono">${esc(e.email)}</td>
     <td style="font-size:12px;">${e.createdAt?new Date(e.createdAt).toLocaleDateString('en-IN'):'—'}</td>
-    <td><span style="font-size:11px;padding:2px 8px;border-radius:100px;background:${e.hasAccount?'#DCFCE7':'#F3F4F6'};color:${e.hasAccount?'#047857':'#6B7568'};font-weight:600;">${e.hasAccount?'✓ Joined':'Not yet'}</span></td>
+    <td><span style="font-size:11px;padding:2px 8px;border-radius:100px;background:${e.hasAccount?'#DCFCE7':'#F3F4F6'};color:${e.hasAccount?'#047857':'#6B6B7D'};font-weight:600;">${e.hasAccount?'✓ Joined':'Not yet'}</span></td>
   </tr>`).join('')||'<tr><td colspan="3" class="empty">No waitlist entries</td></tr>'}
   </tbody></table></div>`;
 }
@@ -766,24 +766,24 @@ function renderCareers(d){
   const el=document.getElementById('tabContent'); if(!el) return;
   const apps=d.applications||[];
   const s=d.summary||{};
-  const statusColor={new:'#3B82F6',reviewing:'#F0B429',shortlisted:'#2A7A4F',rejected:'#DC2626',hired:'#047857'};
-  const statusBg={new:'#EFF6FF',reviewing:'#FEF9EC',shortlisted:'#EBF5EE',rejected:'#FEE2E2',hired:'#DCFCE7'};
+  const statusColor={new:'#3B82F6',reviewing:'#FF6B4A',shortlisted:'#4F46E5',rejected:'#DC2626',hired:'#047857'};
+  const statusBg={new:'#EFF6FF',reviewing:'#FFF1EC',shortlisted:'#EEF2FF',rejected:'#FEE2E2',hired:'#DCFCE7'};
   el.innerHTML=`
   <div class="cards">
-    ${[['New',s.new||0,'#3B82F6'],['Reviewing',s.reviewing||0,'#F0B429'],['Shortlisted',s.shortlisted||0,'#2A7A4F'],['Rejected',s.rejected||0,'#DC2626'],['Hired',s.hired||0,'#047857']].map(([l,v,col])=>`
+    ${[['New',s.new||0,'#3B82F6'],['Reviewing',s.reviewing||0,'#FF6B4A'],['Shortlisted',s.shortlisted||0,'#4F46E5'],['Rejected',s.rejected||0,'#DC2626'],['Hired',s.hired||0,'#047857']].map(([l,v,col])=>`
     <div class="card"><div class="card-label">${l}</div><div class="card-val" style="color:${col};">${v}</div></div>`).join('')}
   </div>
   <div class="panel"><div class="panel-h">Applications</div>
   ${apps.length===0?'<div class="empty">No applications yet</div>':`
   <table><thead><tr><th>Applicant</th><th>Role</th><th>Status</th><th>Applied</th><th>CV</th><th>Actions</th></tr></thead><tbody>
   ${apps.map(a=>`<tr>
-    <td><div style="font-weight:600;">${esc(a.name)}</div><div style="font-size:11px;color:#9AA896;">${esc(a.email)} ${a.phone?'· '+esc(a.phone):''}</div></td>
+    <td><div style="font-weight:600;">${esc(a.name)}</div><div style="font-size:11px;color:#9C9CAE;">${esc(a.email)} ${a.phone?'· '+esc(a.phone):''}</div></td>
     <td style="font-size:12.5px;">${esc(a.role)}</td>
     <td><select onchange="updateAppStatus('${a.id}',this.value)" style="background:${statusBg[a.status]||'#F3F4F6'};color:${statusColor[a.status]||'#374151'};border:none;border-radius:6px;padding:4px 8px;font-size:12px;font-weight:600;cursor:pointer;outline:none;">
       ${['new','reviewing','shortlisted','rejected','hired'].map(s=>`<option value="${s}" ${a.status===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
     </select></td>
     <td style="font-size:12px;">${a.appliedAt?new Date(a.appliedAt).toLocaleDateString('en-IN'):'—'}</td>
-    <td>${a.resumeUrl&&!a.resumeUrl.startsWith('data:')?`<a href="${esc(a.resumeUrl)}" target="_blank" style="background:#EBF5EE;color:#1E5A3A;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">📄 CV</a>`:'—'}</td>
+    <td>${a.resumeUrl&&!a.resumeUrl.startsWith('data:')?`<a href="${esc(a.resumeUrl)}" target="_blank" style="background:#EEF2FF;color:#3730A3;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">📄 CV</a>`:'—'}</td>
     <td><button class="mini-btn" onclick="viewApp('${a.id}')">View</button></td>
   </tr>`).join('')}
   </tbody></table>`}
@@ -798,9 +798,9 @@ function viewApp(id){
   const m=document.createElement('div'); m.className='modal-bg';
   m.innerHTML=`<div class="modal" style="max-width:540px;">
     <div style="display:flex;justify-content:space-between;margin-bottom:14px;"><div><h2>${esc(a.name)}</h2><div class="modal-sub">${esc(a.role)} · ${esc(a.email)}</div></div><button class="mini-btn" onclick="this.closest('.modal-bg').remove()">✕</button></div>
-    <div style="background:#F8F5EE;border-radius:8px;padding:12px;font-size:13px;line-height:1.65;white-space:pre-wrap;margin-bottom:12px;max-height:200px;overflow-y:auto;">${esc(a.coverLetter||'—')}</div>
-    ${a.resumeUrl&&!a.resumeUrl.startsWith('data:')?`<a href="${esc(a.resumeUrl)}" target="_blank" style="display:block;background:#2A7A4F;color:#fff;text-align:center;padding:10px;border-radius:9px;font-weight:600;text-decoration:none;margin-bottom:12px;">📄 Download Resume</a>`:''}
-    <textarea id="appNoteInput" placeholder="Admin notes…" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;outline:none;resize:vertical;min-height:60px;">${esc(a.notes||'')}</textarea>
+    <div style="background:#F6F5FA;border-radius:8px;padding:12px;font-size:13px;line-height:1.65;white-space:pre-wrap;margin-bottom:12px;max-height:200px;overflow-y:auto;">${esc(a.coverLetter||'—')}</div>
+    ${a.resumeUrl&&!a.resumeUrl.startsWith('data:')?`<a href="${esc(a.resumeUrl)}" target="_blank" style="display:block;background:#4F46E5;color:#fff;text-align:center;padding:10px;border-radius:9px;font-weight:600;text-decoration:none;margin-bottom:12px;">📄 Download Resume</a>`:''}
+    <textarea id="appNoteInput" placeholder="Admin notes…" style="width:100%;background:#F6F5FA;border:1.5px solid #DEDCE8;border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;outline:none;resize:vertical;min-height:60px;">${esc(a.notes||'')}</textarea>
     <div style="display:flex;gap:8px;margin-top:10px;">
       <button class="mini-btn green" onclick="saveNote('${a.id}')">Save notes</button>
       <button class="mini-btn" onclick="sendAdminEmail('${esc(a.email)}','${esc(a.name)}')">✉️ Email</button>
@@ -821,24 +821,24 @@ function renderLive(d){
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
     <div>
       <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;">🟢 Live developer sessions</h2>
-      <p style="font-size:13px;color:#6B7568;margin-top:2px;">Developers who generated an impression in the last 15 minutes. Auto-refreshes every 20s.</p>
+      <p style="font-size:13px;color:#6B6B7D;margin-top:2px;">Developers who generated an impression in the last 15 minutes. Auto-refreshes every 20s.</p>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
-      <span style="font-family:var(--mono);font-size:24px;font-weight:700;color:${live.length?'#047857':'#9AA896'};">${live.length}</span>
-      <span style="font-size:12px;color:#6B7568;">online now</span>
+      <span style="font-family:var(--mono);font-size:24px;font-weight:700;color:${live.length?'#047857':'#9C9CAE'};">${live.length}</span>
+      <span style="font-size:12px;color:#6B6B7D;">online now</span>
       <button class="mini-btn" onclick="render()">↻</button>
     </div>
   </div>
   <div class="panel" style="padding:0;">
     <table><thead><tr><th>Developer</th><th>Session started</th><th>Duration</th><th>Impressions</th><th>Last activity</th><th>Action</th></tr></thead><tbody>
     ${live.map(s=>`<tr>
-      <td><div style="font-weight:600;font-size:13px;">${esc(s.name||'—')}</div><div style="font-size:11px;color:#9AA896;">${esc(s.email)}</div></td>
+      <td><div style="font-weight:600;font-size:13px;">${esc(s.name||'—')}</div><div style="font-size:11px;color:#9C9CAE;">${esc(s.email)}</div></td>
       <td style="font-size:12.5px;">${new Date(s.startedAt).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</td>
       <td class="mono">${s.durationMin}m</td>
       <td class="mono" style="font-weight:600;">${fmt(s.impressions)}</td>
-      <td><span style="font-size:11px;padding:2px 9px;border-radius:100px;background:${s.idleSec<120?'#DCFCE7':'#FEF9EC'};color:${s.idleSec<120?'#047857':'#C9901A'};font-weight:600;">${s.idleSec<60?'just now':s.idleSec<120?'1 min ago':Math.round(s.idleSec/60)+' min ago'}</span></td>
+      <td><span style="font-size:11px;padding:2px 9px;border-radius:100px;background:${s.idleSec<120?'#DCFCE7':'#FFF1EC'};color:${s.idleSec<120?'#047857':'#E1502F'};font-weight:600;">${s.idleSec<60?'just now':s.idleSec<120?'1 min ago':Math.round(s.idleSec/60)+' min ago'}</span></td>
       <td><button class="mini-btn" onclick="viewEarner('${esc(s.userId)}')">View profile</button></td>
-    </tr>`).join('')||'<tr><td colspan="6" class="empty">No developers active right now.<br><span style="font-size:12px;color:#9AA896;">Sessions appear here when a developer generates an impression via Claude Code.</span></td></tr>'}
+    </tr>`).join('')||'<tr><td colspan="6" class="empty">No developers active right now.<br><span style="font-size:12px;color:#9C9CAE;">Sessions appear here when a developer generates an impression via Claude Code.</span></td></tr>'}
     </tbody></table>
   </div>`;
 }
@@ -850,15 +850,15 @@ function renderRevenue(d){
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
     <div>
       <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;">💰 Revenue dashboard</h2>
-      <p style="font-size:13px;color:#6B7568;margin-top:2px;">Founder-level business health — gross revenue, payouts, and margin in one view.</p>
+      <p style="font-size:13px;color:#6B6B7D;margin-top:2px;">Founder-level business health — gross revenue, payouts, and margin in one view.</p>
     </div>
     <button class="mini-btn" onclick="render()">↻ Refresh</button>
   </div>
   <div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:20px;">
     <div class="card"><div class="card-label">Gross revenue</div><div class="card-val" style="color:#047857;">₹${d.grossRevenueRupees}</div></div>
     <div class="card"><div class="card-label">Paid to developers</div><div class="card-val">₹${d.totalPayoutsRupees}</div></div>
-    <div class="card"><div class="card-label">Pending payouts</div><div class="card-val" style="color:#C9901A;">₹${d.pendingPayoutsRupees}</div></div>
-    <div class="card"><div class="card-label">Gross margin</div><div class="card-val">₹${d.grossMarginRupees} <span style="font-size:12px;color:#6B7568;">(${d.grossMarginPct}%)</span></div></div>
+    <div class="card"><div class="card-label">Pending payouts</div><div class="card-val" style="color:#E1502F;">₹${d.pendingPayoutsRupees}</div></div>
+    <div class="card"><div class="card-label">Gross margin</div><div class="card-val">₹${d.grossMarginRupees} <span style="font-size:12px;color:#6B6B7D;">(${d.grossMarginPct}%)</span></div></div>
     <div class="card"><div class="card-label">Active campaigns</div><div class="card-val">${d.activeCampaigns}</div></div>
     <div class="card"><div class="card-label">Scheduled campaigns</div><div class="card-val">${d.scheduledCampaigns}</div></div>
     <div class="card"><div class="card-label">Total advertisers</div><div class="card-val">${d.totalAdvertisers}</div></div>
@@ -867,9 +867,9 @@ function renderRevenue(d){
   <div class="panel">
     <div style="font-weight:600;font-size:13.5px;margin-bottom:12px;">Revenue — last 30 days</div>
     <div style="display:flex;align-items:flex-end;gap:2px;height:120px;">
-      ${d.dailyTrend.map(x=>`<div title="${x.date}: ₹${x.revenueRupees}" style="flex:1;background:#2A7A4F;border-radius:3px 3px 0 0;height:${Math.max(2,(parseFloat(x.revenueRupees)/maxDaily)*100)}%;min-height:2px;"></div>`).join('')}
+      ${d.dailyTrend.map(x=>`<div title="${x.date}: ₹${x.revenueRupees}" style="flex:1;background:#4F46E5;border-radius:3px 3px 0 0;height:${Math.max(2,(parseFloat(x.revenueRupees)/maxDaily)*100)}%;min-height:2px;"></div>`).join('')}
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:10.5px;color:#9AA896;margin-top:6px;">
+    <div style="display:flex;justify-content:space-between;font-size:10.5px;color:#9C9CAE;margin-top:6px;">
       <span>${d.dailyTrend[0]?.date||''}</span><span>${d.dailyTrend[d.dailyTrend.length-1]?.date||''}</span>
     </div>
   </div>`;
@@ -882,19 +882,19 @@ function renderDisputes(d){
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
     <div>
       <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;">⚖️ Fraud-flag disputes</h2>
-      <p style="font-size:13px;color:#6B7568;margin-top:2px;">${d.pendingCount} pending review · ${disputes.length} total</p>
+      <p style="font-size:13px;color:#6B6B7D;margin-top:2px;">${d.pendingCount} pending review · ${disputes.length} total</p>
     </div>
     <button class="mini-btn" onclick="render()">↻ Refresh</button>
   </div>
   <div class="panel" style="padding:0;">
-    ${disputes.length===0?'<div style="padding:24px;text-align:center;color:#9AA896;font-size:13px;">No disputes filed yet.</div>':`
+    ${disputes.length===0?'<div style="padding:24px;text-align:center;color:#9C9CAE;font-size:13px;">No disputes filed yet.</div>':`
     <table><thead><tr><th>Date</th><th>User</th><th>Flag type</th><th>Message</th><th>Status</th><th>Action</th></tr></thead><tbody>
     ${disputes.map(disp=>`<tr>
       <td class="mono" style="font-size:11px;white-space:nowrap;">${new Date(disp.createdAt).toLocaleDateString('en-IN')}</td>
       <td style="font-size:12px;">${esc(disp.userEmail)}</td>
       <td style="font-size:12px;">${esc((disp.flagType||'').replace(/_/g,' '))}</td>
       <td style="font-size:12px;max-width:260px;">${esc(disp.message)}</td>
-      <td>${disp.status==='pending'?'<span style="color:#C9901A;font-weight:600;">⏳ Pending</span>':disp.status==='cleared'?'<span style="color:#047857;font-weight:600;">✓ Cleared</span>':'<span style="color:#DC2626;font-weight:600;">✗ Upheld</span>'}</td>
+      <td>${disp.status==='pending'?'<span style="color:#E1502F;font-weight:600;">⏳ Pending</span>':disp.status==='cleared'?'<span style="color:#047857;font-weight:600;">✓ Cleared</span>':'<span style="color:#DC2626;font-weight:600;">✗ Upheld</span>'}</td>
       <td>${disp.status==='pending'?`
         <button class="mini-btn" style="background:#DCFCE7;color:#047857;" onclick="resolveDispute('${disp.id}','cleared')">Clear flag</button>
         <button class="mini-btn" style="background:#FEE2E2;color:#DC2626;" onclick="resolveDispute('${disp.id}','upheld')">Uphold</button>
@@ -916,12 +916,12 @@ function renderSubAdmins(d){
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
     <div>
       <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;">👥 Sub-admin accounts</h2>
-      <p style="font-size:13px;color:#6B7568;margin-top:2px;">Give support/finance/moderation staff scoped access without full admin control.</p>
+      <p style="font-size:13px;color:#6B6B7D;margin-top:2px;">Give support/finance/moderation staff scoped access without full admin control.</p>
     </div>
     <button class="mini-btn" onclick="showCreateSubAdmin()">+ New sub-admin</button>
   </div>
   <div class="panel" style="padding:0;">
-    ${subs.length===0?'<div style="padding:24px;text-align:center;color:#9AA896;font-size:13px;">No sub-admins yet.</div>':`
+    ${subs.length===0?'<div style="padding:24px;text-align:center;color:#9C9CAE;font-size:13px;">No sub-admins yet.</div>':`
     <table><thead><tr><th>Email</th><th>Name</th><th>Scopes</th><th>Created</th><th>Action</th></tr></thead><tbody>
     ${subs.map(s=>`<tr>
       <td style="font-size:12.5px;">${esc(s.email)}</td>
@@ -954,10 +954,10 @@ function renderAuditLog(d){
   const el=document.getElementById('tabContent'); if(!el) return;
   const logs=d.logs||[];
   const actionColors={
-    user_ban:'#DC2626', user_unban:'#047857', user_role_change:'#C9901A',
-    campaign_approved:'#047857', campaign_rejected:'#DC2626', campaign_paused:'#6B7568',
+    user_ban:'#DC2626', user_unban:'#047857', user_role_change:'#E1502F',
+    campaign_approved:'#047857', campaign_rejected:'#DC2626', campaign_paused:'#6B6B7D',
     campaign_duplicate:'#3B82F6', withdrawal_approved:'#047857', withdrawal_paid:'#047857',
-    ip_block:'#DC2626', ip_unblock:'#047857', discount_created:'#C9901A',
+    ip_block:'#DC2626', ip_unblock:'#047857', discount_created:'#E1502F',
     house_ad_created:'#3B82F6', bulk_email_sent:'#7E22CE',
   };
   const counts={};
@@ -967,14 +967,14 @@ function renderAuditLog(d){
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
     <div>
       <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;">📋 Admin audit log</h2>
-      <p style="font-size:13px;color:#6B7568;margin-top:2px;">Every admin action is recorded. Last ${logs.length} entries.</p>
+      <p style="font-size:13px;color:#6B6B7D;margin-top:2px;">Every admin action is recorded. Last ${logs.length} entries.</p>
     </div>
     <button class="mini-btn" onclick="render()">↻ Refresh</button>
   </div>
 
   ${logs.length?`<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px;">
     ${Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([act,n])=>`
-      <div class="card"><div class="card-label">${esc(act.replace(/_/g,' '))}</div><div class="card-val" style="font-size:20px;color:${actionColors[act]||'#0B0F0A'};">${n}</div></div>`).join('')}
+      <div class="card"><div class="card-label">${esc(act.replace(/_/g,' '))}</div><div class="card-val" style="font-size:20px;color:${actionColors[act]||'#0A0A12'};">${n}</div></div>`).join('')}
   </div>`:''}
 
   <div class="panel" style="padding:0;">
@@ -982,9 +982,9 @@ function renderAuditLog(d){
     ${logs.map(l=>`<tr>
       <td class="mono" style="font-size:11px;white-space:nowrap;">${new Date(l.ts).toLocaleString('en-IN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'})}</td>
       <td style="font-size:12px;">${esc(l.adminEmail||l.adminId||'—')}</td>
-      <td><span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:5px;background:${(actionColors[l.action]||'#6B7568')}15;color:${actionColors[l.action]||'#6B7568'};">${esc((l.action||'').replace(/_/g,' '))}</span></td>
-      <td style="font-size:11.5px;color:#6B7568;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(JSON.stringify(l.detail||{}))}">${esc(Object.entries(l.detail||{}).map(([k,v])=>k+': '+String(v).slice(0,40)).join(' · ')||'—')}</td>
-    </tr>`).join('')||'<tr><td colspan="4" class="empty">No admin actions recorded yet.<br><span style="font-size:12px;color:#9AA896;">Actions like approving campaigns, banning users, or blocking IPs will appear here.</span></td></tr>'}
+      <td><span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:5px;background:${(actionColors[l.action]||'#6B6B7D')}15;color:${actionColors[l.action]||'#6B6B7D'};">${esc((l.action||'').replace(/_/g,' '))}</span></td>
+      <td style="font-size:11.5px;color:#6B6B7D;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(JSON.stringify(l.detail||{}))}">${esc(Object.entries(l.detail||{}).map(([k,v])=>k+': '+String(v).slice(0,40)).join(' · ')||'—')}</td>
+    </tr>`).join('')||'<tr><td colspan="4" class="empty">No admin actions recorded yet.<br><span style="font-size:12px;color:#9C9CAE;">Actions like approving campaigns, banning users, or blocking IPs will appear here.</span></td></tr>'}
     </tbody></table>
   </div>`;
 }
@@ -998,7 +998,7 @@ function renderIpBlock(d){
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
     <div>
       <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;">🚫 IP block list</h2>
-      <p style="font-size:13px;color:#6B7568;margin-top:2px;">Blocked IPs are rejected on every API request. ${blocked.length} currently blocked.</p>
+      <p style="font-size:13px;color:#6B6B7D;margin-top:2px;">Blocked IPs are rejected on every API request. ${blocked.length} currently blocked.</p>
     </div>
     <button class="mini-btn red" onclick="blockIp()">+ Block an IP</button>
   </div>
@@ -1009,15 +1009,15 @@ function renderIpBlock(d){
       <td class="mono" style="font-weight:600;">${esc(b.ip)}</td>
       <td style="font-size:12.5px;">${esc(b.reason||'—')}</td>
       <td style="font-size:12px;">${b.blockedAt?new Date(b.blockedAt).toLocaleString('en-IN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}</td>
-      <td style="font-size:11.5px;color:#6B7568;">${esc(b.blockedBy||'—')}</td>
+      <td style="font-size:11.5px;color:#6B6B7D;">${esc(b.blockedBy||'—')}</td>
       <td><button class="mini-btn green" onclick="unblockIp('${esc(b.ip)}')">Unblock</button></td>
-    </tr>`).join('')||'<tr><td colspan="5" class="empty">No IPs blocked.<br><span style="font-size:12px;color:#9AA896;">Block an IP if you detect click fraud or abuse from a specific address.</span></td></tr>'}
+    </tr>`).join('')||'<tr><td colspan="5" class="empty">No IPs blocked.<br><span style="font-size:12px;color:#9C9CAE;">Block an IP if you detect click fraud or abuse from a specific address.</span></td></tr>'}
     </tbody></table>
   </div>
 
   <div class="panel">
     <div class="panel-h">💡 When to block an IP</div>
-    <div style="padding:14px 18px;font-size:13px;color:#6B7568;line-height:1.7;">
+    <div style="padding:14px 18px;font-size:13px;color:#6B6B7D;line-height:1.7;">
       • A single IP generating impressions far above the 50/hour rate limit<br>
       • Repeated invalid clicks from the same address (visible in Security tab)<br>
       • Multiple accounts created from the same IP within a short window<br>
@@ -1044,19 +1044,19 @@ function renderJobs(d){
   const jobs=d.jobs||[];
   el.innerHTML=`
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
-    <div style="font-size:15px;font-weight:700;">Job Listings <span style="font-size:13px;color:#9AA896;font-weight:400;">(${jobs.filter(j=>j.active).length} active / ${jobs.length} total)</span></div>
+    <div style="font-size:15px;font-weight:700;">Job Listings <span style="font-size:13px;color:#9C9CAE;font-weight:400;">(${jobs.filter(j=>j.active).length} active / ${jobs.length} total)</span></div>
     <button class="mini-btn green" onclick="openJobModal()">+ Add job</button>
   </div>
   <div style="display:flex;flex-direction:column;gap:10px;">
-  ${jobs.map(j=>`<div style="background:#fff;border:1.5px solid ${j.active?'#D4D9CF':'#F3F4F6'};border-radius:12px;padding:16px 20px;opacity:${j.active?1:.65};">
+  ${jobs.map(j=>`<div style="background:#fff;border:1.5px solid ${j.active?'#DEDCE8':'#F3F4F6'};border-radius:12px;padding:16px 20px;opacity:${j.active?1:.65};">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
       <div style="flex:1;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
           <span style="font-weight:700;">${esc(j.title)}</span>
-          <span style="font-size:11px;padding:2px 8px;border-radius:100px;font-weight:600;background:${j.active?'#EBF5EE':'#F3F4F6'};color:${j.active?'#047857':'#9AA896'};">${j.active?'Active':'Hidden'}</span>
+          <span style="font-size:11px;padding:2px 8px;border-radius:100px;font-weight:600;background:${j.active?'#EEF2FF':'#F3F4F6'};color:${j.active?'#047857':'#9C9CAE'};">${j.active?'Active':'Hidden'}</span>
         </div>
-        <div style="font-size:12px;color:#9AA896;">${esc(j.type)} · ${esc(j.location)}</div>
-        <div style="font-size:13px;color:#6B7568;margin-top:6px;">${esc(j.description||'').slice(0,120)}…</div>
+        <div style="font-size:12px;color:#9C9CAE;">${esc(j.type)} · ${esc(j.location)}</div>
+        <div style="font-size:13px;color:#6B6B7D;margin-top:6px;">${esc(j.description||'').slice(0,120)}…</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;">
         <button class="mini-btn" onclick="openJobModal('${j.id}')">✏️ Edit</button>
@@ -1075,17 +1075,17 @@ function openJobModal(id){
   m.innerHTML=`<div class="modal" style="max-width:560px;">
     <div style="display:flex;justify-content:space-between;margin-bottom:16px;"><h2>${job?'Edit job':'New job listing'}</h2><button class="mini-btn" onclick="this.closest('.modal-bg').remove()">✕</button></div>
     <div style="display:flex;flex-direction:column;gap:12px;">
-      <div><label style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Title *</label><input id="jTitle" value="${esc(job?.title||'')}" placeholder="Full-Stack Developer" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;"></div>
+      <div><label style="font-size:11px;font-weight:700;color:#6B6B7D;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Title *</label><input id="jTitle" value="${esc(job?.title||'')}" placeholder="Full-Stack Developer" style="width:100%;background:#F6F5FA;border:1.5px solid #DEDCE8;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div><label style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Type</label>
-          <select id="jType" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;">
+        <div><label style="font-size:11px;font-weight:700;color:#6B6B7D;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Type</label>
+          <select id="jType" style="width:100%;background:#F6F5FA;border:1.5px solid #DEDCE8;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;">
             ${['Full-time','Part-time / Full-time','Internship','Contract','Freelance'].map(t=>`<option ${(job?.type||'Full-time')===t?'selected':''}>${t}</option>`).join('')}
           </select></div>
-        <div><label style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Location</label><input id="jLocation" value="${esc(job?.location||'Remote')}" placeholder="Remote / Udaipur" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#6B6B7D;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Location</label><input id="jLocation" value="${esc(job?.location||'Remote')}" placeholder="Remote / Udaipur" style="width:100%;background:#F6F5FA;border:1.5px solid #DEDCE8;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;"></div>
       </div>
-      <div><label style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Description *</label><textarea id="jDesc" rows="4" placeholder="What will this person do?" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;resize:vertical;font-family:inherit;">${esc(job?.description||'')}</textarea></div>
-      <div><label style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Requirements</label><input id="jReqs" value="${esc(job?.requirements||'')}" placeholder="Node.js, TypeScript, 2+ years" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;"></div>
-      <div><label style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Tags</label><input id="jTags" value="${esc((job?.tags||[]).join(', '))}" placeholder="remote, commission, internship" style="width:100%;background:#F8F5EE;border:1.5px solid #D4D9CF;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;"></div>
+      <div><label style="font-size:11px;font-weight:700;color:#6B6B7D;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Description *</label><textarea id="jDesc" rows="4" placeholder="What will this person do?" style="width:100%;background:#F6F5FA;border:1.5px solid #DEDCE8;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;resize:vertical;font-family:inherit;">${esc(job?.description||'')}</textarea></div>
+      <div><label style="font-size:11px;font-weight:700;color:#6B6B7D;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Requirements</label><input id="jReqs" value="${esc(job?.requirements||'')}" placeholder="Node.js, TypeScript, 2+ years" style="width:100%;background:#F6F5FA;border:1.5px solid #DEDCE8;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;"></div>
+      <div><label style="font-size:11px;font-weight:700;color:#6B6B7D;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Tags</label><input id="jTags" value="${esc((job?.tags||[]).join(', '))}" placeholder="remote, commission, internship" style="width:100%;background:#F6F5FA;border:1.5px solid #DEDCE8;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;"></div>
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:600;"><input type="checkbox" id="jActive" ${(job?.active!==false)?'checked':''} style="width:16px;height:16px;"> Show on careers page</label>
     </div>
     <div style="display:flex;gap:8px;margin-top:16px;">
@@ -1116,7 +1116,7 @@ function renderTracking(d){
   const totalSurf=Object.values(surfaces).reduce((a,b)=>a+b,0)||1;
   el.innerHTML=`
   <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;margin-bottom:4px;">📡 Advanced Ad Tracking</h2>
-  <p style="font-size:13.5px;color:#6B7568;margin-bottom:20px;">Real-time impression & click tracking across all campaigns</p>
+  <p style="font-size:13.5px;color:#6B6B7D;margin-bottom:20px;">Real-time impression & click tracking across all campaigns</p>
   <div class="cards">
     <div class="card"><div class="card-label">Total impressions</div><div class="card-val">${fmt(s.totalImpressions||0)}</div><div class="card-sub">all time</div></div>
     <div class="card"><div class="card-label">Total clicks</div><div class="card-val">${fmt(s.totalClicks||0)}</div><div class="card-sub">valid clicks</div></div>
@@ -1130,7 +1130,7 @@ function renderTracking(d){
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
     <div class="panel"><div class="panel-h">🌍 Real geo breakdown</div>
       <table><thead><tr><th>Country</th><th>Impressions</th><th>Share</th></tr></thead><tbody>
-        ${Object.entries(geo).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<tr><td>${c}</td><td class="mono">${fmt(v)}</td><td><div style="display:flex;align-items:center;gap:8px;"><div style="flex:1;height:5px;background:#F3F4F6;border-radius:100px;"><div style="height:100%;width:${(v/totalGeo*100).toFixed(0)}%;background:#2A7A4F;border-radius:100px;"></div></div><span class="mono">${(v/totalGeo*100).toFixed(1)}%</span></div></td></tr>`).join('')}
+        ${Object.entries(geo).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<tr><td>${c}</td><td class="mono">${fmt(v)}</td><td><div style="display:flex;align-items:center;gap:8px;"><div style="flex:1;height:5px;background:#F3F4F6;border-radius:100px;"><div style="height:100%;width:${(v/totalGeo*100).toFixed(0)}%;background:#4F46E5;border-radius:100px;"></div></div><span class="mono">${(v/totalGeo*100).toFixed(1)}%</span></div></td></tr>`).join('')}
       </tbody></table>
     </div>
     <div class="panel"><div class="panel-h">🖥️ Surface breakdown</div>
@@ -1141,10 +1141,10 @@ function renderTracking(d){
   </div>
   <div class="panel"><div class="panel-h">🔍 Fraud protection status</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
-      <div style="background:#F8F5EE;border-radius:9px;padding:12px;"><div style="font-size:11px;color:#9AA896;margin-bottom:4px;">Bot filter</div><div style="font-weight:700;color:#047857;">Active</div></div>
-      <div style="background:#F8F5EE;border-radius:9px;padding:12px;"><div style="font-size:11px;color:#9AA896;margin-bottom:4px;">IP rate limit</div><div style="font-weight:700;color:#047857;">50/hour</div></div>
-      <div style="background:#F8F5EE;border-radius:9px;padding:12px;"><div style="font-size:11px;color:#9AA896;margin-bottom:4px;">Click cooldown</div><div style="font-weight:700;color:#047857;">30 sec</div></div>
-      <div style="background:#F8F5EE;border-radius:9px;padding:12px;"><div style="font-size:11px;color:#9AA896;margin-bottom:4px;">Fraud flags</div><div style="font-weight:700;color:${(s.fraudFlagsTotal||0)>0?'#DC2626':'#047857'};">${s.fraudFlagsTotal||0} total</div></div>
+      <div style="background:#F6F5FA;border-radius:9px;padding:12px;"><div style="font-size:11px;color:#9C9CAE;margin-bottom:4px;">Bot filter</div><div style="font-weight:700;color:#047857;">Active</div></div>
+      <div style="background:#F6F5FA;border-radius:9px;padding:12px;"><div style="font-size:11px;color:#9C9CAE;margin-bottom:4px;">IP rate limit</div><div style="font-weight:700;color:#047857;">50/hour</div></div>
+      <div style="background:#F6F5FA;border-radius:9px;padding:12px;"><div style="font-size:11px;color:#9C9CAE;margin-bottom:4px;">Click cooldown</div><div style="font-weight:700;color:#047857;">30 sec</div></div>
+      <div style="background:#F6F5FA;border-radius:9px;padding:12px;"><div style="font-size:11px;color:#9C9CAE;margin-bottom:4px;">Fraud flags</div><div style="font-weight:700;color:${(s.fraudFlagsTotal||0)>0?'#DC2626':'#047857'};">${s.fraudFlagsTotal||0} total</div></div>
     </div>
   </div>`;
 }
@@ -1156,7 +1156,7 @@ async function renderEmail(wl){
   const notJoined=entries.filter(e=>!e.hasAccount);
   el.innerHTML=`
   <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;margin-bottom:4px;">✉️ Email Tools</h2>
-  <p style="font-size:13.5px;color:#6B7568;margin-bottom:20px;">Send targeted emails to users and prospects</p>
+  <p style="font-size:13.5px;color:#6B6B7D;margin-bottom:20px;">Send targeted emails to users and prospects</p>
   <div class="cards">
     <div class="card"><div class="card-label">Waitlist (not joined)</div><div class="card-val">${notJoined.length}</div></div>
     <div class="card"><div class="card-label">Total waitlist</div><div class="card-val">${entries.length}</div></div>
@@ -1175,7 +1175,7 @@ async function renderEmail(wl){
 
   <div class="panel"><div class="panel-h">Compose email</div>
     <div style="margin-bottom:10px;">
-      <label style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">Audience</label>
+      <label style="font-size:11px;font-weight:700;color:#6B6B7D;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">Audience</label>
       <select id="emailAudience" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;outline:none;width:100%;">
         <option value="waitlist-not-joined">Waitlist — not yet joined (${notJoined.length})</option>
         <option value="waitlist-all">Waitlist — all entries (${entries.length})</option>
@@ -1191,7 +1191,7 @@ async function renderEmail(wl){
     <div style="margin-bottom:10px;"><input id="emailSubject" placeholder="Subject line…" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;width:100%;outline:none;margin-bottom:8px;"><textarea id="emailBody" rows="6" placeholder="Email body (HTML supported)…" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;width:100%;outline:none;resize:vertical;font-family:inherit;"></textarea></div>
     <div style="display:flex;gap:8px;">
       <button class="mini-btn green" onclick="sendBulkEmail()" style="padding:10px 20px;">Send email →</button>
-      <span style="font-size:12px;color:#9AA896;align-self:center;">Sent via Resend from admin@waitjiai.in</span>
+      <span style="font-size:12px;color:#9C9CAE;align-self:center;">Sent via Resend from admin@waitjiai.in</span>
     </div>
     <div class="modal-err" id="emailErr"></div><div class="modal-ok" id="emailOk"></div>
   </div>`;
@@ -1201,10 +1201,10 @@ async function renderEmail(wl){
 }
 
 const EMAIL_TEMPLATES={
-  're-engage':{subject:'Hey — we miss you on WaitJI AI 👋',body:`<p>Hi there,</p><p>You haven't used WaitJI AI in a while — and your Claude Code sessions aren't earning you anything right now.</p><p>Every time Claude Code thinks, you could be earning ₹0.40. That's passive income for code you're already writing.</p><p><a href="https://waitjiai.in/customer.html" style="background:#2A7A4F;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;margin-top:8px;">Check your earnings →</a></p><p>— Team WaitJI AI</p>`},
-  'advertiser-prospect':{subject:'Reach 2M+ Indian developers — WaitJI AI',body:`<p>Hi,</p><p>WaitJI AI is India's first ad marketplace that places your brand inside Claude Code's "Thinking..." spinner — reaching developers at their highest attention moment.</p><p>Spotlight ads: ₹800 per 1,000 impressions. No agency markup. Direct to developer.</p><p><a href="https://waitjiai.in" style="background:#2A7A4F;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;margin-top:8px;">See pricing & launch a campaign →</a></p><p>— Rajamuddin, CTO · QivaLabs LLP</p>`},
-  'withdrawal-reminder':{subject:'Your WaitJI AI earnings are waiting 💸',body:`<p>Hi,</p><p>You have earnings in your WaitJI AI account ready to withdraw — but your profile isn't complete yet.</p><p>Add your UPI or bank account to unlock payouts. Takes 2 minutes.</p><p><a href="https://waitjiai.in/customer.html" style="background:#2A7A4F;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;margin-top:8px;">Complete profile & withdraw →</a></p>`},
-  'product-update':{subject:'WaitJI AI update — geo-targeting, 65% dev share & more 🚀',body:`<p>Hi,</p><p>Big updates on WaitJI AI this week:</p><ul><li>Developer share increased to <b>65%</b></li><li>Geo-targeting — advertisers can now target by country, state, and city</li><li>Currency-specific pricing for 20 countries</li><li>Advanced advertiser dashboard with analytics</li></ul><p><a href="https://waitjiai.in" style="background:#2A7A4F;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;margin-top:8px;">Check it out →</a></p>`},
+  're-engage':{subject:'Hey — we miss you on WaitJI AI 👋',body:`<p>Hi there,</p><p>You haven't used WaitJI AI in a while — and your Claude Code sessions aren't earning you anything right now.</p><p>Every time Claude Code thinks, you could be earning ₹0.40. That's passive income for code you're already writing.</p><p><a href="https://waitjiai.in/customer.html" style="background:#4F46E5;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;margin-top:8px;">Check your earnings →</a></p><p>— Team WaitJI AI</p>`},
+  'advertiser-prospect':{subject:'Reach 2M+ Indian developers — WaitJI AI',body:`<p>Hi,</p><p>WaitJI AI is India's first ad marketplace that places your brand inside Claude Code's "Thinking..." spinner — reaching developers at their highest attention moment.</p><p>Spotlight ads: ₹800 per 1,000 impressions. No agency markup. Direct to developer.</p><p><a href="https://waitjiai.in" style="background:#4F46E5;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;margin-top:8px;">See pricing & launch a campaign →</a></p><p>— Rajamuddin, CTO · QivaLabs LLP</p>`},
+  'withdrawal-reminder':{subject:'Your WaitJI AI earnings are waiting 💸',body:`<p>Hi,</p><p>You have earnings in your WaitJI AI account ready to withdraw — but your profile isn't complete yet.</p><p>Add your UPI or bank account to unlock payouts. Takes 2 minutes.</p><p><a href="https://waitjiai.in/customer.html" style="background:#4F46E5;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;margin-top:8px;">Complete profile & withdraw →</a></p>`},
+  'product-update':{subject:'WaitJI AI update — geo-targeting, 65% dev share & more 🚀',body:`<p>Hi,</p><p>Big updates on WaitJI AI this week:</p><ul><li>Developer share increased to <b>65%</b></li><li>Geo-targeting — advertisers can now target by country, state, and city</li><li>Currency-specific pricing for 20 countries</li><li>Advanced advertiser dashboard with analytics</li></ul><p><a href="https://waitjiai.in" style="background:#4F46E5;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;margin-top:8px;">Check it out →</a></p>`},
 };
 function prefillEmail(template){
   const t=EMAIL_TEMPLATES[template];
@@ -1238,7 +1238,7 @@ function renderSocial(){
   const el=document.getElementById('tabContent'); if(!el) return;
   el.innerHTML=`
   <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;margin-bottom:4px;">📱 Social & Promotional Content</h2>
-  <p style="font-size:13.5px;color:#6B7568;margin-bottom:20px;">Ready-to-post content for LinkedIn, Twitter/X, and WhatsApp</p>
+  <p style="font-size:13.5px;color:#6B6B7D;margin-bottom:20px;">Ready-to-post content for LinkedIn, Twitter/X, and WhatsApp</p>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
     <div class="panel">
@@ -1247,8 +1247,8 @@ function renderSocial(){
         {label:'Developer launch post',text:`Tired of watching Claude Code think?\n\nInstall WaitJI AI — and earn ₹0.40 every time it does.\n\nSponsored messages appear in the thinking spinner. You earn 65% of ad revenue. Direct to UPI.\n\n🇮🇳 India's first AI ad marketplace for VS Code developers.\n\ncurl -L waitjiai.in/vsix -o w.vsix && code --install-extension w.vsix\n\n#ClaudeCode #IndianDev #PassiveIncome`},
         {label:'Advertiser pitch post',text:`Want to reach Indian developers while Claude Code is thinking?\n\nWaitJI AI puts your brand in the "Thinking..." spinner — exactly when developers are waiting and paying attention.\n\n₹800 per 1,000 Spotlight impressions.\nGeo-targeting: state-level, city-level.\nFraud protection included.\n\nwaitjiai.in → Advertise\n\n#DevMarketing #B2BMarketing #IndiaTech`},
         {label:'Product Hunt teaser',text:`We're launching WaitJI AI on Product Hunt this week 🚀\n\nIndia's first developer ad marketplace — earn UPI income while Claude Code thinks.\n\nFollow us to get notified on launch day:\nproducthunt.com/upcoming/waitji-ai\n\n#ProductHunt #IndieHacker #ClaudeCode`},
-      ].map(p=>`<div style="background:#F8F5EE;border-radius:9px;padding:14px;margin-bottom:10px;">
-        <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">${p.label}</div>
+      ].map(p=>`<div style="background:#F6F5FA;border-radius:9px;padding:14px;margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:700;color:#6B6B7D;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">${p.label}</div>
         <div style="font-size:13px;line-height:1.6;white-space:pre-wrap;color:#374151;">${esc(p.text)}</div>
         <button class="mini-btn" style="margin-top:8px;" onclick="copyText(this,'${esc(p.text.replace(/'/g,"\\'"))}')">Copy</button>
       </div>`).join('')}
@@ -1260,8 +1260,8 @@ function renderSocial(){
         ${[
           {label:'Founder story post',text:`6 weeks ago I had an idea:\n\nWhat if Claude Code's "Thinking..." pause — those 5-30 seconds every developer waits through — could generate passive income for them?\n\nToday, WaitJI AI is live.\n\n🇮🇳 India's first AI advertising marketplace for VS Code developers.\n✅ DPIIT registered\n✅ VS Code Marketplace live\n✅ Razorpay + Cashfree payments active\n\nDevelopers earn 65% of ad revenue — paid to UPI.\nAdvertisers reach Indian devs during their most attentive moment.\n\nBuilt from Udaipur.\n\nwaitjiai.in\n\n#StartupIndia #IndiaBuilds #ClaudeCode #VSCode`},
           {label:'BD intern recruitment',text:`Hiring: Growth & BD Interns at WaitJI AI\n\n📍 Remote · Commission-only (10%)\n\nWe're India's first AI ad marketplace for VS Code developers. We need people to close our first 10 advertising clients.\n\nYou earn 10% of every campaign you bring in. Uncapped.\n\nWho we want:\n• Can write cold emails that get replies\n• Understands SaaS / B2B sales basics\n• Wants to build something real\n\nDM me or apply at waitjiai.in/careers.html`},
-        ].map(p=>`<div style="background:#F8F5EE;border-radius:9px;padding:14px;margin-bottom:10px;">
-          <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">${p.label}</div>
+        ].map(p=>`<div style="background:#F6F5FA;border-radius:9px;padding:14px;margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:700;color:#6B6B7D;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">${p.label}</div>
           <div style="font-size:12.5px;line-height:1.6;white-space:pre-wrap;color:#374151;max-height:150px;overflow-y:auto;">${esc(p.text)}</div>
           <button class="mini-btn" style="margin-top:8px;" onclick="copyText(this,'${esc(p.text.replace(/'/g,"\\'"))}')">Copy</button>
         </div>`).join('')}
@@ -1271,8 +1271,8 @@ function renderSocial(){
         <div class="panel-h">📱 WhatsApp messages</div>
         ${[
           {label:'Developer group message',text:`🚀 Earning while coding — WaitJI AI\n\nJo bhi Claude Code use karte ho — install karo ye extension aur earn karo ₹0.40 har baar jab Claude sochta hai.\n\n✅ Free install\n✅ UPI direct payout\n✅ ₹100 minimum withdrawal\n\ncurl -L waitjiai.in/vsix -o w.vsix && code --install-extension w.vsix\n\nOr search "WaitJI AI" in VS Code extensions`},
-        ].map(p=>`<div style="background:#F8F5EE;border-radius:9px;padding:14px;margin-bottom:10px;">
-          <div style="font-size:11px;font-weight:700;color:#6B7568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">${p.label}</div>
+        ].map(p=>`<div style="background:#F6F5FA;border-radius:9px;padding:14px;margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:700;color:#6B6B7D;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">${p.label}</div>
           <div style="font-size:12.5px;line-height:1.6;white-space:pre-wrap;color:#374151;">${esc(p.text)}</div>
           <button class="mini-btn" style="margin-top:8px;" onclick="copyText(this,'${esc(p.text.replace(/'/g,"\\'"))}')">Copy</button>
         </div>`).join('')}
@@ -1283,9 +1283,9 @@ function renderSocial(){
   <div class="panel"><div class="panel-h">🎯 Promo codes — create for campaigns</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
       ${[['PRODUCTHUNT','50% off','50 uses'],['DEVTO25','25% off','100 uses'],['LAUNCH30','30% off','200 uses'],['INDIAHACKS','40% off','30 uses']].map(([code,desc,uses])=>`
-      <div style="background:#F8F5EE;border:1px solid var(--border);border-radius:9px;padding:12px 16px;">
+      <div style="background:#F6F5FA;border:1px solid var(--border);border-radius:9px;padding:12px 16px;">
         <div style="font-family:monospace;font-size:16px;font-weight:700;margin-bottom:4px;">${code}</div>
-        <div style="font-size:12px;color:#6B7568;">${desc} · ${uses}</div>
+        <div style="font-size:12px;color:#6B6B7D;">${desc} · ${uses}</div>
         <button class="mini-btn green" style="margin-top:8px;font-size:11px;" onclick="createPromoCode('${code}')">Create →</button>
       </div>`).join('')}
     </div>
