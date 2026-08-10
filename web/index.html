@@ -104,13 +104,13 @@
 <style>
 /* ── TOKENS ── */
 :root{
-  --ink:#0B0F0A; --ink2:#1C2119;
-  --sage:#2A7A4F; --sage-d:#1E5A3A; --sage-l:#3D9E68;
-  --gold:#F0B429; --gold-d:#C9901A; --gold-l:#F7D070;
-  --cream:#F8F5EE; --cream2:#EEE9DD;
-  --muted:#6B7568; --muted2:#9AA896;
-  --border:#D4D9CF; --border2:#BFC5B9;
-  --surface:#FFFFFF; --bg:#F3F0E8;
+  --ink:#0A0A12; --ink2:#16161F;
+  --sage:#4F46E5; --sage-d:#3730A3; --sage-l:#818CF8;
+  --gold:#FF6B4A; --gold-d:#E1502F; --gold-l:#FFA588;
+  --cream:#F6F5FA; --cream2:#E9E7F2;
+  --muted:#6B6B7D; --muted2:#9C9CAE;
+  --border:#DEDCE8; --border2:#C7C4D6;
+  --surface:#FFFFFF; --bg:#F0EFF7;
   --red:#DC2626; --green:#15803D;
   --display:'Sora',sans-serif;
   --mono:'IBM Plex Mono',monospace;
@@ -179,13 +179,13 @@ a{color:inherit;text-decoration:none;}
 
 /* SPOTLIGHT card */
 .adtype-card.spotlight{background:var(--ink);}
-.adtype-card.spotlight .card-head{background:linear-gradient(135deg,#1C2119,#2A3A2A);padding:28px 28px 20px;color:#fff;}
+.adtype-card.spotlight .card-head{background:linear-gradient(135deg,#16161F,#2A3A2A);padding:28px 28px 20px;color:#fff;}
 .adtype-badge{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:4px 10px;border-radius:100px;display:inline-flex;align-items:center;gap:5px;margin-bottom:14px;}
 .badge-spotlight{background:rgba(240,180,41,.15);color:var(--gold);border:1px solid rgba(240,180,41,.3);}
 .badge-stream{background:rgba(61,158,104,.15);color:var(--sage-l);border:1px solid rgba(61,158,104,.3);}
 .card-head h3{font-family:var(--display);font-size:22px;font-weight:700;margin-bottom:6px;}
 .card-head p{font-size:13px;opacity:.7;line-height:1.55;}
-.card-preview{background:#0B0F0A;padding:20px 22px;border-top:1px solid rgba(255,255,255,.06);}
+.card-preview{background:#0A0A12;padding:20px 22px;border-top:1px solid rgba(255,255,255,.06);}
 .preview-label{font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.3);margin-bottom:10px;letter-spacing:1px;}
 .preview-editor{background:#131917;border-radius:9px;padding:14px 16px;font-family:var(--mono);font-size:12px;line-height:1.7;}
 .pe-toolbar{background:#1A251D;border-radius:6px 6px 0 0;padding:7px 12px;font-size:11px;color:rgba(255,255,255,.3);margin:-14px -16px 12px;border-bottom:1px solid rgba(255,255,255,.06);}
@@ -204,10 +204,10 @@ a{color:inherit;text-decoration:none;}
 
 /* STREAM card */
 .adtype-card.stream{background:var(--surface);}
-.adtype-card.stream .card-head{background:linear-gradient(135deg,#EBF5EE,#F5FAF6);padding:28px 28px 20px;}
+.adtype-card.stream .card-head{background:linear-gradient(135deg,#EEF2FF,#F5FAF6);padding:28px 28px 20px;}
 .adtype-card.stream .card-head h3{color:var(--ink);}
 .adtype-card.stream .card-head p{color:var(--muted);}
-.preview-terminal{background:#0B0F0A;border-radius:9px;padding:14px 16px;font-family:var(--mono);font-size:12px;line-height:1.7;color:rgba(255,255,255,.7);}
+.preview-terminal{background:#0A0A12;border-radius:9px;padding:14px 16px;font-family:var(--mono);font-size:12px;line-height:1.7;color:rgba(255,255,255,.7);}
 .pt-prompt{color:rgba(255,255,255,.4);}
 .pt-cmd{color:#fff;}
 .pt-thinking{color:rgba(255,255,255,.25);}
@@ -349,7 +349,7 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
 <nav class="nav">
   <div class="nav-logo">
     <div class="nav-logo-mark">
-      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.4)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg>
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 6L7.5 17L10.5 9L13.5 17L16.5 9L20 6" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="19.5" cy="5" r="2" fill="#FF6B4A"/></svg>
     </div>
     WaitJI AI
   </div>
@@ -593,15 +593,15 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
 
 
 <!-- GLOBAL PRICING TABLE -->
-<section style="background:var(--surface,#fff);padding:72px 40px;border-top:1px solid var(--border,#D4D9CF);">
+<section style="background:var(--surface,#fff);padding:72px 40px;border-top:1px solid var(--border,#DEDCE8);">
   <div style="max-width:860px;margin:0 auto;">
-    <div style="font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--sage,#2A7A4F);margin-bottom:14px;text-align:center;">Global pricing · PPP adjusted</div>
+    <div style="font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--sage,#4F46E5);margin-bottom:14px;text-align:center;">Global pricing · PPP adjusted</div>
     <h2 style="font-family:var(--display);font-size:clamp(24px,3.5vw,38px);font-weight:800;text-align:center;letter-spacing:-1.5px;margin-bottom:10px;color:var(--ink);">Fair pricing — wherever you are</h2>
     <p style="text-align:center;color:var(--muted);font-size:15px;margin-bottom:36px;max-width:560px;margin-left:auto;margin-right:auto;">Ad prices are adjusted per country using purchasing power parity and local exchange rates. Developers always earn 65% in their local equivalent.</p>
-    <div style="overflow-x:auto;border-radius:14px;border:1px solid var(--border,#D4D9CF);">
+    <div style="overflow-x:auto;border-radius:14px;border:1px solid var(--border,#DEDCE8);">
       <table style="width:100%;border-collapse:collapse;font-size:13.5px;">
         <thead>
-          <tr style="background:var(--cream,#F8F5EE);">
+          <tr style="background:var(--cream,#F6F5FA);">
             <th style="text-align:left;padding:12px 18px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Country</th>
             <th style="text-align:right;padding:12px 18px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">★ Spotlight / 1K</th>
             <th style="text-align:right;padding:12px 18px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">◎ Stream / 1K</th>
@@ -610,53 +610,53 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
           </tr>
         </thead>
         <tbody>
-          <tr style="background:var(--sage-soft,#EBF5EE);border-bottom:1px solid #D4D9CF;">
+          <tr style="background:var(--sage-soft,#EEF2FF);border-bottom:1px solid #DEDCE8;">
             <td style="padding:13px 18px;font-weight:700;">🇮🇳 India</td>
-            <td style="padding:13px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:#F0B429;">₹800</td>
+            <td style="padding:13px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:#FF6B4A;">₹800</td>
             <td style="padding:13px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:#3B82F6;">₹300</td>
-            <td style="padding:13px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#2A7A4F;font-weight:600;">₹520 / ₹195</td>
+            <td style="padding:13px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#4F46E5;font-weight:600;">₹520 / ₹195</td>
             <td style="padding:13px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">₹5,000</td>
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6;">
             <td style="padding:12px 18px;font-weight:600;">🇺🇸 USA</td>
             <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">$12</td>
             <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">$5</td>
-            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#2A7A4F;">$7.80 / $3.25</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#4F46E5;">$7.80 / $3.25</td>
             <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">$120</td>
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6;">
             <td style="padding:12px 18px;font-weight:600;">🇬🇧 UK</td>
             <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">£10</td>
             <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">£4.50</td>
-            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#2A7A4F;">£6.50 / £2.90</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#4F46E5;">£6.50 / £2.90</td>
             <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">£95</td>
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6;">
             <td style="padding:12px 18px;font-weight:600;">🇸🇬 Singapore</td>
             <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">S$16</td>
             <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">S$6.50</td>
-            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#2A7A4F;">S$10.40 / S$4.20</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#4F46E5;">S$10.40 / S$4.20</td>
             <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">S$150</td>
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6;">
             <td style="padding:12px 18px;font-weight:600;">🇦🇪 UAE</td>
             <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">AED 40</td>
             <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">AED 16</td>
-            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#2A7A4F;">AED 26 / AED 10</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#4F46E5;">AED 26 / AED 10</td>
             <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">AED 370</td>
           </tr>
           <tr style="border-bottom:1px solid #F3F4F6;">
             <td style="padding:12px 18px;font-weight:600;">🇩🇪 Germany</td>
             <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">€11</td>
             <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">€4.50</td>
-            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#2A7A4F;">€7.15 / €2.90</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#4F46E5;">€7.15 / €2.90</td>
             <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">€100</td>
           </tr>
           <tr>
             <td style="padding:12px 18px;font-weight:600;">🇯🇵 Japan</td>
             <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">¥1,800</td>
             <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">¥750</td>
-            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#2A7A4F;">¥1,170 / ¥490</td>
+            <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#4F46E5;">¥1,170 / ¥490</td>
             <td style="padding:12px 18px;text-align:right;font-family:'IBM Plex Mono',monospace;">¥16,500</td>
           </tr>
         </tbody>
@@ -773,9 +773,9 @@ async function loadLeaderboard(){
     }
     el.innerHTML=d.leaderboard.map((e,i)=>`
       <div style="padding:12px 20px;border-bottom:1px solid rgba(255,255,255,.04);display:grid;grid-template-columns:40px 1fr 100px 80px;gap:12px;align-items:center;">
-        <div style="font-family:var(--mono);font-size:13px;font-weight:600;color:${i===0?'#F0B429':i===1?'rgba(255,255,255,.6)':i===2?'#CD7F32':'rgba(255,255,255,.35)'};">${i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1)}</div>
+        <div style="font-family:var(--mono);font-size:13px;font-weight:600;color:${i===0?'#FF6B4A':i===1?'rgba(255,255,255,.6)':i===2?'#CD7F32':'rgba(255,255,255,.35)'};">${i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1)}</div>
         <div style="font-family:var(--mono);font-size:13px;color:rgba(255,255,255,.7);">${e.handle}</div>
-        <div style="font-family:var(--mono);font-size:14px;font-weight:700;color:#3D9E68;text-align:right;">₹${e.lifetimeRupees}</div>
+        <div style="font-family:var(--mono);font-size:14px;font-weight:700;color:#818CF8;text-align:right;">₹${e.lifetimeRupees}</div>
         <div style="font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.35);text-align:right;">${e.impressions.toLocaleString('en-IN')}</div>
       </div>`).join('');
   }catch(e){/* silent */}
@@ -903,7 +903,7 @@ function buildPriceCard(type){
   const devEarn = Math.round(cpm * 0.65);
   return `
     <div class="price-row"><span class="price-role price-row-label">CPM (per 1,000 views)</span><span class="price-row-val price-amount">${sym}${fmt(cpm)}</span></div>
-    <div class="price-row"><span class="price-role price-row-label">Developer earns (65%)</span><span class="price-row-val price-amount" style="color:#2A7A4F;">${sym}${fmt(devEarn)}</span></div>
+    <div class="price-row"><span class="price-role price-row-label">Developer earns (65%)</span><span class="price-row-val price-amount" style="color:#4F46E5;">${sym}${fmt(devEarn)}</span></div>
     <div class="price-row"><span class="price-role price-row-label">Click rate (50× CPM)</span><span class="price-row-val price-amount">${sym}${(cpm/20).toFixed(2)}/click</span></div>
     <div class="price-row"><span class="price-role price-row-label">Min. campaign budget</span><span class="price-row-val price-amount">${sym}${fmt(p.minBudget)}</span></div>
     <div class="price-row"><span class="price-role price-row-label">Content review</span><span class="price-row-val">Within 24h</span></div>
