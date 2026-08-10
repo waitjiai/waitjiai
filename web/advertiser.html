@@ -19,6 +19,35 @@
   --display:'Sora',sans-serif;--mono:'IBM Plex Mono',monospace;--body:'Inter',sans-serif;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
+
+/* ── Shared animation system (batch 1 of site-wide redesign) ─────────────
+   Rules kept deliberately simple for speed:
+   - Only transform/opacity are animated (GPU-composited, never triggers layout/paint)
+   - Durations stay under 300ms — anything longer feels sluggish on a dashboard
+   - Everything respects prefers-reduced-motion
+   - Utility classes so this file (and every page after it) can reuse the same system */
+@media (prefers-reduced-motion: no-preference) {
+  .fade-in{animation:fadeIn .28s ease-out both;}
+  .slide-up{animation:slideUp .3s cubic-bezier(.22,1,.36,1) both;}
+  .scale-in{animation:scaleIn .22s cubic-bezier(.22,1,.36,1) both;}
+  .stagger>*{animation:slideUp .3s cubic-bezier(.22,1,.36,1) both;}
+  .stagger>*:nth-child(1){animation-delay:.02s} .stagger>*:nth-child(2){animation-delay:.06s}
+  .stagger>*:nth-child(3){animation-delay:.10s} .stagger>*:nth-child(4){animation-delay:.14s}
+  .stagger>*:nth-child(5){animation-delay:.18s} .stagger>*:nth-child(n+6){animation-delay:.20s}
+  .pulse-live{animation:pulseLive 1.8s ease-in-out infinite;}
+  .btn, .target-opt, .geo-tag, .panel, .price-cta{transition:transform .15s cubic-bezier(.22,1,.36,1), box-shadow .15s ease, background-color .15s ease, border-color .15s ease;}
+  .btn:active{transform:scale(.97);}
+  .target-opt:hover, .geo-tag:hover{transform:translateY(-1px);}
+  .row-enter{animation:rowEnter .25s cubic-bezier(.22,1,.36,1) both;}
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scaleIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+@keyframes pulseLive{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes rowEnter{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:translateX(0)}}
+.skeleton{background:linear-gradient(90deg,var(--cream2) 25%,var(--border) 37%,var(--cream2) 63%);background-size:400% 100%;animation:skeletonWave 1.4s ease infinite;border-radius:6px;}
+@keyframes skeletonWave{0%{background-position:100% 50%}100%{background-position:0 50%}}
+
 body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.6;}
 .topbar{background:rgba(248,245,238,.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 32px;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
 .logo{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:15px;font-weight:600;}
@@ -499,6 +528,19 @@ function renderCreate(){
       </div>
 
       
+      <div class="panel fade-in">
+        <div class="ph">
+          <div class="pt">Live bid queue <span class="pulse-live" style="color:var(--sage);font-size:10px;">● LIVE</span></div>
+        </div>
+        <div class="pb">
+          <div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">See what other advertisers are bidding on this surface right now — bid above the top price to serve first.</div>
+          <div id="bidQueueList" class="stagger" style="display:flex;flex-direction:column;gap:6px;">
+            <div class="skeleton" style="height:34px;"></div>
+            <div class="skeleton" style="height:34px;"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="panel">
         <div class="ph"><div class="pt">5 · Budget & bid</div></div>
         <div class="pb">
@@ -515,6 +557,9 @@ function renderCreate(){
             </div>
           </div>
           <div id="budgetCalc" style="background:var(--cream2);border-radius:8px;padding:12px 14px;font-size:13px;"></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6;">
+            <b style="color:var(--ink);">You pay this fixed price and never more.</b> If your campaign ever over-delivers past its budget, the extra impressions are on us — and every developer who showed them still gets paid their share.
+          </div>
           <div id="reachEstimate" style="background:var(--sage-soft);border:1px solid #A7F3C8;border-radius:8px;padding:12px 14px;font-size:13px;margin-top:10px;display:none;">
             <div style="font-weight:600;margin-bottom:4px;">Estimated reach</div>
             <div id="reachData" style="color:var(--sage-d);"></div>
@@ -523,6 +568,31 @@ function renderCreate(){
             <label>Discount code (optional)</label>
             <div style="display:flex;gap:8px;"><input id="discountCode" placeholder="Enter promo code" style="flex:1;"><button class="btn btn-o" style="white-space:nowrap;" onclick="validateDiscount()">Apply</button></div>
             <div id="discountResult" style="font-size:12px;margin-top:5px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph"><div class="pt">6 · Delivery &amp; visibility</div></div>
+        <div class="pb">
+          <div class="field">
+            <label>Delivery speed <span style="font-weight:400;text-transform:none;font-size:11px;">— how fast impressions are delivered, doesn't change price</span></label>
+            <div class="target-grid" style="grid-template-columns:repeat(3,1fr);">
+              <div class="target-opt sel" data-speed="fast" onclick="setDeliverySpeed('fast',this)"><div class="target-opt-title">Fast</div><div class="target-opt-sub">ASAP</div></div>
+              <div class="target-opt" data-speed="medium" onclick="setDeliverySpeed('medium',this)"><div class="target-opt-title">Medium</div><div class="target-opt-sub">~6 hours</div></div>
+              <div class="target-opt" data-speed="slow" onclick="setDeliverySpeed('slow',this)"><div class="target-opt-title">Slow</div><div class="target-opt-sub">~2 days</div></div>
+            </div>
+          </div>
+          <div class="field" style="margin-top:16px;">
+            <label style="display:flex;align-items:center;gap:8px;font-weight:500;text-transform:none;font-size:13.5px;cursor:pointer;">
+              <input type="checkbox" id="showOnLeaderboard" style="width:16px;height:16px;cursor:pointer;"> Show my campaign on the public leaderboard
+            </label>
+            <div class="field-hint">Ranked by real impressions once your campaign is live. Great for social proof — visible at waitjiai.in/leaderboard.html</div>
+          </div>
+          <div class="field" style="margin-top:12px;">
+            <label>Brand icon URL (optional)</label>
+            <input id="brandIconUrl" type="url" placeholder="https://yourcompany.com/logo.png">
+            <div class="field-hint">Shown next to your campaign on the leaderboard, if enabled above.</div>
           </div>
         </div>
       </div>
@@ -558,6 +628,7 @@ function renderCreate(){
     </div>
   </div>`;
   updateBudgetCalc();
+  loadBidQueue();
 }
 
 function selectAdType(type){
@@ -566,6 +637,36 @@ function selectAdType(type){
   const bidEl=document.getElementById('bid');
   if(bidEl){bidEl.min=type==='spotlight'?800:300;bidEl.value=type==='spotlight'?800:300;}
   updateBudgetCalc();
+  loadBidQueue();
+}
+let deliverySpeed='fast';
+function setDeliverySpeed(speed,el){
+  deliverySpeed=speed;
+  el.closest('.target-grid')?.querySelectorAll('.target-opt').forEach(e=>e.classList.remove('sel'));
+  el.classList.add('sel');
+}
+async function loadBidQueue(){
+  const listEl=document.getElementById('bidQueueList');
+  if(!listEl) return;
+  try{
+    const r=await fetch(API+'/v1/public/bidding-stats');
+    const d=await r.json();
+    const rows=(adType==='spotlight'?d.spotlight:d.stream)||[];
+    if(rows.length===0){
+      listEl.innerHTML='<div style="font-size:12.5px;color:var(--muted);padding:8px 0;">No other campaigns bidding on this surface right now — you\'ll likely serve first at any bid.</div>';
+      return;
+    }
+    listEl.innerHTML=rows.slice(0,8).map((row,i)=>`
+      <div class="row-enter" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:${i===0?'var(--gold-soft)':'var(--cream)'};border-radius:7px;font-size:12.5px;">
+        <div style="display:flex;align-items:center;gap:8px;overflow:hidden;">
+          <span style="font-family:var(--mono);font-weight:700;color:${i===0?'var(--gold-d)':'var(--ink)'};white-space:nowrap;">₹${(row.bidPaise/100).toFixed(0)}/1K</span>
+          <span style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(row.advertiser||'Advertiser')} — ${(row.adText||'').slice(0,40)}</span>
+        </div>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--sage);white-space:nowrap;">${row.remainingImpressions?.toLocaleString('en-IN')||0} left</span>
+      </div>`).join('');
+  }catch(e){
+    listEl.innerHTML='<div style="font-size:12px;color:var(--muted);">Live bid data temporarily unavailable.</div>';
+  }
 }
 function toggleGeo(type,val){
   if(type==='country'){
@@ -685,6 +786,8 @@ async function createCampaign(){
   const campName=document.getElementById('campName')?.value.trim();
   const companyName=document.getElementById('companyName')?.value.trim();
   const ctaText=document.getElementById('ctaText')?.value.trim();
+  const showOnLeaderboard=document.getElementById('showOnLeaderboard')?.checked||false;
+  const brandIconUrl=document.getElementById('brandIconUrl')?.value.trim();
   if(!adText){toast('⚠️ Enter ad text');return;}
   if(!url||!url.startsWith('http')){toast('⚠️ Enter a valid URL');return;}
   if(budget<(adType==='spotlight'?5000:2000)){toast(`⚠️ Minimum budget is ₹${adType==='spotlight'?5000:2000}`);return;}
@@ -699,6 +802,7 @@ async function createCampaign(){
     budgetPaise: localToINRPaise(budget),
     geo: geoForm,
     targeting: targetForm,
+    showOnLeaderboard, brandIconUrl, deliverySpeed,
   })});
   const d=await r.json();
   if(!r.ok){toast('⚠️ '+(d.error||'Failed'));return;}
