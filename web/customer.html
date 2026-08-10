@@ -20,6 +20,13 @@
   --display:'Sora',sans-serif;--mono:'IBM Plex Mono',monospace;--body:'Inter',sans-serif;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
+@media (prefers-reduced-motion: no-preference) {
+  .fade-in{animation:fadeIn .28s ease-out both;}
+  .btn-solid, .btn-ghost, .metric, .panel{transition:transform .15s cubic-bezier(.22,1,.36,1), box-shadow .15s ease;}
+  .btn-solid:active, .btn-ghost:active{transform:scale(.97);}
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
 body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.6;}
 a{color:var(--sage);text-decoration:none;}
 
@@ -213,7 +220,7 @@ if((window.location.hash||'').indexOf('access_token')!==-1){window.location.repl
 const token=localStorage.getItem('waitji_token');
 if(!token||localStorage.getItem('waitji_role')!=='customer'){window.location.href='login.html';}
 const H={'Authorization':'Bearer '+token,'Content-Type':'application/json'};
-let me=null, earnings=null, activityData=[], withdrawals=[], health={status:'unknown'}, proj={};
+let me=null, earnings=null, activityData=[], withdrawals=[], health={status:'unknown'}, proj={}, fraudFlags=[];
 let curTab='dashboard';
 
 function logout(){localStorage.clear();window.location.href='login.html';}
@@ -242,6 +249,7 @@ async function load(){
       fetch(API+'/v1/customer/health',{headers:H}).then(r=>r.json()).catch(()=>({status:'unknown',connected:false})),
       fetch(API+'/v1/customer/projection',{headers:H}).then(r=>r.json()).catch(()=>({})),
     ]);
+    fraudFlags=await fetch(API+'/v1/customer/fraud-flags',{headers:H}).then(r=>r.json()).then(d=>d.flags||[]).catch(()=>[]);
     document.getElementById('userEmail').textContent=me.email;
     showTab(curTab);
   }catch(e){document.getElementById('mainContent').innerHTML='<div style="text-align:center;padding:60px;color:var(--red)">Error loading — <a href="" onclick="location.reload();return false">retry</a></div>';}
@@ -289,6 +297,27 @@ function renderDashboard(){
     <button class="btn-solid" onclick="showTab('profile')">Complete profile →</button>
   </div>`:`
   <div style="background:#DCFCE7;border:1px solid #86EFAC;border-radius:12px;padding:11px 16px;margin-bottom:20px;font-size:13.5px;color:#047857;font-weight:600;">✓ Profile complete — withdrawals enabled</div>`}
+
+  ${fraudFlags.filter(f=>!f.disputeStatus).length>0?`
+  <div class="fade-in" style="background:#FEE2E2;border:1.5px solid #FCA5A5;border-radius:12px;padding:14px 18px;margin-bottom:20px;">
+    <div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--red);letter-spacing:1px;margin-bottom:6px;">⚠️ ${fraudFlags.filter(f=>!f.disputeStatus).length} ACCOUNT FLAG${fraudFlags.filter(f=>!f.disputeStatus).length===1?'':'S'} ON YOUR ACCOUNT</div>
+    <div style="font-size:13px;color:#7F1D1D;margin-bottom:10px;">Some of your recent activity looked unusual to our fraud checks. This can happen for legitimate reasons (shared office IP, fast connection). If you believe this is a mistake, explain and we'll review it.</div>
+    ${fraudFlags.filter(f=>!f.disputeStatus).map(f=>`
+      <div style="background:#fff;border-radius:8px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+        <div style="font-size:12.5px;"><b>${esc(f.type.replace(/_/g,' '))}</b> · ${new Date(f.ts).toLocaleDateString('en-IN')}</div>
+        <button class="btn-ghost" style="font-size:12px;padding:5px 12px;" onclick="openDisputeBox('${f.id}')">Explain / Dispute →</button>
+      </div>
+      <div id="disputeBox-${f.id}" style="display:none;margin:6px 0 10px;">
+        <textarea id="disputeMsg-${f.id}" placeholder="Explain what happened…" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-family:var(--body);font-size:13px;"></textarea>
+        <button class="btn-solid" style="margin-top:6px;font-size:12.5px;padding:6px 14px;" onclick="submitDispute('${f.id}')">Submit dispute</button>
+        <div id="disputeResult-${f.id}" style="font-size:12px;margin-top:4px;"></div>
+      </div>
+    `).join('')}
+  </div>`:''}
+  ${fraudFlags.filter(f=>f.disputeStatus==='pending').length>0?`
+  <div style="background:var(--gold-soft);border:1px solid #FDE68A;border-radius:10px;padding:10px 16px;margin-bottom:20px;font-size:12.5px;color:#92400E;">
+    ⏳ ${fraudFlags.filter(f=>f.disputeStatus==='pending').length} dispute${fraudFlags.filter(f=>f.disputeStatus==='pending').length===1?'':'s'} under review — we'll email you once decided.
+  </div>`:''}
 
   <div class="metric-grid">
     <div class="metric hero"><div class="metric-label">Total earned</div><div class="metric-val">₹${e.totalEarnedRupees||'0.00'}</div><div class="metric-sub">all time</div></div>
@@ -643,6 +672,22 @@ function renderPayout(){
         </div>
       </div>
     </div>
+
+    <div class="panel fade-in" style="margin-top:16px;">
+      <div class="panel-head"><div class="panel-title">Auto-payout</div></div>
+      <div class="panel-body">
+        <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
+          <div>
+            <div style="font-weight:600;font-size:13.5px;">Automatically request &amp; pay out</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;max-width:380px;">Once your balance clears the minimum, a withdrawal is requested and paid automatically — no manual click needed.</div>
+          </div>
+          <span class="toggle-switch" id="autoPayoutToggle" onclick="toggleAutoPayout()" style="flex-shrink:0;margin-left:14px;width:44px;height:24px;border-radius:100px;background:${me.autoPayoutEnabled?'var(--sage)':'var(--border)'};position:relative;transition:background .15s ease;display:inline-block;">
+            <span style="position:absolute;top:2px;left:${me.autoPayoutEnabled?'22px':'2px'};width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .15s cubic-bezier(.22,1,.36,1);"></span>
+          </span>
+        </label>
+        <div id="autoPayoutResult" style="font-size:12px;margin-top:8px;"></div>
+      </div>
+    </div>
   </div>`;
 }
 
@@ -655,6 +700,49 @@ function bankFormHtml(){
     <button class="btn-solid full" onclick="saveBank()">Save bank account</button>
     <div id="bankSaveResult" style="font-size:12px;margin-top:8px;"></div>
   </div>`;
+}
+
+function openDisputeBox(flagId){
+  const box=document.getElementById('disputeBox-'+flagId);
+  if(box) box.style.display=box.style.display==='none'?'block':'none';
+}
+function submitDispute(flagId){
+  const msgEl=document.getElementById('disputeMsg-'+flagId);
+  const resultEl=document.getElementById('disputeResult-'+flagId);
+  const message=msgEl?.value.trim();
+  if(!message){if(resultEl)resultEl.innerHTML='<span style="color:var(--red);">Please explain what happened.</span>';return;}
+  if(resultEl) resultEl.innerHTML='Submitting…';
+  fetch(API+'/v1/customer/dispute-flag',{method:'POST',headers:H,body:JSON.stringify({flagId,message})})
+    .then(r=>r.json().then(d=>({ok:r.ok,d})))
+    .then(({ok,d})=>{
+      if(!ok){if(resultEl)resultEl.innerHTML=`<span style="color:var(--red);">⚠️ ${esc(d.error||'Failed')}</span>`;return;}
+      if(resultEl) resultEl.innerHTML='<span style="color:var(--sage);">✓ Dispute submitted — under review.</span>';
+      const flag=fraudFlags.find(f=>f.id===flagId);
+      if(flag) flag.disputeStatus='pending';
+      setTimeout(()=>renderDashboard(),1200);
+    })
+    .catch(()=>{if(resultEl)resultEl.innerHTML='<span style="color:var(--red);">⚠️ Network error — try again.</span>';});
+}
+
+function toggleAutoPayout(){
+  const newVal=!me.autoPayoutEnabled;
+  const toggleEl=document.getElementById('autoPayoutToggle');
+  const resultEl=document.getElementById('autoPayoutResult');
+  if(toggleEl){
+    toggleEl.style.background=newVal?'var(--sage)':'var(--border)';
+    toggleEl.firstElementChild.style.left=newVal?'22px':'2px';
+  }
+  fetch(API+'/v1/customer/auto-payout',{method:'POST',headers:H,body:JSON.stringify({enabled:newVal})})
+    .then(r=>r.json())
+    .then(d=>{
+      me.autoPayoutEnabled=d.autoPayoutEnabled;
+      if(resultEl) resultEl.innerHTML=`<span style="color:var(--sage);">✓ ${esc(d.message||'Saved')}</span>`;
+    })
+    .catch(()=>{
+      // revert the toggle visually if the request failed
+      if(toggleEl){toggleEl.style.background=me.autoPayoutEnabled?'var(--sage)':'var(--border)';toggleEl.firstElementChild.style.left=me.autoPayoutEnabled?'22px':'2px';}
+      if(resultEl) resultEl.innerHTML='<span style="color:var(--red);">⚠️ Could not save — try again</span>';
+    });
 }
 
 function switchPayoutTab(tab){
