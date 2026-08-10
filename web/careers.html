@@ -11,13 +11,21 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --ink:#0B0F0A;--sage:#2A7A4F;--sage-d:#1E5A3A;--sage-l:#3D9E68;--sage-soft:#EBF5EE;
-  --gold:#F0B429;--gold-soft:#FEF9EC;--red:#DC2626;--red-soft:#FEE2E2;
-  --cream:#F8F5EE;--cream2:#EEE9DD;--muted:#6B7568;--muted2:#9AA896;
-  --border:#D4D9CF;--surface:#fff;--bg:#F3F0E8;
+  --ink:#0A0A12;--sage:#4F46E5;--sage-d:#3730A3;--sage-l:#818CF8;--sage-soft:#EEF2FF;
+  --gold:#FF6B4A;--gold-soft:#FFF1EC;--red:#DC2626;--red-soft:#FEE2E2;
+  --cream:#F6F5FA;--cream2:#E9E7F2;--muted:#6B6B7D;--muted2:#9C9CAE;
+  --border:#DEDCE8;--surface:#fff;--bg:#F0EFF7;
   --display:'Sora',sans-serif;--mono:'IBM Plex Mono',monospace;--body:'Inter',sans-serif;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
+@media (prefers-reduced-motion: no-preference) {
+  .fade-in{animation:fadeIn .28s ease-out both;}
+  .slide-up{animation:slideUp .3s cubic-bezier(.22,1,.36,1) both;}
+  button, .btn, a[class*="btn"], input, select, textarea{transition:transform .15s cubic-bezier(.22,1,.36,1), box-shadow .15s ease, background-color .15s ease, border-color .15s ease;}
+  button:active, .btn:active{transform:scale(.97);}
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.6;}
 a{color:var(--sage);text-decoration:none;}
 a:hover{text-decoration:underline;}
@@ -61,7 +69,7 @@ a:hover{text-decoration:underline;}
 .jc-tag{font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:100px;font-family:var(--mono);}
 .tag-full{background:var(--sage-soft);color:var(--sage-d);}
 .tag-remote{background:#EFF6FF;color:#1D4ED8;}
-.tag-intern{background:var(--gold-soft);color:#C9901A;}
+.tag-intern{background:var(--gold-soft);color:#E1502F;}
 .tag-comm{background:#F5F3FF;color:#7C3AED;}
 .jc-desc{font-size:13.5px;color:var(--muted);line-height:1.6;}
 .jc-right{flex-shrink:0;}
@@ -137,7 +145,7 @@ footer a{color:rgba(255,255,255,.6);}
 
 <nav class="topbar">
   <a href="index.html" class="logo" style="text-decoration:none;">
-    <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.4)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></div>
+    <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6L7.5 17L10.5 9L13.5 17L16.5 9L20 6" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="19.5" cy="5" r="2" fill="#FF6B4A"/></svg></div>
     WaitJI AI
   </a>
   <div class="nav">
@@ -209,7 +217,7 @@ footer a{color:rgba(255,255,255,.6);}
       <p>Every person on the team builds something. There are no pure managers here at this stage. The CTO writes backend code daily. That's the culture.</p>
     </div>
     <div class="culture-box" style="background:#1A3A2A;">
-      <div class="culture-title" style="color:#3D9E68;">From Udaipur, for the world.</div>
+      <div class="culture-title" style="color:#818CF8;">From Udaipur, for the world.</div>
       <p>We're proud to be building India's first product in this space from a tier-2 city. If that story excites you, we want you on this team.</p>
     </div>
   </div>
