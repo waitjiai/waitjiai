@@ -1989,6 +1989,20 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         return send(res, 200, { autoPayoutEnabled: !!user.autoPayoutEnabled });
       }
 
+      // ── FEATURE: let a developer see their own fraud flags ──
+      // Was previously missing entirely — the dispute system (below) let you
+      // dispute a flag, but there was no way to ever see one in the first place.
+      if (method === 'GET' && url === '/v1/customer/fraud-flags') {
+        const myFlags = db.fraudFlags
+          .filter(f => f.userId === user.id)
+          .sort((a, b) => b.ts - a.ts)
+          .map(f => {
+            const dispute = db.disputes.find(d => d.flagId === f.id);
+            return { ...f, disputeStatus: dispute?.status || null, disputeId: dispute?.id || null };
+          });
+        return send(res, 200, { flags: myFlags });
+      }
+
       // ── FEATURE: dispute a fraud flag ──
       // A genuine earner who got flagged (e.g. a shared office IP triggering
       // ip_abuse, or a fast connection triggering impression_velocity) can now
@@ -3517,6 +3531,7 @@ function publicUser(u) {
     upiNameAtBank: u.upiNameAtBank || '',
     payoutMethod,
     profileStatus: ps,
+    autoPayoutEnabled: !!u.autoPayoutEnabled,
   };
 }
 
