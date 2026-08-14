@@ -7,8 +7,19 @@
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Internal-Token');
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // SECURITY FIX (audit Low #8): this previously accepted ANY caller-supplied
+  // Buffer bearer token and relayed it to api.buffer.com with wide-open CORS —
+  // effectively an open, unauthenticated relay anyone could use to route Buffer
+  // API traffic through waitjiai.in. Now requires a shared internal secret
+  // (set INTERNAL_PROXY_TOKEN in Vercel env vars) so only WaitJI's own tools can
+  // use this endpoint at all, regardless of whose Buffer token is supplied.
+  const internalToken = req.headers['x-internal-token'];
+  if (!process.env.INTERNAL_PROXY_TOKEN || internalToken !== process.env.INTERNAL_PROXY_TOKEN) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
 
   const token = req.headers.authorization?.replace('Bearer ', '').trim();
   if (!token) return res.status(401).json({ error: 'No token' });
