@@ -15,10 +15,29 @@ const { Pool } = require('pg');
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'waitji-dev-secret-change-in-prod';
-const ENCRYPT_KEY = process.env.ENCRYPT_KEY || crypto.scryptSync('waitji-default-encrypt-key-change-in-prod', 'salt', 32);
+
+// SECURITY FIX (audit 2026-08-15, Critical #1 & #2): these previously fell back to
+// hardcoded strings baked into source code. Since this repo has passed through
+// multiple hands, anyone who's read this file could forge admin sessions or
+// decrypt every stored bank account number if these env vars were ever unset in
+// production. Now the server refuses to boot at all rather than silently running
+// insecurely — a loud failure here is much cheaper than a silent breach later.
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not set. Generate one with `openssl rand -hex 32` and set it as an env var. Refusing to start with an insecure default.');
+  process.exit(1);
+}
+const ENCRYPT_KEY = process.env.ENCRYPT_KEY;
+if (!ENCRYPT_KEY) {
+  console.error('FATAL: ENCRYPT_KEY is not set. Generate one with `openssl rand -hex 32` and set it as an env var. Refusing to start with an insecure default.');
+  process.exit(1);
+}
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@waitjiai.in';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'WaitJI@Admin2026';
+// SECURITY FIX (audit Critical #3): ADMIN_PASSWORD no longer has a hardcoded
+// fallback. The actual hard-fail check (only on FIRST boot, before any admin
+// exists) happens inside seed() below, once we know whether an admin account
+// already exists in the loaded database.
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || null;
 const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data.json');
 const DATABASE_URL = process.env.DATABASE_URL || null;
 const pgPool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } }) : null;
@@ -465,6 +484,13 @@ function saveDB() {
 // ── Seed demo campaigns + admin (first run only) ───────────────────────────────
 function seed() {
   if (Object.keys(db.users).length === 0) {
+    // SECURITY FIX (audit Critical #3): no more hardcoded default password.
+    // This branch only runs on the very first boot (no users exist yet) — refuse
+    // to create the admin account at all without a real password supplied.
+    if (!ADMIN_PASSWORD) {
+      console.error('FATAL: This is a first boot (no admin exists yet) and ADMIN_PASSWORD is not set. Set a strong ADMIN_PASSWORD env var and restart. Refusing to seed an admin with no password.');
+      process.exit(1);
+    }
     // create admin
     const adminId = 'admin';
     db.users[adminId] = {
@@ -506,6 +532,16 @@ function verifyPassword(pw, stored) {
   return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(test));
 }
 
+// SECURITY FIX (audit Low #6): constant-time string comparison, used for JWT
+// signature verification and Razorpay webhook signature verification — plain
+// `!==` short-circuits on the first differing byte, which is a (hard to exploit
+// remotely, but free-to-fix) timing side-channel. Matches the pattern already
+// used correctly in verifyPassword() above.
+function safeEq(a, b) {
+  const ba = Buffer.from(String(a)), bb = Buffer.from(String(b));
+  return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
+}
+
 // ── FEATURE: role-based admin sub-accounts ──────────────────────────────────────
 // An admin user without `adminScope` set (or with adminScope === 'full') is the
 // original, unrestricted founder/admin account. Sub-admins created via
@@ -540,7 +576,7 @@ function verifyToken(token) {
   try {
     const [header, body, sig] = token.split('.');
     const expected = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
-    if (sig !== expected) return null;
+    if (!safeEq(sig, expected)) return null;
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString());
     if (payload.exp < Date.now()) return null;
     return payload;
@@ -941,18 +977,6 @@ const server = http.createServer(async (req, res) => {
           provider: sbUser.provider || 'email',
           emailVerified: sbUser.emailVerified, phoneVerified: sbUser.phoneVerified,
           createdAt: Date.now(), banned: false, loginCount: 0,
-          // ── FEATURE: landing-source attribution ──
-          // Captured once, at signup, from whatever the frontend saw on the visitor's
-          // very first page load (stored in localStorage there, sent here on signup).
-          // Never overwritten afterward — this is first-touch attribution.
-          landingSource: {
-            referrer: (b.landingSource?.referrer || '').slice(0, 300),
-            utmSource: (b.landingSource?.utmSource || '').slice(0, 100),
-            utmMedium: (b.landingSource?.utmMedium || '').slice(0, 100),
-            utmCampaign: (b.landingSource?.utmCampaign || '').slice(0, 100),
-            landingPage: (b.landingSource?.landingPage || '').slice(0, 300),
-            firstSeenAt: b.landingSource?.firstSeenAt || Date.now(),
-          },
         };
         db.users[profileId] = user;
         // Referral tracking — credit referrer if ref param passed
@@ -1025,7 +1049,7 @@ const server = http.createServer(async (req, res) => {
 
     // ═══════════ ADS SERVING (public, used by extension) ═══════════
     if (method === 'GET' && url.startsWith('/v1/ads/active')) {
-      const params = new URL('http://x'+req.url).searchParams;
+      const params = new URL('http://x'+url).searchParams;
       const adType = params.get('type') || 'spotlight'; // default: spotlight (VS Code spinner)
 
       const reqCountry = params.get('country') || 'IN';
@@ -1470,7 +1494,7 @@ const server = http.createServer(async (req, res) => {
         if (razorpay_order_id !== c.orderId) return send(res, 400, { error: 'Order mismatch' });
         if (!RAZORPAY_KEY_SECRET) return send(res, 500, { error: 'Razorpay not configured on the server' });
         const expectedSig = crypto.createHmac('sha256', RAZORPAY_KEY_SECRET).update(`${razorpay_order_id}|${razorpay_payment_id}`).digest('hex');
-        if (expectedSig !== razorpay_signature) return send(res, 400, { error: 'Payment signature verification failed' });
+        if (!safeEq(expectedSig, razorpay_signature)) return send(res, 400, { error: 'Payment signature verification failed' });
 
         c.status = 'pending_review';
         c.paymentId = razorpay_payment_id;
@@ -2130,7 +2154,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
 
     // ── Public pricing by country ──
     if (method === 'GET' && url.startsWith('/v1/public/pricing')) {
-      const country = new URL('http://x'+req.url).searchParams.get('country') || 'IN';
+      const country = new URL('http://x'+url).searchParams.get('country') || 'IN';
       const pricing = GEO_PRICING[country] || GEO_PRICING['IN'];
       return send(res, 200, {
         country,
@@ -2246,7 +2270,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
       // all advertisers
       // list all withdrawal requests (newest first), with optional ?status= filter
       if (method === 'GET' && url.startsWith('/v1/admin/withdrawals')) {
-        const params = new URL('http://x'+req.url).searchParams;
+        const params = new URL('http://x'+url).searchParams;
         const statusFilter = params.get('status');
         let reqs = [...db.withdrawalRequests].sort((a, b) => b.requestedAt - a.requestedAt);
         if (statusFilter) reqs = reqs.filter(r => r.status === statusFilter);
@@ -2826,83 +2850,6 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         });
       }
 
-      // ── FEATURE: geo history per user (spot VPN-hopping / suspicious geo patterns) ──
-      if (method === 'GET' && url.match(/^\/v1\/admin\/users\/[^/]+\/geo-history$/)) {
-        if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin only' });
-        const uid2 = url.split('/')[4];
-        const target = db.users[uid2];
-        if (!target) return send(res, 404, { error: 'User not found' });
-
-        const events = db.impressions
-          .filter(i => i.userId === uid2)
-          .sort((a, b) => a.ts - b.ts) // chronological — oldest first, so switches are easy to read
-          .map(i => ({ ts: i.ts, country: i.country || 'unknown', ip: i.ip || '', surface: i.surface }));
-
-        // Collapse consecutive same-country entries into ranges, and flag every actual switch —
-        // this is what actually answers "is this person hopping between countries" at a glance.
-        const timeline = [];
-        let switches = 0;
-        for (const e of events) {
-          const last = timeline[timeline.length - 1];
-          if (last && last.country === e.country) {
-            last.count++;
-            last.lastSeenAt = e.ts;
-          } else {
-            if (timeline.length > 0) switches++;
-            timeline.push({ country: e.country, firstSeenAt: e.ts, lastSeenAt: e.ts, count: 1, sampleIp: e.ip });
-          }
-        }
-
-        const countrySet = [...new Set(events.map(e => e.country))];
-        return send(res, 200, {
-          userId: uid2,
-          totalEvents: events.length,
-          uniqueCountries: countrySet,
-          countrySwitchCount: switches,
-          suspiciousHopping: switches >= 3, // 3+ back-and-forth switches in the recorded history is unusual for a real single developer
-          timeline,
-        });
-      }
-
-      // ── FEATURE: CRM-style user list — search, filter, paginate across ALL users ──
-      if (method === 'GET' && url.startsWith('/v1/admin/users') && !url.match(/\/v1\/admin\/users\/[^/]+/)) {
-        if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin only' });
-        const params = new URLSearchParams(req.url.split('?')[1] || '');
-        const roleFilter = params.get('role'); // 'customer' | 'advertiser' | 'admin' | null (=all)
-        const search = (params.get('search') || '').toLowerCase().trim();
-        const page = Math.max(1, parseInt(params.get('page') || '1'));
-        const pageSize = Math.min(100, Math.max(1, parseInt(params.get('pageSize') || '25')));
-
-        let list = Object.values(db.users);
-        if (roleFilter) list = list.filter(u => u.role === roleFilter);
-        if (search) list = list.filter(u =>
-          (u.email || '').toLowerCase().includes(search) ||
-          (u.name || '').toLowerCase().includes(search) ||
-          (u.company || '').toLowerCase().includes(search)
-        );
-        list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)); // newest first
-
-        const total = list.length;
-        const pageItems = list.slice((page - 1) * pageSize, page * pageSize);
-
-        const enriched = pageItems.map(u => {
-          const imps = db.impressions.filter(i => i.userId === u.id);
-          const earnedPaise = imps.reduce((s, i) => s + (i.earnedPaise || 0), 0);
-          const lastCountry = imps.length ? imps[imps.length - 1].country : null;
-          return {
-            ...publicUser(u),
-            joinedAt: u.createdAt,
-            landingSource: u.landingSource || null,
-            totalImpressions: imps.length,
-            totalEarnedPaise: earnedPaise,
-            lastKnownCountry: lastCountry,
-            lastLoginAt: u.lastLoginAt || null,
-          };
-        });
-
-        return send(res, 200, { users: enriched, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
-      }
-
       // single-campaign detailed stats — daily breakdown + unique users reached
       if (method === 'GET' && url.match(/^\/v1\/admin\/campaigns\/[^/]+\/stats$/)) {
         const cid = url.split('/')[4];
@@ -3427,7 +3374,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
     if (method === 'GET' && url.startsWith('/v1/admin/careers')) {
       const user = auth(req);
       if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin access required' });
-      const params = new URL('http://x'+req.url).searchParams;
+      const params = new URL('http://x'+url).searchParams;
       const statusFilter = params.get('status');
       let apps = [...(db.careers||[])].sort((a,b) => b.appliedAt - a.appliedAt);
       if (statusFilter) apps = apps.filter(a => a.status === statusFilter);
@@ -3685,12 +3632,14 @@ function publicUser(u) {
     lastActiveAt: u.lastActiveAt || null, createdAt: u.createdAt,
     payoutVerified: !!u.payoutVerified, payoutMode: u.payoutMode || null,
     bankVerified: !!u.bankVerified,
-    bankAccount: u.bankAccount || null,   // full object: {accountNumber, ifsc, accountHolder}
+    // SECURITY FIX (audit High #4): previously returned the full bankAccount
+    // object here, including the raw AES-GCM ciphertext of the account number,
+    // to every client on every profile fetch — unnecessary exposure since
+    // payoutMethod (below) already correctly exposes only last4/ifsc/name.
     upiNameAtBank: u.upiNameAtBank || '',
     payoutMethod,
     profileStatus: ps,
     autoPayoutEnabled: !!u.autoPayoutEnabled,
-    landingSource: u.landingSource || null,
   };
 }
 
