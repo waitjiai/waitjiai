@@ -174,12 +174,37 @@ function showErr(m){const e=document.getElementById('errBox');e.textContent=m;e.
 function showOk(m){const e=document.getElementById('okBox');e.textContent=m;e.classList.add('show');document.getElementById('errBox').classList.remove('show');}
 function clearMsg(){document.getElementById('errBox').classList.remove('show');document.getElementById('okBox').classList.remove('show');}
 
+// ── FEATURE: landing-source attribution ──
+// Reads whatever the shared capture script (in index.html/advertise.html/here)
+// stored on the visitor's FIRST page load. If someone lands directly on
+// login.html (e.g. a shared deep link) with nothing captured yet, capture it
+// now as a fallback so attribution is never silently lost.
+function captureLandingSourceOnce(){
+  if(localStorage.getItem('waitji_landing_source')) return; // first-touch already recorded — never overwrite
+  const params=new URLSearchParams(window.location.search);
+  const data={
+    referrer: document.referrer || '',
+    utmSource: params.get('utm_source') || '',
+    utmMedium: params.get('utm_medium') || '',
+    utmCampaign: params.get('utm_campaign') || '',
+    landingPage: window.location.pathname,
+    firstSeenAt: Date.now(),
+  };
+  localStorage.setItem('waitji_landing_source', JSON.stringify(data));
+}
+function getStoredLandingSource(){
+  captureLandingSourceOnce(); // fallback for direct-to-login visits
+  try{ return JSON.parse(localStorage.getItem('waitji_landing_source')||'{}'); }catch(e){ return {}; }
+}
+captureLandingSourceOnce();
+
 async function exchangeAndRedirect(access_token, userRole){
   // Exchange Supabase token for backend JWT
+  const landingSource = getStoredLandingSource();
   const r=await fetch(API+'/v1/auth/exchange',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({access_token, role: userRole})
+    body:JSON.stringify({access_token, role: userRole, landingSource})
   });
   const d=await r.json();
   if(!r.ok){showErr(d.error||'Auth exchange failed. Please try signing in again.');return;}
