@@ -1,0 +1,8 @@
+node_modules/
+.env
+.env.*
+backend/data.json
+*.log
+.DS_Store
+out/
+*.vsix
