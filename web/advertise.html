@@ -312,5 +312,21 @@ footer a:hover{color:var(--ink);}
   </div>
 </footer>
 
+<script>
+// ── FEATURE: landing-source attribution — capture on true first visit ──
+(function(){
+  if (localStorage.getItem('waitji_landing_source')) return;
+  const params = new URLSearchParams(window.location.search);
+  localStorage.setItem('waitji_landing_source', JSON.stringify({
+    referrer: document.referrer || '',
+    utmSource: params.get('utm_source') || '',
+    utmMedium: params.get('utm_medium') || '',
+    utmCampaign: params.get('utm_campaign') || '',
+    landingPage: window.location.pathname,
+    firstSeenAt: Date.now(),
+  }));
+})();
+</script>
+
 </body>
 </html>
