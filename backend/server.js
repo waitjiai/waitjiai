@@ -941,6 +941,18 @@ const server = http.createServer(async (req, res) => {
           provider: sbUser.provider || 'email',
           emailVerified: sbUser.emailVerified, phoneVerified: sbUser.phoneVerified,
           createdAt: Date.now(), banned: false, loginCount: 0,
+          // ── FEATURE: landing-source attribution ──
+          // Captured once, at signup, from whatever the frontend saw on the visitor's
+          // very first page load (stored in localStorage there, sent here on signup).
+          // Never overwritten afterward — this is first-touch attribution.
+          landingSource: {
+            referrer: (b.landingSource?.referrer || '').slice(0, 300),
+            utmSource: (b.landingSource?.utmSource || '').slice(0, 100),
+            utmMedium: (b.landingSource?.utmMedium || '').slice(0, 100),
+            utmCampaign: (b.landingSource?.utmCampaign || '').slice(0, 100),
+            landingPage: (b.landingSource?.landingPage || '').slice(0, 300),
+            firstSeenAt: b.landingSource?.firstSeenAt || Date.now(),
+          },
         };
         db.users[profileId] = user;
         // Referral tracking — credit referrer if ref param passed
@@ -1013,7 +1025,7 @@ const server = http.createServer(async (req, res) => {
 
     // ═══════════ ADS SERVING (public, used by extension) ═══════════
     if (method === 'GET' && url.startsWith('/v1/ads/active')) {
-      const params = new URL('http://x'+url).searchParams;
+      const params = new URL('http://x'+req.url).searchParams;
       const adType = params.get('type') || 'spotlight'; // default: spotlight (VS Code spinner)
 
       const reqCountry = params.get('country') || 'IN';
@@ -2118,7 +2130,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
 
     // ── Public pricing by country ──
     if (method === 'GET' && url.startsWith('/v1/public/pricing')) {
-      const country = new URL('http://x'+url).searchParams.get('country') || 'IN';
+      const country = new URL('http://x'+req.url).searchParams.get('country') || 'IN';
       const pricing = GEO_PRICING[country] || GEO_PRICING['IN'];
       return send(res, 200, {
         country,
@@ -2234,7 +2246,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
       // all advertisers
       // list all withdrawal requests (newest first), with optional ?status= filter
       if (method === 'GET' && url.startsWith('/v1/admin/withdrawals')) {
-        const params = new URL('http://x'+url).searchParams;
+        const params = new URL('http://x'+req.url).searchParams;
         const statusFilter = params.get('status');
         let reqs = [...db.withdrawalRequests].sort((a, b) => b.requestedAt - a.requestedAt);
         if (statusFilter) reqs = reqs.filter(r => r.status === statusFilter);
@@ -2814,6 +2826,83 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         });
       }
 
+      // ── FEATURE: geo history per user (spot VPN-hopping / suspicious geo patterns) ──
+      if (method === 'GET' && url.match(/^\/v1\/admin\/users\/[^/]+\/geo-history$/)) {
+        if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin only' });
+        const uid2 = url.split('/')[4];
+        const target = db.users[uid2];
+        if (!target) return send(res, 404, { error: 'User not found' });
+
+        const events = db.impressions
+          .filter(i => i.userId === uid2)
+          .sort((a, b) => a.ts - b.ts) // chronological — oldest first, so switches are easy to read
+          .map(i => ({ ts: i.ts, country: i.country || 'unknown', ip: i.ip || '', surface: i.surface }));
+
+        // Collapse consecutive same-country entries into ranges, and flag every actual switch —
+        // this is what actually answers "is this person hopping between countries" at a glance.
+        const timeline = [];
+        let switches = 0;
+        for (const e of events) {
+          const last = timeline[timeline.length - 1];
+          if (last && last.country === e.country) {
+            last.count++;
+            last.lastSeenAt = e.ts;
+          } else {
+            if (timeline.length > 0) switches++;
+            timeline.push({ country: e.country, firstSeenAt: e.ts, lastSeenAt: e.ts, count: 1, sampleIp: e.ip });
+          }
+        }
+
+        const countrySet = [...new Set(events.map(e => e.country))];
+        return send(res, 200, {
+          userId: uid2,
+          totalEvents: events.length,
+          uniqueCountries: countrySet,
+          countrySwitchCount: switches,
+          suspiciousHopping: switches >= 3, // 3+ back-and-forth switches in the recorded history is unusual for a real single developer
+          timeline,
+        });
+      }
+
+      // ── FEATURE: CRM-style user list — search, filter, paginate across ALL users ──
+      if (method === 'GET' && url.startsWith('/v1/admin/users') && !url.match(/\/v1\/admin\/users\/[^/]+/)) {
+        if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin only' });
+        const params = new URLSearchParams(req.url.split('?')[1] || '');
+        const roleFilter = params.get('role'); // 'customer' | 'advertiser' | 'admin' | null (=all)
+        const search = (params.get('search') || '').toLowerCase().trim();
+        const page = Math.max(1, parseInt(params.get('page') || '1'));
+        const pageSize = Math.min(100, Math.max(1, parseInt(params.get('pageSize') || '25')));
+
+        let list = Object.values(db.users);
+        if (roleFilter) list = list.filter(u => u.role === roleFilter);
+        if (search) list = list.filter(u =>
+          (u.email || '').toLowerCase().includes(search) ||
+          (u.name || '').toLowerCase().includes(search) ||
+          (u.company || '').toLowerCase().includes(search)
+        );
+        list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)); // newest first
+
+        const total = list.length;
+        const pageItems = list.slice((page - 1) * pageSize, page * pageSize);
+
+        const enriched = pageItems.map(u => {
+          const imps = db.impressions.filter(i => i.userId === u.id);
+          const earnedPaise = imps.reduce((s, i) => s + (i.earnedPaise || 0), 0);
+          const lastCountry = imps.length ? imps[imps.length - 1].country : null;
+          return {
+            ...publicUser(u),
+            joinedAt: u.createdAt,
+            landingSource: u.landingSource || null,
+            totalImpressions: imps.length,
+            totalEarnedPaise: earnedPaise,
+            lastKnownCountry: lastCountry,
+            lastLoginAt: u.lastLoginAt || null,
+          };
+        });
+
+        return send(res, 200, { users: enriched, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
+      }
+
       // single-campaign detailed stats — daily breakdown + unique users reached
       if (method === 'GET' && url.match(/^\/v1\/admin\/campaigns\/[^/]+\/stats$/)) {
         const cid = url.split('/')[4];
@@ -3338,7 +3427,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
     if (method === 'GET' && url.startsWith('/v1/admin/careers')) {
       const user = auth(req);
       if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin access required' });
-      const params = new URL('http://x'+url).searchParams;
+      const params = new URL('http://x'+req.url).searchParams;
       const statusFilter = params.get('status');
       let apps = [...(db.careers||[])].sort((a,b) => b.appliedAt - a.appliedAt);
       if (statusFilter) apps = apps.filter(a => a.status === statusFilter);
@@ -3601,6 +3690,7 @@ function publicUser(u) {
     payoutMethod,
     profileStatus: ps,
     autoPayoutEnabled: !!u.autoPayoutEnabled,
+    landingSource: u.landingSource || null,
   };
 }
 
