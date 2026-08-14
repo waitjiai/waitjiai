@@ -32,8 +32,10 @@
 body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.6;}
 .topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:var(--ink);border-bottom:1px solid #1A1F3D;}
 .logo{font-family:var(--mono);font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;}
-.logo-mark{width:28px;height:28px;border-radius:7px;background:var(--sage),var(--sky));display:flex;align-items:center;justify-content:center;}
+.logo-mark{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,var(--sage),var(--sky));display:flex;align-items:center;justify-content:center;}
 .logo-mark svg{width:17px;height:17px;}.logo em{color:#818CF8;font-style:normal;}
+.modal-overlay{position:fixed;inset:0;background:rgba(10,10,18,.5);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;}
+.modal-box{background:#fff;border-radius:14px;padding:22px 24px;max-height:80vh;overflow-y:auto;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);}
 .topbar-r{display:flex;align-items:center;gap:14px;}
 .role-pill{font-size:11px;font-weight:600;padding:5px 12px;border-radius:100px;background:rgba(129,140,248,.2);color:#A5B4FC;font-family:var(--mono);}
 .user-email{font-size:13px;color:#9AA0B4;}
@@ -162,6 +164,7 @@ tr:last-child td{border-bottom:none;}
     <button class="tab" data-tab="auditlog" onclick="showTab('auditlog')">📋 Audit Log</button>
     <button class="tab" data-tab="ipblock" onclick="showTab('ipblock')">🚫 IP Block</button>
     <button class="tab" data-tab="subadmins" onclick="showTab('subadmins')">👥 Sub-Admins</button>
+    <button class="tab" data-tab="crm" onclick="showTab('crm')">🗂️ Users (CRM)</button>
   </div>
   <div id="tabContent"><div class="loading">Loading…</div></div>
 </div>
@@ -212,6 +215,7 @@ async function render(){
     if(curTab==='auditlog')  return renderAuditLog(await get('/v1/admin/audit-log'));
     if(curTab==='ipblock')   return renderIpBlock(await get('/v1/admin/ip-block'));
     if(curTab==='subadmins') return renderSubAdmins(await get('/v1/admin/sub-admins'));
+    if(curTab==='crm') return renderCrm();
   }catch(e){ document.getElementById('tabContent').innerHTML='<div class="loading">Error loading data. <a href="" onclick="render();return false">retry</a></div>'; console.error(e); }
 }
 
@@ -948,6 +952,88 @@ async function removeSubAdmin(id,email){
   if(!confirm(`Remove sub-admin ${email}? This cannot be undone.`)) return;
   await del('/v1/admin/sub-admins/'+id);
   render();
+}
+
+// ── CRM: USERS ──
+let crmPage=1, crmRole='', crmSearch='';
+async function renderCrm(){
+  const el=document.getElementById('tabContent'); if(!el) return;
+  const q=new URLSearchParams({page:crmPage,pageSize:20,role:crmRole,search:crmSearch});
+  const d=await get('/v1/admin/users?'+q.toString());
+  const users=d.users||[];
+  el.innerHTML=`
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+    <div>
+      <h2 style="font-family:var(--sans);font-size:20px;font-weight:700;">🗂️ Users (CRM)</h2>
+      <p style="font-size:13px;color:#6B6B7D;margin-top:2px;">${d.total} total · joining date, landing source, and geo history for every user.</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <input id="crmSearchInput" placeholder="Search email, name, company…" value="${esc(crmSearch)}" style="padding:7px 12px;border:1px solid #DEDCE8;border-radius:8px;font-size:13px;min-width:220px;" onkeydown="if(event.key==='Enter')crmDoSearch()">
+      <select id="crmRoleSelect" onchange="crmDoFilterRole(this.value)" style="padding:7px 10px;border:1px solid #DEDCE8;border-radius:8px;font-size:13px;">
+        <option value="" ${crmRole===''?'selected':''}>All roles</option>
+        <option value="customer" ${crmRole==='customer'?'selected':''}>Earners</option>
+        <option value="advertiser" ${crmRole==='advertiser'?'selected':''}>Advertisers</option>
+        <option value="admin" ${crmRole==='admin'?'selected':''}>Admins</option>
+      </select>
+      <button class="mini-btn" onclick="crmDoSearch()">Search</button>
+    </div>
+  </div>
+  <div class="panel" style="padding:0;">
+    ${users.length===0?'<div style="padding:24px;text-align:center;color:#9AA896;font-size:13px;">No users match.</div>':`
+    <table><thead><tr><th>Joined</th><th>Email</th><th>Role</th><th>Landing source</th><th>Last country</th><th>Impressions</th><th>Earned</th><th></th></tr></thead><tbody>
+    ${users.map(u=>`<tr>
+      <td class="mono" style="font-size:11px;white-space:nowrap;">${new Date(u.joinedAt).toLocaleDateString('en-IN')}</td>
+      <td style="font-size:12.5px;">${esc(u.email)}${u.name?`<div style="font-size:11px;color:#9AA896;">${esc(u.name)}</div>`:''}</td>
+      <td><span class="mini-btn" style="pointer-events:none;background:${u.role==='advertiser'?'#EFF6FF':u.role==='admin'?'#FEF3D6':'#EEF2FF'};color:${u.role==='advertiser'?'#3B82F6':u.role==='admin'?'#C9901A':'#4F46E5'};">${u.role}</span></td>
+      <td style="font-size:11.5px;color:#6B6B7D;">${u.landingSource?.utmSource?esc(u.landingSource.utmSource)+(u.landingSource.utmMedium?' / '+esc(u.landingSource.utmMedium):''):(u.landingSource?.referrer?'ref: '+esc(new URL(u.landingSource.referrer).hostname).slice(0,30):'direct/unknown')}</td>
+      <td style="font-size:12px;">${u.lastKnownCountry?esc(u.lastKnownCountry):'—'}</td>
+      <td class="mono" style="font-size:12px;">${u.totalImpressions||0}</td>
+      <td class="mono" style="font-size:12px;">₹${((u.totalEarnedPaise||0)/100).toFixed(2)}</td>
+      <td><button class="mini-btn" onclick="openCrmDetail('${u.id}')">View →</button></td>
+    </tr>`).join('')}
+    </tbody></table>`}
+  </div>
+  <div style="display:flex;justify-content:center;gap:8px;margin-top:14px;">
+    <button class="mini-btn" ${crmPage<=1?'disabled':''} onclick="crmPage--;renderCrm()">← Prev</button>
+    <span style="font-size:12.5px;color:#6B6B7D;align-self:center;">Page ${d.page} of ${d.totalPages||1}</span>
+    <button class="mini-btn" ${crmPage>=(d.totalPages||1)?'disabled':''} onclick="crmPage++;renderCrm()">Next →</button>
+  </div>
+  <div id="crmDetailModal"></div>`;
+}
+function crmDoSearch(){ crmSearch=document.getElementById('crmSearchInput').value.trim(); crmPage=1; renderCrm(); }
+function crmDoFilterRole(v){ crmRole=v; crmPage=1; renderCrm(); }
+
+async function openCrmDetail(userId){
+  const modal=document.getElementById('crmDetailModal');
+  modal.innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal-box" style="max-width:640px;"><div class="loading">Loading…</div></div></div>`;
+  const [health, geo] = await Promise.all([
+    get(`/v1/admin/earners/${userId}/health`).catch(()=>null),
+    get(`/v1/admin/users/${userId}/geo-history`).catch(()=>null),
+  ]);
+  const box=modal.querySelector('.modal-box');
+  if(!box) return;
+  box.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="font-size:17px;font-weight:700;">User detail</h3>
+      <button class="mini-btn" onclick="document.getElementById('crmDetailModal').innerHTML=''">✕ Close</button>
+    </div>
+    ${geo?`
+    <div style="margin-bottom:16px;">
+      <div style="font-size:12.5px;font-weight:600;margin-bottom:6px;">🌍 Geo history</div>
+      <div style="font-size:12px;color:#6B6B7D;margin-bottom:8px;">${geo.totalEvents} events · ${geo.uniqueCountries.length} countries · ${geo.countrySwitchCount} switches ${geo.suspiciousHopping?'<span style="color:#DC2626;font-weight:700;">⚠️ Unusual hopping pattern</span>':''}</div>
+      <div style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;">
+        ${geo.timeline.map(t=>`<div style="display:flex;justify-content:space-between;font-size:12px;background:#F0EFF7;padding:6px 10px;border-radius:6px;">
+          <span><b>${esc(t.country)}</b> · ${t.count} event${t.count===1?'':'s'}</span>
+          <span class="mono" style="color:#9AA896;">${new Date(t.firstSeenAt).toLocaleString('en-IN')}</span>
+        </div>`).join('')||'<div style="color:#9AA896;font-size:12px;">No impressions yet.</div>'}
+      </div>
+    </div>`:''}
+    ${health?`
+    <div>
+      <div style="font-size:12.5px;font-weight:600;margin-bottom:6px;">📡 Extension health</div>
+      <div style="font-size:12px;color:#6B6B7D;">Status: <b>${esc(health.status)}</b> · Last impression: ${esc(health.lastImpressionAgo)} · Last 24h: ${health.impressionsLastDay} impressions</div>
+    </div>`:''}
+  `;
 }
 
 function renderAuditLog(d){
