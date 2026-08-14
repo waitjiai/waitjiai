@@ -911,6 +911,24 @@ function buildPriceCard(type){
 }
 
 // Run on load
+// ── FEATURE: landing-source attribution — capture on true first visit ──
+// Must run here (not just on login.html) because document.referrer only
+// reflects the ORIGINAL external source (twitter.com, google.com, etc.) on the
+// very first page load — by the time a visitor reaches login.html via internal
+// navigation, referrer would just say "waitjiai.in" and the real source is lost.
+(function(){
+  if (localStorage.getItem('waitji_landing_source')) return; // first-touch only, never overwrite
+  const params = new URLSearchParams(window.location.search);
+  localStorage.setItem('waitji_landing_source', JSON.stringify({
+    referrer: document.referrer || '',
+    utmSource: params.get('utm_source') || '',
+    utmMedium: params.get('utm_medium') || '',
+    utmCampaign: params.get('utm_campaign') || '',
+    landingPage: window.location.pathname,
+    firstSeenAt: Date.now(),
+  }));
+})();
+
 detectCountry();
 
 // ── Scroll-reveal (single IntersectionObserver, no scroll listeners — fast) ──
