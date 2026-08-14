@@ -636,11 +636,11 @@ function renderPayout(){
         </div>
 
         <div id="bankTab" style="display:${pm==='bank'?'block':'none'}">
-          ${me.bankVerified&&me.bankAccount&&me.bankAccount.accountNumber?`
+          ${me.bankVerified&&me.payoutMethod&&me.payoutMethod.type==='bank'?`
           <div style="background:var(--sage-soft);border:1.5px solid #A7F3C8;border-radius:9px;padding:14px;margin-bottom:12px;">
             <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Verified bank account</div>
-            <div style="font-weight:700;font-family:var(--mono);font-size:16px;">•••• •••• •••• ${me.bankAccount.accountNumber.slice(-4)}</div>
-            <div style="font-size:12.5px;color:var(--muted);margin-top:4px;">${esc(me.bankAccount.ifsc||'')} · ${esc(me.bankAccount.accountHolder||'')}</div>
+            <div style="font-weight:700;font-family:var(--mono);font-size:16px;">•••• •••• •••• ${esc(me.payoutMethod.last4||'')}</div>
+            <div style="font-size:12.5px;color:var(--muted);margin-top:4px;">${esc(me.payoutMethod.bankIfsc||'')} · ${esc(me.payoutMethod.bankName||'')}</div>
           </div>
           <button class="btn-ghost" onclick="document.getElementById('bankFormBox').style.display='block'">Change bank account</button>
           <div id="bankFormBox" style="display:none;margin-top:12px;">${bankFormHtml()}</div>
@@ -786,7 +786,7 @@ function renderWithdraw(){
         <div class="panel-head"><div class="panel-title">Payout settings</div></div>
         <div class="panel-body">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <div><div style="font-size:13px;font-weight:600;">Payout method</div><div style="font-size:12px;color:var(--muted);">${me.upiId&&me.payoutMode!=='bank'?'UPI: '+esc(me.upiId):me.bankAccount?'Bank: ••••'+me.bankAccount.accountNumber?.slice(-4):'Not set'}</div></div>
+            <div><div style="font-size:13px;font-weight:600;">Payout method</div><div style="font-size:12px;color:var(--muted);">${me.upiId&&me.payoutMode!=='bank'?'UPI: '+esc(me.upiId):(me.payoutMethod&&me.payoutMethod.type==='bank')?'Bank: ••••'+esc(me.payoutMethod.last4||''):'Not set'}</div></div>
             <button class="btn-ghost" style="font-size:12px;" onclick="showTab('payout')">Change →</button>
           </div>
           <div style="font-size:12px;color:var(--muted2);">Payouts are processed via Cashfree · 2-3 business days</div>
@@ -847,7 +847,7 @@ function renderReferral(){
     const rl=document.getElementById('refList');
     if(rl&&d.referred?.length){
       rl.innerHTML='<div style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Your referrals</div>'+
-      d.referred.map(r=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>${r.email}</span><span style="color:var(--muted2);font-size:11.5px;">${new Date(r.joinedAt).toLocaleDateString('en-IN')}</span></div>`).join('');
+      d.referred.map(r=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>${esc(r.email)}</span><span style="color:var(--muted2);font-size:11.5px;">${new Date(r.joinedAt).toLocaleDateString('en-IN')}</span></div>`).join('');
     }
   }).catch(()=>{});
 }
