@@ -296,21 +296,9 @@ async function razorpayApi(method, path, body) {
   if (!r.ok) throw new Error(data?.error?.description || `Razorpay ${method} ${path} returned ${r.status}`);
   return data;
 }
-// ── Profile completion helper ──────────────────────────────────────────────────
-// A profile is "complete" if the earner has: name, phone, email verified,
-// AND either a verified UPI ID or a verified bank account (account+IFSC).
-// Withdrawal is blocked until all four requirements are met.
-function profileCompletion(user) {
-  const checks = {
-    name: !!(user.name && user.name.trim().length >= 2),
-    phone: !!(user.phone && /^[6-9]\d{9}$/.test(user.phone.replace(/\D/g, ''))),
-    emailVerified: !!user.emailVerified,
-    payoutMethod: !!(user.upiVerified && user.upiId) || !!(user.bankVerified && user.bankAccount?.accountNumber) || !!(user.paypalVerified && user.paypalEmail),
-  };
-  const completed = Object.values(checks).filter(Boolean).length;
-  const total = Object.keys(checks).length;
-  return { checks, completed, total, isComplete: completed === total };
-}
+// (Note: an earlier, never-called `profileCompletion()` function used to live here —
+// removed since it duplicated this logic with different, unused criteria. See
+// profileStatus() below for the single source of truth on profile completeness.)
 
 // ── IFSC verification using free public IFSC API ──────────────────────────────
 async function verifyIFSC(ifsc) {
@@ -3605,11 +3593,32 @@ function dailyBreakdown(campaignIds, days = 14) {
 // Returns an object describing what's complete and what's missing.
 // Withdrawal is BLOCKED unless all 5 fields are verified.
 function profileStatus(user) {
+  // SECURITY/INTEGRITY FIX: this function previously checked `user.phone` FORMAT
+  // only (not actual OTP verification) and `user.payoutVerified`, a flag that gets
+  // set true immediately on ANY format-valid UPI/bank/PayPal entry — regardless of
+  // whether it was ever actually verified. This meant "complete profile" could be
+  // satisfied in seconds by typing a plausible-looking phone number and payout
+  // detail, without any real verification — which is how withdrawals were reaching
+  // genuinely-unverified accounts. Now:
+  //  - phone requires the real Supabase-backed `phoneVerified` flag (OTP-confirmed)
+  //  - payout requires the method-specific REAL verification flag: for UPI, the
+  //    Cashfree live VPA check result when Cashfree is configured (falls back to
+  //    format-only only if Cashfree itself isn't configured, so we never hard-block
+  //    legitimate users when the verification service is simply unavailable); for
+  //    bank/PayPal there's no live-check service in this codebase, so their
+  //    method-specific verified flags are the best available real signal.
+  const hasCashfree = !!(CASHFREE_CLIENT_ID && CASHFREE_CLIENT_SECRET);
+  const payoutReallyVerified =
+    user.payoutMode === 'upi' ? (hasCashfree ? !!user.upiLiveVerified : !!user.payoutVerified) :
+    user.payoutMode === 'bank' ? !!user.bankVerified :
+    user.payoutMode === 'paypal' ? !!user.paypalVerified :
+    false;
+
   const checks = {
     name:    { done: !!(user.name && user.name.trim().length >= 2),      label: 'Full name' },
-    phone:   { done: !!(user.phone && /^[6-9]\d{9}$/.test(user.phone)), label: 'Phone number (10 digit)' },
+    phone:   { done: !!(user.phone && user.phoneVerified),               label: 'Phone number verified' },
     email:   { done: !!(user.emailVerified),                              label: 'Email verified' },
-    payout:  { done: !!(user.payoutVerified),                             label: 'UPI or bank account verified' },
+    payout:  { done: payoutReallyVerified,                                label: 'UPI or bank account verified' },
   };
   const complete = Object.values(checks).every(c => c.done);
   const missing = Object.entries(checks).filter(([,v]) => !v.done).map(([,v]) => v.label);
