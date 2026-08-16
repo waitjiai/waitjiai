@@ -3603,11 +3603,18 @@ function profileStatus(user) {
   // right now) until an actual SMS-OTP flow is built. The payout-verification
   // tightening below is KEPT as-is since Cashfree's live UPI check is real,
   // working infrastructure that already exists — that part of the fix stands.
+  // REGRESSION FIX: the payout check previously branched on `user.payoutMode`
+  // matching an exact string ('upi'/'bank'/'paypal'). Legacy users who saved a
+  // payout detail before `payoutMode` tracking existed (or via any path that
+  // didn't set it) have `payoutMode: null` even though they have a real upiId —
+  // this incorrectly failed their check even though they're genuinely set up.
+  // Now infers the method from which field is actually populated, same pattern
+  // already used correctly by `payoutMethod` above.
   const hasCashfree = !!(CASHFREE_CLIENT_ID && CASHFREE_CLIENT_SECRET);
   const payoutReallyVerified =
-    user.payoutMode === 'upi' ? (hasCashfree ? !!user.upiLiveVerified : !!user.payoutVerified) :
-    user.payoutMode === 'bank' ? !!user.bankVerified :
-    user.payoutMode === 'paypal' ? !!user.paypalVerified :
+    user.paypalEmail ? !!user.paypalVerified :
+    user.bankAccount?.accountNumber ? !!user.bankVerified :
+    user.upiId ? (hasCashfree ? !!user.upiLiveVerified : !!user.payoutVerified) :
     false;
 
   const checks = {
