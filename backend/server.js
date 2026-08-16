@@ -3593,20 +3593,16 @@ function dailyBreakdown(campaignIds, days = 14) {
 // Returns an object describing what's complete and what's missing.
 // Withdrawal is BLOCKED unless all 5 fields are verified.
 function profileStatus(user) {
-  // SECURITY/INTEGRITY FIX: this function previously checked `user.phone` FORMAT
-  // only (not actual OTP verification) and `user.payoutVerified`, a flag that gets
-  // set true immediately on ANY format-valid UPI/bank/PayPal entry — regardless of
-  // whether it was ever actually verified. This meant "complete profile" could be
-  // satisfied in seconds by typing a plausible-looking phone number and payout
-  // detail, without any real verification — which is how withdrawals were reaching
-  // genuinely-unverified accounts. Now:
-  //  - phone requires the real Supabase-backed `phoneVerified` flag (OTP-confirmed)
-  //  - payout requires the method-specific REAL verification flag: for UPI, the
-  //    Cashfree live VPA check result when Cashfree is configured (falls back to
-  //    format-only only if Cashfree itself isn't configured, so we never hard-block
-  //    legitimate users when the verification service is simply unavailable); for
-  //    bank/PayPal there's no live-check service in this codebase, so their
-  //    method-specific verified flags are the best available real signal.
+  // NOTE (corrected after deploy): phone verification was briefly tightened to
+  // require `user.phoneVerified` (Supabase phone_confirmed_at), but that flag only
+  // gets set if a user signs up through Supabase's own phone-OTP flow — WaitJI's
+  // actual signup is email/Google OAuth, so virtually no real earner would ever
+  // have it set. There is currently no SMS-OTP verification flow built anywhere in
+  // this product, so requiring it made profile-completion impossible for genuine
+  // users. Reverted phone to format-validation (the best real signal available
+  // right now) until an actual SMS-OTP flow is built. The payout-verification
+  // tightening below is KEPT as-is since Cashfree's live UPI check is real,
+  // working infrastructure that already exists — that part of the fix stands.
   const hasCashfree = !!(CASHFREE_CLIENT_ID && CASHFREE_CLIENT_SECRET);
   const payoutReallyVerified =
     user.payoutMode === 'upi' ? (hasCashfree ? !!user.upiLiveVerified : !!user.payoutVerified) :
@@ -3616,7 +3612,7 @@ function profileStatus(user) {
 
   const checks = {
     name:    { done: !!(user.name && user.name.trim().length >= 2),      label: 'Full name' },
-    phone:   { done: !!(user.phone && user.phoneVerified),               label: 'Phone number verified' },
+    phone:   { done: !!(user.phone && /^[6-9]\d{9}$/.test(user.phone)), label: 'Phone number (10 digit)' },
     email:   { done: !!(user.emailVerified),                              label: 'Email verified' },
     payout:  { done: payoutReallyVerified,                                label: 'UPI or bank account verified' },
   };
