@@ -60,6 +60,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1
 .admin-sidebar .tab:hover{background:var(--cream2);}
 .admin-sidebar .tab.active{background:var(--sage);color:#fff;}
 .admin-main{flex:1;min-width:0;}
+.pd-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:4px 0;border-bottom:1px solid #DEDCE8;}
+.pd-row:last-child{border-bottom:none;}
+.pd-row span{color:#6B6B7D;}
 @media(max-width:900px){
   .admin-shell{flex-direction:column;}
   .admin-sidebar{width:100%;position:static;flex-direction:row;flex-wrap:wrap;gap:10px;}
@@ -707,9 +710,12 @@ function renderWithdrawals(data){
   ${pending.length?`<div class="panel" style="border-color:#FCA5A5;"><div class="panel-h" style="color:#B91C1C;">⚠️ ${pending.length} pending withdrawal(s)</div>
   <table><thead><tr><th>User</th><th>Amount</th><th>Method</th><th>Requested</th><th>Actions</th></tr></thead><tbody>
   ${pending.map(w=>`<tr style="background:#FFF5F5;">
-    <td class="mono" style="font-size:12px;">${esc(w.userId||'—').slice(0,16)}</td>
+    <td style="font-size:12.5px;"><b>${esc(w.userName||w.userEmail||'—')}</b>${w.userEmail&&w.userName?`<div style="font-size:11px;color:#9C9CAE;">${esc(w.userEmail)}</div>`:''}</td>
     <td class="mono" style="font-weight:700;color:#047857;">${fmtRs(w.amountPaise||0)}</td>
-    <td>${esc(w.payoutDetail||w.upiId||w.bankAccount||'—')}</td>
+    <td>
+      <div style="font-size:12px;">${esc(w.payoutDetail||w.upiId||w.bankAccount||'—')}</div>
+      <button class="mini-btn" style="margin-top:4px;font-size:10.5px;padding:3px 8px;" onclick="showPayoutDetails('${w.id}')">👁 Show full details</button>
+    </td>
     <td style="font-size:12px;">${timeAgo(w.requestedAt)}</td>
     <td>
       <button class="mini-btn green" onclick="openWdDecision('${w.id}','approve')">✓ Approve & Pay</button>
@@ -720,7 +726,7 @@ function renderWithdrawals(data){
   <div class="panel"><div class="panel-h">All withdrawals</div>
   <table><thead><tr><th>User</th><th>Amount</th><th>Method</th><th>Status</th><th>Date</th><th>Auto-paid</th></tr></thead><tbody>
   ${wds.slice(0,50).map(w=>`<tr>
-    <td class="mono" style="font-size:12px;">${esc(w.userId||'—').slice(0,14)}</td>
+    <td style="font-size:12px;"><b>${esc(w.userName||w.userEmail||'—')}</b></td>
     <td class="mono">${fmtRs(w.amountPaise||0)}</td>
     <td style="font-size:12px;">${esc((w.payoutDetail||w.upiId||w.bankAccount||'—').slice(0,30))}</td>
     <td><span class="status ${w.status}">${w.status}</span></td>
@@ -728,6 +734,33 @@ function renderWithdrawals(data){
     <td style="font-size:12px;">${w.autoPaid?'⚡ Auto':'Manual'}</td>
   </tr>`).join('')||'<tr><td colspan="6" class="empty">No withdrawals</td></tr>'}
   </tbody></table></div>`;
+}
+async function showPayoutDetails(id){
+  const modal=document.createElement('div');
+  modal.className='modal-overlay';
+  modal.onclick=(e)=>{ if(e.target===modal) modal.remove(); };
+  modal.innerHTML=`<div class="modal-box" style="max-width:420px;"><div class="loading">Loading…</div></div>`;
+  document.body.appendChild(modal);
+  const d=await get(`/v1/admin/withdrawals/${id}/payout-details`);
+  const box=modal.querySelector('.modal-box');
+  if(!box) return;
+  if(d.error){ box.innerHTML=`<p style="color:#DC2626;font-size:13px;">${esc(d.error)}</p><button class="mini-btn" onclick="this.closest('.modal-overlay').remove()">Close</button>`; return; }
+  const det=d.details;
+  let rows='';
+  if(det.method==='bank') rows=`
+    <div class="pd-row"><span>Account holder</span><b>${esc(det.accountHolder)}</b></div>
+    <div class="pd-row"><span>Account number</span><b class="mono">${esc(det.accountNumber)}</b></div>
+    <div class="pd-row"><span>IFSC</span><b class="mono">${esc(det.ifsc)}</b></div>`;
+  else if(det.method==='upi') rows=`<div class="pd-row"><span>UPI ID</span><b class="mono">${esc(det.upiId)}</b></div>`;
+  else if(det.method==='paypal') rows=`<div class="pd-row"><span>PayPal email</span><b class="mono">${esc(det.paypalEmail)}</b></div>`;
+  else rows=`<p style="color:#9C9CAE;font-size:13px;">No payout method on file for this earner.</p>`;
+  box.innerHTML=`
+    <h3 style="font-size:16px;font-weight:700;margin-bottom:2px;">Payout details</h3>
+    <p style="font-size:12.5px;color:#6B6B7D;margin-bottom:14px;">${esc(d.earnerName)} (${esc(d.earnerEmail)}) — ${fmtRs(d.amountPaise)}</p>
+    <div style="background:#F6F5FA;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;">${rows}</div>
+    <p style="font-size:11px;color:#9C9CAE;margin-top:10px;">⚠️ These are real, unmasked details — send payment manually and mark the request approved once done.</p>
+    <button class="mini-btn" style="margin-top:12px;" onclick="this.closest('.modal-overlay').remove()">Close</button>
+  `;
 }
 function openWdDecision(id, action){
   const isApprove = action==='approve';
