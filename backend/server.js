@@ -2005,7 +2005,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
             profileIncomplete: true,
           });
         }
-        if (!user.upiId && !user.bankAccount) return send(res, 400, { error: 'Add a verified UPI ID or bank account before withdrawing.' });
+        if (!user.upiId && !user.bankAccount && !user.paypalEmail) return send(res, 400, { error: 'Add a verified UPI ID, bank account, or PayPal email before withdrawing.' });
 
         const available = computeAvailableBalance(user.id);
 
@@ -2016,12 +2016,27 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         const hasPending = db.withdrawalRequests.some(r => r.userId === user.id && r.status === 'pending');
         if (hasPending) return send(res, 400, { error: 'You already have a pending withdrawal request. Please wait for admin to review it before submitting a new one.' });
 
+        // Snapshot the payout method fully at request time — not just upiId, so
+        // bank/PayPal earners' payment details are actually visible to admin later
+        // (previously only upiId was captured, leaving bank/PayPal requests blank).
+        let payoutDetail = 'Not set';
+        if (user.payoutMode === 'bank' && user.bankAccount?.accountNumber) {
+          const last4 = decrypt(user.bankAccount.accountNumber)?.slice(-4) || '????';
+          payoutDetail = `Bank •••• ${last4} (${user.bankAccount.ifsc || ''})`;
+        } else if (user.payoutMode === 'paypal' && user.paypalEmail) {
+          payoutDetail = `PayPal — ${user.paypalEmail}`;
+        } else if (user.upiId) {
+          payoutDetail = `UPI — ${user.upiId}`;
+        }
+
         const req2 = {
           id: uid('wr_'),
           userId: user.id,
           userName: user.name || user.email,
           userEmail: user.email,
           upiId: user.upiId,
+          payoutMode: user.payoutMode || (user.upiId ? 'upi' : null),
+          payoutDetail,
           amountPaise: available,
           status: 'pending',
           requestedAt: Date.now(),
@@ -2724,6 +2739,79 @@ if (method === 'GET' && url === '/v1/customer/projection') {
             adText: i.adText || db.campaigns[i.campaignId]?.adText || '',
           })),
         });
+      }
+
+      // ── FEATURE: geo history per user (spot VPN-hopping / suspicious geo patterns) ──
+      if (method === 'GET' && url.match(/^\/v1\/admin\/users\/[^/]+\/geo-history$/)) {
+        const uid2 = url.split('/')[4];
+        const target = db.users[uid2];
+        if (!target) return send(res, 404, { error: 'User not found' });
+
+        const events = db.impressions
+          .filter(i => i.userId === uid2)
+          .sort((a, b) => a.ts - b.ts)
+          .map(i => ({ ts: i.ts, country: i.country || 'unknown', ip: i.ip || '', surface: i.surface }));
+
+        const timeline = [];
+        let switches = 0;
+        for (const e of events) {
+          const last = timeline[timeline.length - 1];
+          if (last && last.country === e.country) {
+            last.count++;
+            last.lastSeenAt = e.ts;
+          } else {
+            if (timeline.length > 0) switches++;
+            timeline.push({ country: e.country, firstSeenAt: e.ts, lastSeenAt: e.ts, count: 1, sampleIp: e.ip });
+          }
+        }
+
+        const countrySet = [...new Set(events.map(e => e.country))];
+        return send(res, 200, {
+          userId: uid2,
+          totalEvents: events.length,
+          uniqueCountries: countrySet,
+          countrySwitchCount: switches,
+          suspiciousHopping: switches >= 3,
+          timeline,
+        });
+      }
+
+      // ── FEATURE: CRM-style user list — search, filter, paginate across ALL users ──
+      if (method === 'GET' && url.startsWith('/v1/admin/users') && !url.match(/\/v1\/admin\/users\/[^/]+/)) {
+        const params = new URLSearchParams(req.url.split('?')[1] || '');
+        const roleFilter = params.get('role');
+        const search = (params.get('search') || '').toLowerCase().trim();
+        const page = Math.max(1, parseInt(params.get('page') || '1'));
+        const pageSize = Math.min(100, Math.max(1, parseInt(params.get('pageSize') || '25')));
+
+        let list = Object.values(db.users);
+        if (roleFilter) list = list.filter(u => u.role === roleFilter);
+        if (search) list = list.filter(u =>
+          (u.email || '').toLowerCase().includes(search) ||
+          (u.name || '').toLowerCase().includes(search) ||
+          (u.company || '').toLowerCase().includes(search)
+        );
+        list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+        const total = list.length;
+        const pageItems = list.slice((page - 1) * pageSize, page * pageSize);
+
+        const enriched = pageItems.map(u => {
+          const imps = db.impressions.filter(i => i.userId === u.id);
+          const earnedPaise = imps.reduce((s, i) => s + (i.earnedPaise || 0), 0);
+          const lastCountry = imps.length ? imps[imps.length - 1].country : null;
+          return {
+            ...publicUser(u),
+            joinedAt: u.createdAt,
+            landingSource: u.landingSource || null,
+            totalImpressions: imps.length,
+            totalEarnedPaise: earnedPaise,
+            lastKnownCountry: lastCountry,
+            lastLoginAt: u.lastLoginAt || null,
+          };
+        });
+
+        return send(res, 200, { users: enriched, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
       }
 
       // ── Admin: login log (all users) ─────────────────────────────────
@@ -3757,9 +3845,20 @@ async function runAutoPayoutSweep() {
       const minPaise = user.payoutMode === 'paypal' ? 85000 : 10000;
       if (available < minPaise) continue;
 
+      let payoutDetail = 'Not set';
+      if (user.payoutMode === 'bank' && user.bankAccount?.accountNumber) {
+        const last4 = decrypt(user.bankAccount.accountNumber)?.slice(-4) || '????';
+        payoutDetail = `Bank •••• ${last4} (${user.bankAccount.ifsc || ''})`;
+      } else if (user.payoutMode === 'paypal' && user.paypalEmail) {
+        payoutDetail = `PayPal — ${user.paypalEmail}`;
+      } else if (user.upiId) {
+        payoutDetail = `UPI — ${user.upiId}`;
+      }
+
       const wr = {
         id: uid('wr_'), userId: user.id, userName: user.name || user.email, userEmail: user.email,
-        upiId: user.upiId, amountPaise: available, status: 'pending',
+        upiId: user.upiId, payoutMode: user.payoutMode || (user.upiId ? 'upi' : null), payoutDetail,
+        amountPaise: available, status: 'pending',
         requestedAt: Date.now(), reviewedAt: null, reviewNote: null, autoRequested: true,
       };
       db.withdrawalRequests.push(wr);
