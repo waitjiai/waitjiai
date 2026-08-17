@@ -2272,7 +2272,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
 
       // all advertisers
       // list all withdrawal requests (newest first), with optional ?status= filter
-      if (method === 'GET' && url.startsWith('/v1/admin/withdrawals')) {
+      if (method === 'GET' && url === '/v1/admin/withdrawals') {
         const params = new URL('http://x'+url).searchParams;
         const statusFilter = params.get('status');
         let reqs = [...db.withdrawalRequests].sort((a, b) => b.requestedAt - a.requestedAt);
@@ -2290,6 +2290,42 @@ if (method === 'GET' && url === '/v1/customer/projection') {
           totalPendingPaise: db.withdrawalRequests.filter(r => r.status === 'pending').reduce((s, r) => s + r.amountPaise, 0),
         };
         return send(res, 200, { withdrawals: enriched, summary });
+      }
+
+      // ── FEATURE: reveal FULL (unmasked) payout details for manual payment ──
+      // Cashfree isn't processing any payouts right now — admin sends money
+      // manually, so they need the real account number / UPI ID, not the masked
+      // last-4 shown everywhere else. Audit-logged since this exposes sensitive
+      // bank details on demand.
+      if (method === 'GET' && url.match(/^\/v1\/admin\/withdrawals\/[^/]+\/payout-details$/)) {
+        if (!requireScope(user, ['finance'], res)) return;
+        const wid = url.split('/')[4];
+        const wr = db.withdrawalRequests.find(r => r.id === wid);
+        if (!wr) return send(res, 404, { error: 'Withdrawal request not found' });
+        const earner = db.users[wr.userId];
+        if (!earner) return send(res, 404, { error: 'Earner not found' });
+
+        let details = { method: 'none', display: 'No payout method on file' };
+        if (earner.payoutMode === 'bank' && earner.bankAccount?.accountNumber) {
+          details = {
+            method: 'bank',
+            accountNumber: decrypt(earner.bankAccount.accountNumber) || '(decryption failed)',
+            ifsc: earner.bankAccount.ifsc || '',
+            accountHolder: earner.bankAccount.accountHolder || earner.name || '',
+          };
+        } else if (earner.payoutMode === 'paypal' && earner.paypalEmail) {
+          details = { method: 'paypal', paypalEmail: earner.paypalEmail };
+        } else if (earner.upiId) {
+          details = { method: 'upi', upiId: earner.upiId };
+        }
+
+        auditLog(user.id, 'payout_details_revealed', { withdrawalId: wid, earnerId: wr.userId, earnerEmail: earner.email });
+        return send(res, 200, {
+          earnerName: earner.name || earner.email,
+          earnerEmail: earner.email,
+          amountPaise: wr.amountPaise,
+          details,
+        });
       }
 
       // approve a withdrawal request — auto-pays via Cashfree if configured
@@ -3681,35 +3717,19 @@ function dailyBreakdown(campaignIds, days = 14) {
 // Returns an object describing what's complete and what's missing.
 // Withdrawal is BLOCKED unless all 5 fields are verified.
 function profileStatus(user) {
-  // NOTE (corrected after deploy): phone verification was briefly tightened to
-  // require `user.phoneVerified` (Supabase phone_confirmed_at), but that flag only
-  // gets set if a user signs up through Supabase's own phone-OTP flow — WaitJI's
-  // actual signup is email/Google OAuth, so virtually no real earner would ever
-  // have it set. There is currently no SMS-OTP verification flow built anywhere in
-  // this product, so requiring it made profile-completion impossible for genuine
-  // users. Reverted phone to format-validation (the best real signal available
-  // right now) until an actual SMS-OTP flow is built. The payout-verification
-  // tightening below is KEPT as-is since Cashfree's live UPI check is real,
-  // working infrastructure that already exists — that part of the fix stands.
-  // REGRESSION FIX: the payout check previously branched on `user.payoutMode`
-  // matching an exact string ('upi'/'bank'/'paypal'). Legacy users who saved a
-  // payout detail before `payoutMode` tracking existed (or via any path that
-  // didn't set it) have `payoutMode: null` even though they have a real upiId —
-  // this incorrectly failed their check even though they're genuinely set up.
-  // Now infers the method from which field is actually populated, same pattern
-  // already used correctly by `payoutMethod` above.
-  const hasCashfree = !!(CASHFREE_CLIENT_ID && CASHFREE_CLIENT_SECRET);
-  const payoutReallyVerified =
-    user.paypalEmail ? !!user.paypalVerified :
-    user.bankAccount?.accountNumber ? !!user.bankVerified :
-    user.upiId ? (hasCashfree ? !!user.upiLiveVerified : !!user.payoutVerified) :
-    false;
+  // BUSINESS DECISION (2026-08): Cashfree is not currently processing any real
+  // payouts — all payments are being sent manually by admin. Requiring live
+  // Cashfree verification (or any bank/UPI "verified" flag) before a profile
+  // counts as complete no longer makes sense — admin just needs to know a real
+  // payout detail EXISTS so they know where to manually send money. Phone is
+  // format-validated only (no SMS-OTP flow exists in this product yet).
+  const payoutDetailExists = !!(user.upiId || user.bankAccount?.accountNumber || user.paypalEmail);
 
   const checks = {
     name:    { done: !!(user.name && user.name.trim().length >= 2),      label: 'Full name' },
     phone:   { done: !!(user.phone && /^[6-9]\d{9}$/.test(user.phone)), label: 'Phone number (10 digit)' },
     email:   { done: !!(user.emailVerified),                              label: 'Email verified' },
-    payout:  { done: payoutReallyVerified,                                label: 'UPI or bank account verified' },
+    payout:  { done: payoutDetailExists,                                  label: 'UPI, bank, or PayPal detail added' },
   };
   const complete = Object.values(checks).every(c => c.done);
   const missing = Object.entries(checks).filter(([,v]) => !v.done).map(([,v]) => v.label);
