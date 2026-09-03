@@ -1,29 +1,14 @@
 User-agent: *
 Allow: /
-Allow: /index.html
-Allow: /privacy.html
-Allow: /terms.html
-Disallow: /login.html
-Disallow: /advertiser.html
-Disallow: /customer.html
-Disallow: /admin.html
-Disallow: /admin-login.html
 
-# AI Crawlers
-User-agent: GPTBot
-Allow: /
-Disallow: /login.html
-Disallow: /advertiser.html
-Disallow: /customer.html
-Disallow: /admin.html
-Disallow: /admin-login.html
-
-User-agent: Claude-Web
-Allow: /
-Disallow: /login.html
-Disallow: /advertiser.html
-Disallow: /customer.html
-Disallow: /admin.html
-Disallow: /admin-login.html
+# login.html, advertiser.html, customer.html, admin.html and admin-login.html
+# are intentionally kept OUT of Disallow here. A robots.txt Disallow prevents
+# a crawler from ever fetching the page at all — which means it can never see
+# that page's own <meta name="robots" content="noindex"> tag or X-Robots-Tag
+# header either. Blocking here used to silently defeat the noindex on
+# advertiser.html/customer.html and left login.html with no exclusion at all.
+# Each of those five pages now carries its own noindex directive directly
+# (see each file's <head>, or vercel.json for admin.html/admin-login.html) —
+# that's the only reliable way to keep a URL out of the index.
 
 Sitemap: https://www.waitjiai.in/sitemap.xml

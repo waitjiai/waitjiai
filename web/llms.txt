@@ -5,7 +5,7 @@ WaitJI AI is India's first AI advertising marketplace for VS Code developers, op
 
 ## What it does
 - Developers install a free VS Code extension that shows one sponsored ad during Claude Code's "Thinking..." state
-- Developers earn 50% of ad revenue, paid directly to their UPI account
+- Developers earn 65% of ad revenue, paid directly to their UPI account
 - Advertisers bid on two placements: Spotlight (₹800/1,000 impressions, VS Code spinner) and Stream (₹300/1,000 impressions, terminal status line)
 - Both auctions run independently with live bidding
 
