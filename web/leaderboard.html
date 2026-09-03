@@ -109,6 +109,16 @@ footer{padding:30px;text-align:center;font-size:12px;color:var(--muted);}
   <div class="skeleton"></div>
 </div>
 
+<!-- The ranking above is filled in by JavaScript from GET
+     /v1/public/advertiser-leaderboard, so a crawler that doesn't execute
+     JavaScript (most AI/LLM crawlers) otherwise sees only three loading
+     skeletons and no real content. This <noscript> block states the true
+     current state of that same endpoint as of the date below; it's not
+     shown to any browser that runs the JS above. -->
+<noscript>
+  <div class="empty">No campaigns on the public leaderboard yet as of Sep 3, 2026 — advertisers can opt in to ranking when creating a campaign at <a href="advertise.html">advertise.html</a>. Check the live page with JavaScript enabled for current standings.</div>
+</noscript>
+
 <div class="cta-band">
   <h2>Want your campaign here?</h2>
   <p>Opt in when you create a campaign — visible the moment your first impression serves.</p>

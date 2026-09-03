@@ -163,6 +163,25 @@ footer a{color:rgba(255,255,255,.5);text-decoration:none;}
 
 <div class="wrap">
 
+  <!-- Everything on this page below is normally filled in by JavaScript
+       (see check()/renderUptime() at the bottom) with data live-fetched from
+       the API — which means a crawler that doesn't execute JavaScript (most
+       AI/LLM crawlers, unlike Googlebot) sees an empty shell instead of real
+       status. This <noscript> block is a real, dated snapshot from the same
+       public API endpoints (/v1/public/status, /v1/public/uptime) so those
+       crawlers have something true to read. It is not shown to any browser
+       that runs the JS above, which immediately replaces the live sections
+       with current data. -->
+  <noscript>
+    <div class="section-label">Snapshot — Sep 3, 2026 (see live page with JavaScript enabled for current status)</div>
+    <div class="services">
+      <div class="svc"><div class="svc-icon">⚡</div><div class="svc-info"><div class="svc-name">API &amp; Ad Serving</div><div class="svc-desc">Core platform — impressions, billing, authentication</div></div><span class="pill pill-ok">Operational</span></div>
+      <div class="svc"><div class="svc-icon">🌐</div><div class="svc-info"><div class="svc-name">Website &amp; Dashboards</div><div class="svc-desc">Homepage, advertiser portal, developer dashboard</div></div><span class="pill pill-ok">Operational</span></div>
+      <div class="svc"><div class="svc-icon">💳</div><div class="svc-info"><div class="svc-name">Payments</div><div class="svc-desc">Advertiser billing &amp; developer payouts · inferred from API health, gateways not pinged directly</div></div><span class="pill pill-ok">Operational</span></div>
+    </div>
+    <p style="padding:12px 0;color:var(--muted,#8a8a9a);font-size:13px;">42 days of API uptime have been recorded so far (tracking started later in the 90-day window shown on the live page); all 42 recorded days were fully operational — 100% uptime over the tracked period. Today: 2,404 ad impressions served, 1 active advertiser campaign, 78 registered users.</p>
+  </noscript>
+
   <div class="section-label">Services</div>
   <div class="services" id="svcList"></div>
 

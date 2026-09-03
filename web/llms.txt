@@ -23,5 +23,21 @@ WaitJI AI is India's first AI advertising marketplace for VS Code developers, op
 
 ## Pages
 - Homepage: https://www.waitjiai.in/
+- Advertise (pricing, how advertiser campaigns work): https://www.waitjiai.in/advertise.html
+- FAQ: https://www.waitjiai.in/faq.html
+- Careers: https://www.waitjiai.in/careers.html
+- Advertiser leaderboard (live, opted-in campaigns ranked by real impressions): https://www.waitjiai.in/leaderboard.html
+- System status (live service health, uptime history): https://www.waitjiai.in/status.html
 - Privacy Policy: https://www.waitjiai.in/privacy.html
 - Terms of Service: https://www.waitjiai.in/terms.html
+
+## Blog
+- Building India's First AI Ad Marketplace From Udaipur: what we got wrong in our first 30 days and where we're going next — https://www.waitjiai.in/blog/building-waitji-qivalabs.html
+- The Complete Guide to Passive Income for Indian Developers Using AI Tools in 2026: every legitimate way to earn passive income while using Claude Code, Copilot, or Cursor — https://www.waitjiai.in/blog/claude-code-passive-income-guide.html
+- How We Built Fraud Detection for a Developer Ad Marketplace — Without ML: the layered rule-based system (IP rate limiting, click cooldowns, bot detection) that protects advertiser spend — https://www.waitjiai.in/blog/fraud-detection-ad-marketplace.html
+- How to Earn With Claude Code Using WaitJI AI: step-by-step setup guide for Indian developers — https://www.waitjiai.in/blog/how-to-earn-with-claude-code.html
+- India Has 5.8 Million Developers. Almost None Are Monetising Their Idle Time: why WaitJI AI started with UPI-first payouts — https://www.waitjiai.in/blog/india-developer-economy-2026.html
+- Why We Use Purchasing Power Parity Pricing for Developer Ads: the math behind letting global advertisers reach Indian developers at fair local rates — https://www.waitjiai.in/blog/ppp-pricing-developer-ads.html
+- The spinnerVerbs API: How WaitJI AI Puts Ads Inside Claude Code's Thinking Spinner — technical deep dive on the documented settings we use instead of file-patching — https://www.waitjiai.in/blog/spinnerverbs-how-it-works.html
+- Why UPI Makes Micropayments to Developers Finally Viable in India — https://www.waitjiai.in/blog/upi-developer-payouts.html
+- Why Developers Are the Best Audience for B2B SaaS Ads in 2026 — https://www.waitjiai.in/blog/why-advertise-to-developers.html
