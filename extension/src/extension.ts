@@ -182,7 +182,16 @@ function watchFileSystemForActivity(context: vscode.ExtensionContext) {
   );
 }
 
-// ─── Ad display (unchanged, plus: keep the statusLine cache file fresh) ─────
+// ─── Ad display (VS Code status bar only) ────────────────────────────────────
+// BUG FIX: this used to also call writeStatusLineCache()/clearStatusLineCache()
+// here, pushing this function's Spotlight-typed ad into the same cache file
+// the Claude Code CLI terminal status line reads. That's the Stream surface —
+// it's supposed to show Stream-typed ads (see the fetchAds() fix above and
+// poller.mjs's matching fix), and assets/poller.mjs is the dedicated,
+// self-sufficient background process that now owns that cache file on its own
+// 90s cycle. This function firing every ~20s and overwriting it with a
+// Spotlight ad in between would silently undo that fix. This function now
+// only touches the VS Code status bar; it never touches the statusLine cache.
 function startAdDisplay() {
   if (spinnerInterval) return;
   const cfg = vscode.workspace.getConfiguration('waitjiAi');
@@ -192,7 +201,6 @@ function startAdDisplay() {
   const ad = getNextAd();
   if (!ad) return;
   currentAd = ad;
-  writeStatusLineCache(ad); // make this ad available to the Claude Code CLI status line too
 
   spinnerInterval = setInterval(() => {
     spinnerIdx = (spinnerIdx + 1) % SPINNER_CHARS.length;
@@ -208,7 +216,6 @@ function startAdDisplay() {
     const nextAd = getNextAd();
     if (nextAd && nextAd.id !== currentAd?.id) {
       currentAd = nextAd;
-      writeStatusLineCache(nextAd);
       if (adDisplayTimeout) clearTimeout(adDisplayTimeout);
       adDisplayTimeout = setTimeout(() => recordImpression(nextAd), 5000);
     }
@@ -221,7 +228,6 @@ function stopAdDisplay() {
   statusBarItem.command = 'waitjiAi.showDashboard';
   setIdleStatusBar();
   currentAd = null;
-  clearStatusLineCache();
 }
 function getNextAd(): Ad | null {
   if (adCache.length === 0) return null;
@@ -230,10 +236,17 @@ function getNextAd(): Ad | null {
   return ad;
 }
 
-// ─── Fetch active ads (unchanged) ────────────────────────────────────────────
+// ─── Fetch active ads ─────────────────────────────────────────────────────────
+// BUG FIX: this used to call /v1/ads/active with no query string at all, which
+// meant the backend's `type` filter silently defaulted to 'spotlight' — this
+// is correct for the VS Code status bar (this function's actual surface), so
+// that part of the old behavior was accidentally right. But it also meant
+// `surface` defaulted to 'terminal' server-side, so the backend's IDE-target
+// filter never actually excluded campaigns that don't target VS Code from
+// showing up here. Explicit params fix both.
 function fetchAds() {
   const apiBase = getApiBase();
-  httpGet(`${apiBase}/v1/ads/active`)
+  httpGet(`${apiBase}/v1/ads/active?type=spotlight&surface=vscode`)
     .then(body => {
       const parsed = JSON.parse(body);
       if (Array.isArray(parsed.ads)) adCache = parsed.ads;
