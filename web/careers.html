@@ -302,6 +302,52 @@ function tagClass(tag){
 
 function esc2(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+// Google Jobs eligibility — real open roles, so this is free search real
+// estate we weren't using. Built from the same live /v1/public/jobs data the
+// cards above render from (never a separate, hand-maintained copy that could
+// drift), and injected fresh on every page load so datePosted/validThrough
+// stay accurate rather than being baked in once and going stale.
+function employmentType(job){
+  const t = (job.type||'').toLowerCase();
+  if (t.includes('intern')) return 'INTERN';
+  if (t.includes('part')) return 'PART_TIME';
+  if (t.includes('contract')) return 'CONTRACTOR';
+  return 'FULL_TIME';
+}
+function injectJobPostingSchema(jobs){
+  document.querySelectorAll('script[data-jobposting]').forEach(el => el.remove());
+  const now = new Date();
+  const validThrough = new Date(now.getTime() + 90*24*60*60*1000).toISOString();
+  jobs.forEach(job => {
+    const postings = {
+      '@context': 'https://schema.org',
+      '@type': 'JobPosting',
+      title: job.title,
+      description: job.description || job.title,
+      datePosted: new Date(job.createdAt || Date.now()).toISOString(),
+      validThrough,
+      employmentType: employmentType(job),
+      hiringOrganization: {
+        '@type': 'Organization',
+        name: 'QivaLabs LLP',
+        sameAs: 'https://www.waitjiai.in/',
+        logo: 'https://www.waitjiai.in/logo-512.png',
+      },
+      jobLocationType: /remote/i.test(job.location||'') ? 'TELECOMMUTE' : undefined,
+      applicantLocationRequirements: /remote/i.test(job.location||'') ? { '@type': 'Country', name: 'IN' } : undefined,
+      jobLocation: /remote/i.test(job.location||'') ? undefined : {
+        '@type': 'Place',
+        address: { '@type': 'PostalAddress', addressLocality: job.location, addressCountry: 'IN' },
+      },
+    };
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.dataset.jobposting = job.id;
+    script.textContent = JSON.stringify(postings);
+    document.head.appendChild(script);
+  });
+}
+
 async function loadJobs(){
   try{
     const r = await fetch(JOBS_API + '/v1/public/jobs');
@@ -329,6 +375,7 @@ async function loadJobs(){
       </div>
       <div class="jc-right"><button class="apply-btn" data-role="${esc2(job.title)}" onclick="openModal(this.dataset.role)">Apply now</button></div>
     </div>`).join('');
+    injectJobPostingSchema(jobs);
   } catch(e){
     document.getElementById('jobsGrid').innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">Could not load jobs — <a href="" onclick="loadJobs();return false;">retry</a></div>';
   }
