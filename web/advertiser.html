@@ -201,19 +201,38 @@ const H={'Authorization':'Bearer '+token,'Content-Type':'application/json'};
 let me=null, camps=[], analytics={};
 let curTab='overview';
 
-// Country-specific pricing (mirrors backend GEO_PRICING)
-const GEO_PRICING = {
-  IN:  { currency:'INR', symbol:'₹',    rate:1,    spotlight:{min:800, rec:800},   stream:{min:300, rec:300},   minBudgetS:5000,  minBudgetSt:2000,  flag:'🇮🇳', label:'India' },
-  US:  { currency:'USD', symbol:'$',    rate:83.9, spotlight:{min:12,  rec:14},    stream:{min:5,   rec:6},     minBudgetS:120,   minBudgetSt:50,    flag:'🇺🇸', label:'USA' },
-  GB:  { currency:'GBP', symbol:'£',    rate:106,  spotlight:{min:10,  rec:12},    stream:{min:4.5, rec:5},     minBudgetS:95,    minBudgetSt:40,    flag:'🇬🇧', label:'UK' },
-  SG:  { currency:'SGD', symbol:'S$',   rate:62,   spotlight:{min:16,  rec:18},    stream:{min:6.5, rec:7.5},   minBudgetS:150,   minBudgetSt:60,    flag:'🇸🇬', label:'Singapore' },
-  AU:  { currency:'AUD', symbol:'A$',   rate:54.5, spotlight:{min:18,  rec:21},    stream:{min:7.5, rec:8.5},   minBudgetS:160,   minBudgetSt:65,    flag:'🇦🇺', label:'Australia' },
-  CA:  { currency:'CAD', symbol:'C$',   rate:61.5, spotlight:{min:16,  rec:19},    stream:{min:6.5, rec:7.5},   minBudgetS:150,   minBudgetSt:60,    flag:'🇨🇦', label:'Canada' },
-  DE:  { currency:'EUR', symbol:'€',    rate:90.5, spotlight:{min:11,  rec:13},    stream:{min:4.5, rec:5.5},   minBudgetS:100,   minBudgetSt:40,    flag:'🇩🇪', label:'Germany' },
-  NL:  { currency:'EUR', symbol:'€',    rate:90.5, spotlight:{min:11,  rec:13},    stream:{min:4.5, rec:5.5},   minBudgetS:100,   minBudgetSt:40,    flag:'🇳🇱', label:'Netherlands' },
-  AE:  { currency:'AED', symbol:'AED ', rate:22.85,spotlight:{min:40,  rec:48},    stream:{min:16,  rec:20},    minBudgetS:370,   minBudgetSt:150,   flag:'🇦🇪', label:'UAE' },
-  JP:  { currency:'JPY', symbol:'¥',    rate:0.56, spotlight:{min:1800,rec:2200},  stream:{min:750, rec:900},   minBudgetS:16500, minBudgetSt:6600,  flag:'🇯🇵', label:'Japan' },
+// Country-specific pricing — fetched from the backend (GET /v1/public/pricing),
+// which is the single source of truth. This used to be a hand-copied table
+// that only covered 10 countries and could drift from backend/server.js's
+// real GEO_PRICING (the comment even said "mirrors backend GEO_PRICING", but
+// nothing kept it in sync) — meaning the bid/budget minimums shown here could
+// silently disagree with what campaign creation actually enforces. Only the
+// flag emoji is still kept locally, since it's cosmetic and can't drift into
+// a billing mismatch.
+const COUNTRY_FLAGS = {
+  IN:'🇮🇳', US:'🇺🇸', GB:'🇬🇧', SG:'🇸🇬', AU:'🇦🇺', CA:'🇨🇦', DE:'🇩🇪', NL:'🇳🇱',
+  FR:'🇫🇷', AE:'🇦🇪', JP:'🇯🇵', PK:'🇵🇰', BD:'🇧🇩', LK:'🇱🇰', NP:'🇳🇵', ID:'🇮🇩',
+  PH:'🇵🇭', MY:'🇲🇾', TH:'🇹🇭', KR:'🇰🇷',
 };
+// Minimal fallback if the pricing fetch fails outright (offline/API down).
+let GEO_PRICING = { IN: { currency:'INR', symbol:'₹', rate:1, spotlight:{min:800,rec:800}, stream:{min:300,rec:300}, minBudgetS:5000, minBudgetSt:2000, flag:'🇮🇳', label:'India' } };
+
+async function loadPricingTable(){
+  try{
+    const d = await fetch(API+'/v1/public/pricing', {signal:AbortSignal.timeout(6000)}).then(r=>r.json());
+    const table = {};
+    (d.allCountries||[]).forEach(p=>{
+      table[p.code] = {
+        currency:p.currency, symbol:p.symbol, flag:COUNTRY_FLAGS[p.code]||'', label:p.label,
+        rate:p.rate/100, // backend rate is INR paise/unit — this file's math expects rupees/unit
+        spotlight:{ min:Number(p.spotlightMinDisplay), rec:Number(p.spotlightRecommendedDisplay) },
+        stream:{ min:Number(p.streamMinDisplay), rec:Number(p.streamRecommendedDisplay) },
+        minBudgetS:Number(p.spotlightMinBudgetDisplay), minBudgetSt:Number(p.streamMinBudgetDisplay),
+      };
+    });
+    if (Object.keys(table).length) GEO_PRICING = table;
+  }catch(e){ /* keep the IN-only fallback above */ }
+}
 
 let curPricing = GEO_PRICING['IN'];
 let curCountry = 'IN';
@@ -1209,6 +1228,7 @@ async function acceptApiTerms(){
   renderApiAccess();
 }
 
+loadPricingTable(); // fire in parallel — completes well before a user reaches the pricing-dependent campaign form
 load().then(checkPaypalReturn);
 </script>
 </body>

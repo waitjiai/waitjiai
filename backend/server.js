@@ -364,8 +364,18 @@ const HOUSE_AD_RATE_PAISE = 5000; // ₹50 per 1000 impressions, founder-funded
 // Base: India ₹800 Spotlight / ₹300 Stream per 1K impressions
 // All prices stored internally in INR paise. Exchange rates approximate June 2026.
 // Logic: USD price × exchange_rate = INR equivalent, then PPP-adjust for local economy
+// `rate` is INR paise per 1 unit of the local currency (e.g. US rate:8390 means
+// $1 ≈ ₹83.90 ≈ 8390 paise). IN's rate is 100 (100 paise = ₹1) for the same
+// reason — it must NOT be 1, or every display conversion below divides by the
+// wrong unit. (BUG FIX: this used to be `rate:1`, which combined with a stray
+// extra "/100" in the display-formatting code below silently produced ~0 as
+// the shown minimum bid/budget for every non-Indian country on both the
+// campaign-creation error message and GET /v1/public/pricing. Since nothing in
+// the frontend actually called that endpoint — it kept its own hardcoded copy
+// of this table instead — nobody had hit this path. Now that the frontend
+// fetches pricing from here directly, the math has to be right.)
 const GEO_PRICING = {
-  IN: { currency:'INR', symbol:'₹', rate:1, spotlight:{ min:80000, recommended:80000 }, stream:{ min:30000, recommended:30000 }, label:'India', minBudgetSpotlight:500000, minBudgetStream:200000 },
+  IN: { currency:'INR', symbol:'₹', rate:100, spotlight:{ min:80000, recommended:80000 }, stream:{ min:30000, recommended:30000 }, label:'India', minBudgetSpotlight:500000, minBudgetStream:200000 },
   US: { currency:'USD', symbol:'$', rate:8390, spotlight:{ min:101880, recommended:118000 }, stream:{ min:42000, recommended:50000 }, label:'USA', minBudgetSpotlight:1000000, minBudgetStream:400000 },
   // 1 USD ≈ ₹83.9 · US devs have 3x higher ad value · Spotlight $12/1K, Stream $5/1K
   GB: { currency:'GBP', symbol:'£', rate:10600, spotlight:{ min:106000, recommended:127000 }, stream:{ min:45000, recommended:53000 }, label:'United Kingdom', minBudgetSpotlight:1000000, minBudgetStream:400000 },
@@ -379,10 +389,26 @@ const GEO_PRICING = {
   DE: { currency:'EUR', symbol:'€', rate:9050, spotlight:{ min:99550, recommended:118000 }, stream:{ min:42000, recommended:50000 }, label:'Germany', minBudgetSpotlight:1000000, minBudgetStream:400000 },
   // 1 EUR ≈ ₹90.5 · Spotlight €11/1K
   NL: { currency:'EUR', symbol:'€', rate:9050, spotlight:{ min:99550, recommended:118000 }, stream:{ min:42000, recommended:50000 }, label:'Netherlands', minBudgetSpotlight:1000000, minBudgetStream:400000 },
+  FR: { currency:'EUR', symbol:'€', rate:9050, spotlight:{ min:99550, recommended:118000 }, stream:{ min:42000, recommended:50000 }, label:'France', minBudgetSpotlight:1000000, minBudgetStream:400000 },
   AE: { currency:'AED', symbol:'AED', rate:2285, spotlight:{ min:91400, recommended:109000 }, stream:{ min:38000, recommended:45000 }, label:'UAE', minBudgetSpotlight:900000, minBudgetStream:360000 },
   // 1 AED ≈ ₹22.85 · Spotlight AED 40/1K
   JP: { currency:'JPY', symbol:'¥', rate:56, spotlight:{ min:100800, recommended:120000 }, stream:{ min:42000, recommended:50000 }, label:'Japan', minBudgetSpotlight:1000000, minBudgetStream:400000 },
   // 1 JPY ≈ ₹0.56 · Spotlight ¥1800/1K
+  // ── The 10 countries below were previously only priced on the marketing site
+  // (web/index.html's own hardcoded GEO_PRICING copy) and had NO entry here —
+  // an advertiser targeting one of them was silently priced as if targeting
+  // India instead of what the site showed them. Added here using the exact
+  // same public CPM/budget figures already shown on the site, so the number a
+  // prospect sees now matches what they're actually charged.
+  PK: { currency:'PKR', symbol:'Rs', rate:30, spotlight:{ min:66000, recommended:76000 }, stream:{ min:27000, recommended:31000 }, label:'Pakistan', minBudgetSpotlight:600000, minBudgetStream:270000 },
+  BD: { currency:'BDT', symbol:'৳', rate:76, spotlight:{ min:68400, recommended:79000 }, stream:{ min:26600, recommended:31000 }, label:'Bangladesh', minBudgetSpotlight:608000, minBudgetStream:243200 },
+  LK: { currency:'LKR', symbol:'Rs', rate:28, spotlight:{ min:70000, recommended:80500 }, stream:{ min:28000, recommended:32000 }, label:'Sri Lanka', minBudgetSpotlight:616000, minBudgetStream:246400 },
+  NP: { currency:'NPR', symbol:'Rs', rate:63, spotlight:{ min:69300, recommended:80000 }, stream:{ min:27090, recommended:31000 }, label:'Nepal', minBudgetSpotlight:598500, minBudgetStream:239400 },
+  ID: { currency:'IDR', symbol:'Rp', rate:0.52, spotlight:{ min:88400, recommended:102000 }, stream:{ min:36400, recommended:42000 }, label:'Indonesia', minBudgetSpotlight:780000, minBudgetStream:312000 },
+  PH: { currency:'PHP', symbol:'₱', rate:149, spotlight:{ min:80460, recommended:92500 }, stream:{ min:32780, recommended:38000 }, label:'Philippines', minBudgetSpotlight:715200, minBudgetStream:286080 },
+  MY: { currency:'MYR', symbol:'RM', rate:1850, spotlight:{ min:96200, recommended:111000 }, stream:{ min:38850, recommended:45000 }, label:'Malaysia', minBudgetSpotlight:888000, minBudgetStream:355200 },
+  TH: { currency:'THB', symbol:'฿', rate:237, spotlight:{ min:90060, recommended:103500 }, stream:{ min:36735, recommended:42000 }, label:'Thailand', minBudgetSpotlight:805800, minBudgetStream:322320 },
+  KR: { currency:'KRW', symbol:'₩', rate:6.3, spotlight:{ min:94500, recommended:109000 }, stream:{ min:37800, recommended:43500 }, label:'South Korea', minBudgetSpotlight:850500, minBudgetStream:340200 },
 };
 
 function getGeoPricing(countries) {
@@ -1267,7 +1293,7 @@ const server = http.createServer(async (req, res) => {
 
         if (bidPaise < minBidPaise) {
           return send(res, 400, {
-            error: `Minimum bid for ${geoPricing.label} is ${geoPricing.symbol}${(minBidPaise / geoPricing.rate / 100).toFixed(0)} per 1,000 impressions`,
+            error: `Minimum bid for ${geoPricing.label} is ${geoPricing.symbol}${(minBidPaise / geoPricing.rate).toFixed(0)} per 1,000 impressions`,
             minBidPaise, currency: geoPricing.currency, symbol: geoPricing.symbol,
           });
         }
@@ -2166,24 +2192,33 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         spotlight: {
           minPaise: pricing.spotlight.min,
           recommendedPaise: pricing.spotlight.recommended,
-          minDisplay: (pricing.spotlight.min / pricing.rate / 100).toFixed(0),
-          recommendedDisplay: (pricing.spotlight.recommended / pricing.rate / 100).toFixed(0),
+          minDisplay: (pricing.spotlight.min / pricing.rate).toFixed(0),
+          recommendedDisplay: (pricing.spotlight.recommended / pricing.rate).toFixed(0),
           minBudgetPaise: pricing.minBudgetSpotlight,
-          minBudgetDisplay: (pricing.minBudgetSpotlight / pricing.rate / 100).toFixed(0),
+          minBudgetDisplay: (pricing.minBudgetSpotlight / pricing.rate).toFixed(0),
         },
         stream: {
           minPaise: pricing.stream.min,
           recommendedPaise: pricing.stream.recommended,
-          minDisplay: (pricing.stream.min / pricing.rate / 100).toFixed(0),
-          recommendedDisplay: (pricing.stream.recommended / pricing.rate / 100).toFixed(0),
+          minDisplay: (pricing.stream.min / pricing.rate).toFixed(0),
+          recommendedDisplay: (pricing.stream.recommended / pricing.rate).toFixed(0),
           minBudgetPaise: pricing.minBudgetStream,
-          minBudgetDisplay: (pricing.minBudgetStream / pricing.rate / 100).toFixed(0),
+          minBudgetDisplay: (pricing.minBudgetStream / pricing.rate).toFixed(0),
         },
         note: `Prices shown in ${pricing.currency}. Charged in INR at current exchange rate (~${pricing.rate/100} ${pricing.currency}/INR).`,
+        // Full table for every supported country in one call — this is the single
+        // source of truth for pricing. The web frontend (index.html, advertiser.html)
+        // used to keep its own hand-copied duplicate of GEO_PRICING, which could
+        // (and did) drift out of sync with these real numbers. Fetch this instead
+        // of re-hardcoding prices anywhere else.
         allCountries: Object.entries(GEO_PRICING).map(([code, p]) => ({
-          code, label: p.label, currency: p.currency, symbol: p.symbol,
-          spotlightMinDisplay: (p.spotlight.min / p.rate / 100).toFixed(0),
-          streamMinDisplay: (p.stream.min / p.rate / 100).toFixed(0),
+          code, label: p.label, currency: p.currency, symbol: p.symbol, rate: p.rate,
+          spotlightMinDisplay: (p.spotlight.min / p.rate).toFixed(0),
+          spotlightRecommendedDisplay: (p.spotlight.recommended / p.rate).toFixed(0),
+          spotlightMinBudgetDisplay: (p.minBudgetSpotlight / p.rate).toFixed(0),
+          streamMinDisplay: (p.stream.min / p.rate).toFixed(0),
+          streamRecommendedDisplay: (p.stream.recommended / p.rate).toFixed(0),
+          streamMinBudgetDisplay: (p.minBudgetStream / p.rate).toFixed(0),
         })),
       });
     }

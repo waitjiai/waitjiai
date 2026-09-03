@@ -191,13 +191,20 @@ footer a{color:rgba(255,255,255,.5);text-decoration:none;}
 <script>
 const API = 'https://waitjiai-backend.onrender.com';
 
+// Only 'api' and 'web' are independently checked below (a real API ping and a
+// real fetch to the site). 'ext', 'pay', 'email' and 'auth' have no independent
+// check of their own — Cashfree/PayPal/Razorpay/Resend/Supabase aren't pinged
+// from here — so their status is *inferred* from whether the core API responds.
+// That used to be silently presented as "Operational" like the directly-checked
+// services; the desc text below now says so explicitly rather than implying
+// these are monitored the same way.
 const SVCS = [
   {id:'api',    icon:'⚡', name:'API & Ad Serving',      desc:'Core platform — impressions, billing, authentication'},
   {id:'web',    icon:'🌐', name:'Website & Dashboards',  desc:'Homepage, advertiser portal, developer dashboard'},
-  {id:'ext',    icon:'🔌', name:'VS Code Extension',     desc:'WaitJI AI extension — spinner & status line ads'},
-  {id:'pay',    icon:'💳', name:'Payments',              desc:'Advertiser billing & developer payouts'},
-  {id:'email',  icon:'✉️', name:'Email notifications',   desc:'Transactional and alert emails'},
-  {id:'auth',   icon:'🔐', name:'Authentication',        desc:'Login, signup, session management'},
+  {id:'ext',    icon:'🔌', name:'VS Code Extension',     desc:'WaitJI AI extension — spinner & status line ads · inferred from API health'},
+  {id:'pay',    icon:'💳', name:'Payments',              desc:'Advertiser billing & developer payouts · inferred from API health, gateways not pinged directly'},
+  {id:'email',  icon:'✉️', name:'Email notifications',   desc:'Transactional and alert emails · inferred from API health'},
+  {id:'auth',   icon:'🔐', name:'Authentication',        desc:'Login, signup, session management · inferred from API health'},
 ];
 
 function set(id, val){ const el=document.getElementById(id); if(el) el.textContent=val; }
@@ -228,22 +235,32 @@ async function renderUptime(){
     realPct = d.uptimePct || '99.9';
     set('mUp', realPct+'%');
   }catch(e){}
-  const svcs = ['API & Ad Serving','Website & Dashboards','VS Code Extension','Payments'];
-  document.getElementById('uptimePanel').innerHTML = svcs.map((name,si) => {
-    let bars;
-    if(si===0 && realDays) {
-      bars = realDays.map(d => d.status==='ok'?'ok':d.status==='no-data'?'no-data':'issue');
-    } else {
-      bars = Array.from({length:90},()=>'ok');
-    }
+  // Day-by-day history is only actually recorded for the core API (see
+  // GET /v1/public/uptime, backed by db.uptimePings). The other three rows
+  // used to fill in 90 fabricated "ok" bars regardless of what really
+  // happened — always showing a perfect green chart whether or not it was
+  // true. They now say plainly that per-day history isn't tracked for them
+  // yet, instead of manufacturing a fake one.
+  const trackedSvc = 'API & Ad Serving';
+  const untrackedSvcs = ['Website & Dashboards', 'VS Code Extension', 'Payments'];
+
+  let html = '';
+  if (realDays) {
+    const bars = realDays.map(d => d.status==='ok'?'ok':d.status==='no-data'?'no-data':'issue');
     const okCount = bars.filter(b=>b==='ok').length;
-    const pct = (okCount/bars.length*100).toFixed(2);
-    return `<div class="up-row">
-      <div class="up-hd"><span>${name}</span><span class="up-pct">${pct}% uptime</span></div>
+    const trackedCount = bars.filter(b=>b!=='no-data').length;
+    const pct = trackedCount ? (okCount/trackedCount*100).toFixed(2) : realPct;
+    html += `<div class="up-row">
+      <div class="up-hd"><span>${trackedSvc}</span><span class="up-pct">${pct}% uptime</span></div>
       <div class="bars">${bars.map(b=>`<div class="bar bar-${b==='no-data'?'none':b}" title="${b}"></div>`).join('')}</div>
       <div class="up-range"><span>90 days ago</span><span>Today</span></div>
     </div>`;
-  }).join('');
+  }
+  html += untrackedSvcs.map(name => `<div class="up-row">
+      <div class="up-hd"><span>${name}</span><span class="up-pct" style="color:var(--muted,#8a8a9a);">Not yet tracked</span></div>
+      <div style="font-size:12px;color:var(--muted,#8a8a9a);padding:6px 0;">Per-day uptime history isn't recorded for this service yet — only current status (above) is available.</div>
+    </div>`).join('');
+  document.getElementById('uptimePanel').innerHTML = html;
 }
 
 async function check(){

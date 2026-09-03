@@ -79,16 +79,16 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:28px 40px;displa
   <p><strong>When you join the waitlist:</strong></p>
   <ul><li>Email address</li><li>Role (developer or advertiser)</li><li>Date and time of signup</li></ul>
   <p><strong>When you create an account:</strong></p>
-  <ul><li>Name, email address, password (stored encrypted)</li><li>For earners: UPI ID (for payouts only)</li><li>For advertisers: Company name, billing information</li></ul>
+  <ul><li>Name, email address, password (never stored in plain text — passwords are salted and hashed, one-way, so we cannot recover or view your actual password)</li><li>For earners: UPI ID, and if provided, bank account details or PayPal email for payouts (bank account numbers are encrypted at rest)</li><li>For advertisers: Company name, billing information</li></ul>
   <p><strong>Automatically collected:</strong></p>
   <ul><li>IP address (used for click-fraud detection only)</li><li>Browser type and device information</li><li>Ad impressions and click activity (for earnings calculation)</li></ul>
   <h2>3. How We Use Your Information</h2>
   <ul><li>To operate your account and calculate earnings</li><li>To process UPI payouts to earners</li><li>To detect and prevent click fraud</li><li>To send product updates (unsubscribe anytime)</li><li>To comply with applicable Indian laws</li></ul>
   <p>We do <strong>not</strong> sell your personal data to any third party.</p>
   <h2>4. Data Storage & Security</h2>
-  <p>Your data is stored securely using <strong>Supabase</strong> (AWS Mumbai region). Passwords are hashed using industry-standard encryption. API communications use HTTPS/TLS. We retain your data for as long as your account is active. Deletion requests are processed within 30 days.</p>
+  <p><strong>Supabase</strong> (AWS Mumbai region) handles sign-up and login only — it verifies your email/phone and issues your session. Your account, campaign, earnings, and payout data is stored separately in our own managed database. Passwords are hashed with a one-way, salted algorithm (not reversible — we cannot look up your actual password). Sensitive payout details such as bank account numbers are encrypted at rest. API communications use HTTPS/TLS. We retain your data for as long as your account is active. Deletion requests are processed within 30 days.</p>
   <h2>5. Third-Party Services</h2>
-  <ul><li><strong>Supabase</strong> — authentication and database</li><li><strong>Vercel</strong> — website hosting</li><li><strong>Resend</strong> — transactional emails</li><li><strong>Razorpay</strong> — payment processing</li></ul>
+  <ul><li><strong>Supabase</strong> — authentication (sign-up/login) only</li><li><strong>Vercel</strong> — website hosting</li><li><strong>Resend</strong> — transactional emails</li><li><strong>Razorpay</strong> — advertiser payment collection</li><li><strong>Cashfree</strong> — UPI/bank payouts to Indian earners</li><li><strong>PayPal</strong> — payouts to international earners</li></ul>
   <h2>6. Your Rights (DPDP Act 2023)</h2>
   <ul><li><strong>Access</strong> — request a copy of your personal data</li><li><strong>Correction</strong> — update inaccurate data</li><li><strong>Deletion</strong> — request erasure of your data</li></ul>
   <p>Email <a href="mailto:admin@waitjiai.in">admin@waitjiai.in</a> with subject "Privacy Request". We respond within 30 days.</p>

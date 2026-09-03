@@ -682,7 +682,7 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:40px;display:fle
         <div style="text-align:center;padding:40px;color:rgba(255,255,255,.3);font-family:var(--mono);font-size:13px;">Loading…</div>
       </div>
     </div>
-    <p style="color:rgba(255,255,255,.25);font-size:12px;margin-top:16px;font-family:var(--mono);">Developer handles are randomized · earnings verified on-chain</p>
+    <p style="color:rgba(255,255,255,.25);font-size:12px;margin-top:16px;font-family:var(--mono);">Developer handles are randomized for privacy · earnings pulled live from the same database developers see in their own dashboard</p>
   </div>
 </section>
 <footer>
@@ -786,28 +786,42 @@ setInterval(loadLeaderboard, 300000);
 
 <script>
 // ── WaitJI AI — Geo detection + currency switching ──────────────────────────
-const GEO_PRICING = {
-  IN:  {currency:'INR', symbol:'₹',    flag:'🇮🇳', name:'India',       rate:1,     spot:800,   stream:300,   minBudget:5000},
-  US:  {currency:'USD', symbol:'$',    flag:'🇺🇸', name:'USA',         rate:83.9,  spot:12,    stream:5,     minBudget:120},
-  GB:  {currency:'GBP', symbol:'£',    flag:'🇬🇧', name:'UK',          rate:106,   spot:10,    stream:4.5,   minBudget:95},
-  SG:  {currency:'SGD', symbol:'S$',   flag:'🇸🇬', name:'Singapore',   rate:62,    spot:16,    stream:6.5,   minBudget:150},
-  AU:  {currency:'AUD', symbol:'A$',   flag:'🇦🇺', name:'Australia',   rate:54.5,  spot:18,    stream:7.5,   minBudget:160},
-  CA:  {currency:'CAD', symbol:'C$',   flag:'🇨🇦', name:'Canada',      rate:61.5,  spot:16,    stream:6.5,   minBudget:150},
-  DE:  {currency:'EUR', symbol:'€',    flag:'🇩🇪', name:'Germany',     rate:90.5,  spot:11,    stream:4.5,   minBudget:100},
-  NL:  {currency:'EUR', symbol:'€',    flag:'🇳🇱', name:'Netherlands', rate:90.5,  spot:11,    stream:4.5,   minBudget:100},
-  FR:  {currency:'EUR', symbol:'€',    flag:'🇫🇷', name:'France',      rate:90.5,  spot:11,    stream:4.5,   minBudget:100},
-  AE:  {currency:'AED', symbol:'AED ', flag:'🇦🇪', name:'UAE',         rate:22.85, spot:40,    stream:16,    minBudget:370},
-  JP:  {currency:'JPY', symbol:'¥',    flag:'🇯🇵', name:'Japan',       rate:0.56,  spot:1800,  stream:750,   minBudget:16500},
-  PK:  {currency:'PKR', symbol:'Rs ',  flag:'🇵🇰', name:'Pakistan',    rate:0.3,   spot:2200,  stream:900,   minBudget:20000},
-  BD:  {currency:'BDT', symbol:'৳',    flag:'🇧🇩', name:'Bangladesh',  rate:0.76,  spot:900,   stream:350,   minBudget:8000},
-  LK:  {currency:'LKR', symbol:'Rs ',  flag:'🇱🇰', name:'Sri Lanka',   rate:0.28,  spot:2500,  stream:1000,  minBudget:22000},
-  NP:  {currency:'NPR', symbol:'Rs ',  flag:'🇳🇵', name:'Nepal',       rate:0.63,  spot:1100,  stream:430,   minBudget:9500},
-  ID:  {currency:'IDR', symbol:'Rp ',  flag:'🇮🇩', name:'Indonesia',   rate:0.0052,spot:170000,stream:70000, minBudget:1500000},
-  PH:  {currency:'PHP', symbol:'₱',    flag:'🇵🇭', name:'Philippines', rate:1.49,  spot:540,   stream:220,   minBudget:4800},
-  MY:  {currency:'MYR', symbol:'RM ',  flag:'🇲🇾', name:'Malaysia',    rate:18.5,  spot:52,    stream:21,    minBudget:480},
-  TH:  {currency:'THB', symbol:'฿',    flag:'🇹🇭', name:'Thailand',    rate:2.37,  spot:380,   stream:155,   minBudget:3400},
-  KR:  {currency:'KRW', symbol:'₩',    flag:'🇰🇷', name:'South Korea', rate:0.063, spot:15000, stream:6000,  minBudget:135000},
+// Pricing itself is fetched from the backend (single source of truth — see
+// GET /v1/public/pricing) instead of being hand-copied here. This used to be a
+// hardcoded duplicate of backend/server.js's GEO_PRICING table that could (and
+// did) drift out of sync with what advertisers are actually charged. Only
+// cosmetic per-country metadata (flag emoji, display name) stays local since
+// it carries no pricing information and can't drift into a billing mismatch.
+const COUNTRY_META = {
+  IN:{flag:'🇮🇳',name:'India'}, US:{flag:'🇺🇸',name:'USA'}, GB:{flag:'🇬🇧',name:'UK'},
+  SG:{flag:'🇸🇬',name:'Singapore'}, AU:{flag:'🇦🇺',name:'Australia'}, CA:{flag:'🇨🇦',name:'Canada'},
+  DE:{flag:'🇩🇪',name:'Germany'}, NL:{flag:'🇳🇱',name:'Netherlands'}, FR:{flag:'🇫🇷',name:'France'},
+  AE:{flag:'🇦🇪',name:'UAE'}, JP:{flag:'🇯🇵',name:'Japan'}, PK:{flag:'🇵🇰',name:'Pakistan'},
+  BD:{flag:'🇧🇩',name:'Bangladesh'}, LK:{flag:'🇱🇰',name:'Sri Lanka'}, NP:{flag:'🇳🇵',name:'Nepal'},
+  ID:{flag:'🇮🇩',name:'Indonesia'}, PH:{flag:'🇵🇭',name:'Philippines'}, MY:{flag:'🇲🇾',name:'Malaysia'},
+  TH:{flag:'🇹🇭',name:'Thailand'}, KR:{flag:'🇰🇷',name:'South Korea'},
 };
+// Minimal fallback used only if the pricing fetch fails outright (offline/API
+// down) — India only, so the page still functions rather than showing blanks.
+let GEO_PRICING = { IN: {currency:'INR', symbol:'₹', flag:'🇮🇳', name:'India', rate:1, spot:800, stream:300, minBudget:5000} };
+let pricingLoaded = false;
+
+async function loadPricingTable(){
+  try{
+    const d = await fetch(API+'/v1/public/pricing', {signal:AbortSignal.timeout(6000)}).then(r=>r.json());
+    const table = {};
+    (d.allCountries||[]).forEach(p=>{
+      const meta = COUNTRY_META[p.code] || {flag:'', name:p.label};
+      table[p.code] = {
+        currency:p.currency, symbol:p.symbol, flag:meta.flag, name:meta.name,
+        rate:p.rate, spot:Number(p.spotlightMinDisplay), stream:Number(p.streamMinDisplay),
+        minBudget:Number(p.spotlightMinBudgetDisplay),
+      };
+    });
+    if (Object.keys(table).length) GEO_PRICING = table;
+  }catch(e){ /* keep the IN-only fallback above */ }
+  pricingLoaded = true;
+}
 
 let detectedCountry = 'IN';
 let currentPricing = GEO_PRICING['IN'];
@@ -929,7 +943,7 @@ function buildPriceCard(type){
   }));
 })();
 
-detectCountry();
+loadPricingTable().then(detectCountry);
 
 // ── Scroll-reveal (single IntersectionObserver, no scroll listeners — fast) ──
 if ('IntersectionObserver' in window) {
