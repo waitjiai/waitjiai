@@ -12,6 +12,8 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
+const { createCrypto } = require('./lib/crypto');
+const { GEO_PRICING, getGeoPricing, toLocalDisplay, tierDisplay, countryRow } = require('./lib/pricing');
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
@@ -32,6 +34,10 @@ if (!ENCRYPT_KEY) {
   console.error('FATAL: ENCRYPT_KEY is not set. Generate one with `openssl rand -hex 32` and set it as an env var. Refusing to start with an insecure default.');
   process.exit(1);
 }
+// Auth/crypto primitives (hashing, AES-256-GCM encryption, JWT sign/verify) —
+// see lib/crypto.js. Extracted there so they're unit-testable in isolation.
+const { encrypt, decrypt, hashPassword, verifyPassword, safeEq, signToken, verifyToken, b64url, uid } =
+  createCrypto({ encryptKey: ENCRYPT_KEY, jwtSecret: JWT_SECRET });
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@waitjiai.in';
 // SECURITY FIX (audit Critical #3): ADMIN_PASSWORD no longer has a hardcoded
 // fallback. The actual hard-fail check (only on FIRST boot, before any admin
@@ -108,30 +114,7 @@ async function paypalPayout(email, amountPaise, note) {
 }
 const LAUNCH_EMAIL_FROM = process.env.LAUNCH_EMAIL_FROM || 'WaitJI AI <admin@waitjiai.in>';
 
-// ── Encryption helpers (AES-256-GCM) ─────────────────────────────────────────
-const ENC_KEY = typeof ENCRYPT_KEY === 'string'
-  ? crypto.scryptSync(ENCRYPT_KEY, 'waitji-salt-v1', 32)
-  : ENCRYPT_KEY;
-function encrypt(text) {
-  if (!text) return text;
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', ENC_KEY, iv);
-  const enc = Buffer.concat([cipher.update(String(text), 'utf8'), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return 'enc:' + Buffer.concat([iv, tag, enc]).toString('base64');
-}
-function decrypt(text) {
-  if (!text || !String(text).startsWith('enc:')) return text;
-  try {
-    const buf = Buffer.from(text.slice(4), 'base64');
-    const iv = buf.slice(0, 12);
-    const tag = buf.slice(12, 28);
-    const enc = buf.slice(28);
-    const decipher = crypto.createDecipheriv('aes-256-gcm', ENC_KEY, iv);
-    decipher.setAuthTag(tag);
-    return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
-  } catch { return text; }
-}
+// encrypt/decrypt now come from lib/crypto.js (see createCrypto() call above).
 
 // ── Rate limiter — login/signup brute-force protection ──────────────────────
 const loginAttempts = new Map(); // ip -> { count, resetAt }
@@ -360,62 +343,7 @@ let db = {
 };
 const HOUSE_AD_RATE_PAISE = 5000; // ₹50 per 1000 impressions, founder-funded
 
-// ── Country-specific pricing (PPP + exchange rate adjusted) ──────────────────
-// Base: India ₹800 Spotlight / ₹300 Stream per 1K impressions
-// All prices stored internally in INR paise. Exchange rates approximate June 2026.
-// Logic: USD price × exchange_rate = INR equivalent, then PPP-adjust for local economy
-// `rate` is INR paise per 1 unit of the local currency (e.g. US rate:8390 means
-// $1 ≈ ₹83.90 ≈ 8390 paise). IN's rate is 100 (100 paise = ₹1) for the same
-// reason — it must NOT be 1, or every display conversion below divides by the
-// wrong unit. (BUG FIX: this used to be `rate:1`, which combined with a stray
-// extra "/100" in the display-formatting code below silently produced ~0 as
-// the shown minimum bid/budget for every non-Indian country on both the
-// campaign-creation error message and GET /v1/public/pricing. Since nothing in
-// the frontend actually called that endpoint — it kept its own hardcoded copy
-// of this table instead — nobody had hit this path. Now that the frontend
-// fetches pricing from here directly, the math has to be right.)
-const GEO_PRICING = {
-  IN: { currency:'INR', symbol:'₹', rate:100, spotlight:{ min:80000, recommended:80000 }, stream:{ min:30000, recommended:30000 }, label:'India', minBudgetSpotlight:500000, minBudgetStream:200000 },
-  US: { currency:'USD', symbol:'$', rate:8390, spotlight:{ min:101880, recommended:118000 }, stream:{ min:42000, recommended:50000 }, label:'USA', minBudgetSpotlight:1000000, minBudgetStream:400000 },
-  // 1 USD ≈ ₹83.9 · US devs have 3x higher ad value · Spotlight $12/1K, Stream $5/1K
-  GB: { currency:'GBP', symbol:'£', rate:10600, spotlight:{ min:106000, recommended:127000 }, stream:{ min:45000, recommended:53000 }, label:'United Kingdom', minBudgetSpotlight:1000000, minBudgetStream:400000 },
-  // 1 GBP ≈ ₹106 · Spotlight £10/1K
-  SG: { currency:'SGD', symbol:'S$', rate:6200, spotlight:{ min:99200, recommended:111600 }, stream:{ min:40000, recommended:46000 }, label:'Singapore', minBudgetSpotlight:900000, minBudgetStream:360000 },
-  // 1 SGD ≈ ₹62 · Spotlight S$16/1K
-  AU: { currency:'AUD', symbol:'A$', rate:5450, spotlight:{ min:98100, recommended:115000 }, stream:{ min:40000, recommended:47000 }, label:'Australia', minBudgetSpotlight:900000, minBudgetStream:360000 },
-  // 1 AUD ≈ ₹54.5 · Spotlight A$18/1K
-  CA: { currency:'CAD', symbol:'C$', rate:6150, spotlight:{ min:98400, recommended:115000 }, stream:{ min:40000, recommended:47000 }, label:'Canada', minBudgetSpotlight:900000, minBudgetStream:360000 },
-  // 1 CAD ≈ ₹61.5 · Spotlight C$16/1K
-  DE: { currency:'EUR', symbol:'€', rate:9050, spotlight:{ min:99550, recommended:118000 }, stream:{ min:42000, recommended:50000 }, label:'Germany', minBudgetSpotlight:1000000, minBudgetStream:400000 },
-  // 1 EUR ≈ ₹90.5 · Spotlight €11/1K
-  NL: { currency:'EUR', symbol:'€', rate:9050, spotlight:{ min:99550, recommended:118000 }, stream:{ min:42000, recommended:50000 }, label:'Netherlands', minBudgetSpotlight:1000000, minBudgetStream:400000 },
-  FR: { currency:'EUR', symbol:'€', rate:9050, spotlight:{ min:99550, recommended:118000 }, stream:{ min:42000, recommended:50000 }, label:'France', minBudgetSpotlight:1000000, minBudgetStream:400000 },
-  AE: { currency:'AED', symbol:'AED', rate:2285, spotlight:{ min:91400, recommended:109000 }, stream:{ min:38000, recommended:45000 }, label:'UAE', minBudgetSpotlight:900000, minBudgetStream:360000 },
-  // 1 AED ≈ ₹22.85 · Spotlight AED 40/1K
-  JP: { currency:'JPY', symbol:'¥', rate:56, spotlight:{ min:100800, recommended:120000 }, stream:{ min:42000, recommended:50000 }, label:'Japan', minBudgetSpotlight:1000000, minBudgetStream:400000 },
-  // 1 JPY ≈ ₹0.56 · Spotlight ¥1800/1K
-  // ── The 10 countries below were previously only priced on the marketing site
-  // (web/index.html's own hardcoded GEO_PRICING copy) and had NO entry here —
-  // an advertiser targeting one of them was silently priced as if targeting
-  // India instead of what the site showed them. Added here using the exact
-  // same public CPM/budget figures already shown on the site, so the number a
-  // prospect sees now matches what they're actually charged.
-  PK: { currency:'PKR', symbol:'Rs', rate:30, spotlight:{ min:66000, recommended:76000 }, stream:{ min:27000, recommended:31000 }, label:'Pakistan', minBudgetSpotlight:600000, minBudgetStream:270000 },
-  BD: { currency:'BDT', symbol:'৳', rate:76, spotlight:{ min:68400, recommended:79000 }, stream:{ min:26600, recommended:31000 }, label:'Bangladesh', minBudgetSpotlight:608000, minBudgetStream:243200 },
-  LK: { currency:'LKR', symbol:'Rs', rate:28, spotlight:{ min:70000, recommended:80500 }, stream:{ min:28000, recommended:32000 }, label:'Sri Lanka', minBudgetSpotlight:616000, minBudgetStream:246400 },
-  NP: { currency:'NPR', symbol:'Rs', rate:63, spotlight:{ min:69300, recommended:80000 }, stream:{ min:27090, recommended:31000 }, label:'Nepal', minBudgetSpotlight:598500, minBudgetStream:239400 },
-  ID: { currency:'IDR', symbol:'Rp', rate:0.52, spotlight:{ min:88400, recommended:102000 }, stream:{ min:36400, recommended:42000 }, label:'Indonesia', minBudgetSpotlight:780000, minBudgetStream:312000 },
-  PH: { currency:'PHP', symbol:'₱', rate:149, spotlight:{ min:80460, recommended:92500 }, stream:{ min:32780, recommended:38000 }, label:'Philippines', minBudgetSpotlight:715200, minBudgetStream:286080 },
-  MY: { currency:'MYR', symbol:'RM', rate:1850, spotlight:{ min:96200, recommended:111000 }, stream:{ min:38850, recommended:45000 }, label:'Malaysia', minBudgetSpotlight:888000, minBudgetStream:355200 },
-  TH: { currency:'THB', symbol:'฿', rate:237, spotlight:{ min:90060, recommended:103500 }, stream:{ min:36735, recommended:42000 }, label:'Thailand', minBudgetSpotlight:805800, minBudgetStream:322320 },
-  KR: { currency:'KRW', symbol:'₩', rate:6.3, spotlight:{ min:94500, recommended:109000 }, stream:{ min:37800, recommended:43500 }, label:'South Korea', minBudgetSpotlight:850500, minBudgetStream:340200 },
-};
-
-function getGeoPricing(countries) {
-  // Return pricing for the first/primary target country
-  const primary = (countries && countries[0]) || 'IN';
-  return GEO_PRICING[primary] || GEO_PRICING['IN'];
-}
+// GEO_PRICING and getGeoPricing() now come from lib/pricing.js (see requires at top).
 
 // Public endpoint to get pricing for a country
 
@@ -533,28 +461,7 @@ function seed() {
   saveDB();
 }
 
-// ── Crypto helpers ─────────────────────────────────────────────────────────────
-function hashPassword(pw) {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.scryptSync(pw, salt, 64).toString('hex');
-  return `${salt}:${hash}`;
-}
-function verifyPassword(pw, stored) {
-  if (!stored || !stored.includes(':')) return false;
-  const [salt, hash] = stored.split(':');
-  const test = crypto.scryptSync(pw, salt, 64).toString('hex');
-  return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(test));
-}
-
-// SECURITY FIX (audit Low #6): constant-time string comparison, used for JWT
-// signature verification and Razorpay webhook signature verification — plain
-// `!==` short-circuits on the first differing byte, which is a (hard to exploit
-// remotely, but free-to-fix) timing side-channel. Matches the pattern already
-// used correctly in verifyPassword() above.
-function safeEq(a, b) {
-  const ba = Buffer.from(String(a)), bb = Buffer.from(String(b));
-  return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
-}
+// hashPassword/verifyPassword/safeEq now come from lib/crypto.js (see createCrypto() call above).
 
 // ── FEATURE: role-based admin sub-accounts ──────────────────────────────────────
 // An admin user without `adminScope` set (or with adminScope === 'full') is the
@@ -579,25 +486,7 @@ function requireScope(user, allowedScopes, res) {
   return false;
 }
 
-// Minimal JWT (HS256)
-function signToken(payload) {
-  const header = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const body = b64url(JSON.stringify({ ...payload, iat: Date.now(), exp: Date.now() + 7 * 864e5 }));
-  const sig = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
-  return `${header}.${body}.${sig}`;
-}
-function verifyToken(token) {
-  try {
-    const [header, body, sig] = token.split('.');
-    const expected = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
-    if (!safeEq(sig, expected)) return null;
-    const payload = JSON.parse(Buffer.from(body, 'base64url').toString());
-    if (payload.exp < Date.now()) return null;
-    return payload;
-  } catch { return null; }
-}
-function b64url(s) { return Buffer.from(s).toString('base64url'); }
-function uid(prefix = '') { return prefix + crypto.randomBytes(8).toString('hex'); }
+// signToken/verifyToken/b64url/uid now come from lib/crypto.js (see createCrypto() call above).
 
 // ── Real geo resolution from IP ────────────────────────────────────────────────
 // Previously every impression's `country` field silently defaulted to 'IN' —
@@ -799,6 +688,15 @@ function isApiKeyRequest(req) {
 
 // ── Server ────────────────────────────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
+  // BUG FIX: `url` below is the PATH ONLY (query string stripped) — it's what
+  // every route match (`url === '/v1/...'`) below compares against. Four
+  // routes used to build `new URL('http://x'+url)` to read a query param from
+  // this already-stripped value, so `?type=stream`, `?country=US`,
+  // `?status=pending` etc. were silently always empty (e.g. GET
+  // /v1/ads/active?type=stream always fell back to the 'spotlight' default —
+  // Stream-placement ads never actually served as Stream). Any route that
+  // needs a query param must parse `req.url` (raw, still has the query
+  // string), never this `url` variable.
   const url = req.url.split('?')[0];
   const method = req.method;
   const ip = getIP(req);
@@ -1063,7 +961,7 @@ const server = http.createServer(async (req, res) => {
 
     // ═══════════ ADS SERVING (public, used by extension) ═══════════
     if (method === 'GET' && url.startsWith('/v1/ads/active')) {
-      const params = new URL('http://x'+url).searchParams;
+      const params = new URL('http://x'+req.url).searchParams;
       const adType = params.get('type') || 'spotlight'; // default: spotlight (VS Code spinner)
 
       const reqCountry = params.get('country') || 'IN';
@@ -1293,7 +1191,7 @@ const server = http.createServer(async (req, res) => {
 
         if (bidPaise < minBidPaise) {
           return send(res, 400, {
-            error: `Minimum bid for ${geoPricing.label} is ${geoPricing.symbol}${(minBidPaise / geoPricing.rate).toFixed(0)} per 1,000 impressions`,
+            error: `Minimum bid for ${geoPricing.label} is ${geoPricing.symbol}${toLocalDisplay(minBidPaise, geoPricing.rate)} per 1,000 impressions`,
             minBidPaise, currency: geoPricing.currency, symbol: geoPricing.symbol,
           });
         }
@@ -2183,27 +2081,21 @@ if (method === 'GET' && url === '/v1/customer/projection') {
 
     // ── Public pricing by country ──
     if (method === 'GET' && url.startsWith('/v1/public/pricing')) {
-      const country = new URL('http://x'+url).searchParams.get('country') || 'IN';
+      const country = new URL('http://x'+req.url).searchParams.get('country') || 'IN';
       const pricing = GEO_PRICING[country] || GEO_PRICING['IN'];
       return send(res, 200, {
         country,
         currency: pricing.currency,
         symbol: pricing.symbol,
         spotlight: {
-          minPaise: pricing.spotlight.min,
-          recommendedPaise: pricing.spotlight.recommended,
-          minDisplay: (pricing.spotlight.min / pricing.rate).toFixed(0),
-          recommendedDisplay: (pricing.spotlight.recommended / pricing.rate).toFixed(0),
+          ...tierDisplay(pricing.spotlight, pricing.rate),
           minBudgetPaise: pricing.minBudgetSpotlight,
-          minBudgetDisplay: (pricing.minBudgetSpotlight / pricing.rate).toFixed(0),
+          minBudgetDisplay: toLocalDisplay(pricing.minBudgetSpotlight, pricing.rate),
         },
         stream: {
-          minPaise: pricing.stream.min,
-          recommendedPaise: pricing.stream.recommended,
-          minDisplay: (pricing.stream.min / pricing.rate).toFixed(0),
-          recommendedDisplay: (pricing.stream.recommended / pricing.rate).toFixed(0),
+          ...tierDisplay(pricing.stream, pricing.rate),
           minBudgetPaise: pricing.minBudgetStream,
-          minBudgetDisplay: (pricing.minBudgetStream / pricing.rate).toFixed(0),
+          minBudgetDisplay: toLocalDisplay(pricing.minBudgetStream, pricing.rate),
         },
         note: `Prices shown in ${pricing.currency}. Charged in INR at current exchange rate (~${pricing.rate/100} ${pricing.currency}/INR).`,
         // Full table for every supported country in one call — this is the single
@@ -2211,15 +2103,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         // used to keep its own hand-copied duplicate of GEO_PRICING, which could
         // (and did) drift out of sync with these real numbers. Fetch this instead
         // of re-hardcoding prices anywhere else.
-        allCountries: Object.entries(GEO_PRICING).map(([code, p]) => ({
-          code, label: p.label, currency: p.currency, symbol: p.symbol, rate: p.rate,
-          spotlightMinDisplay: (p.spotlight.min / p.rate).toFixed(0),
-          spotlightRecommendedDisplay: (p.spotlight.recommended / p.rate).toFixed(0),
-          spotlightMinBudgetDisplay: (p.minBudgetSpotlight / p.rate).toFixed(0),
-          streamMinDisplay: (p.stream.min / p.rate).toFixed(0),
-          streamRecommendedDisplay: (p.stream.recommended / p.rate).toFixed(0),
-          streamMinBudgetDisplay: (p.minBudgetStream / p.rate).toFixed(0),
-        })),
+        allCountries: Object.entries(GEO_PRICING).map(([code, p]) => countryRow(code, p)),
       });
     }
 
@@ -2308,7 +2192,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
       // all advertisers
       // list all withdrawal requests (newest first), with optional ?status= filter
       if (method === 'GET' && url === '/v1/admin/withdrawals') {
-        const params = new URL('http://x'+url).searchParams;
+        const params = new URL('http://x'+req.url).searchParams;
         const statusFilter = params.get('status');
         let reqs = [...db.withdrawalRequests].sort((a, b) => b.requestedAt - a.requestedAt);
         if (statusFilter) reqs = reqs.filter(r => r.status === statusFilter);
@@ -3521,7 +3405,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
     if (method === 'GET' && url.startsWith('/v1/admin/careers')) {
       const user = auth(req);
       if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin access required' });
-      const params = new URL('http://x'+url).searchParams;
+      const params = new URL('http://x'+req.url).searchParams;
       const statusFilter = params.get('status');
       let apps = [...(db.careers||[])].sort((a,b) => b.appliedAt - a.appliedAt);
       if (statusFilter) apps = apps.filter(a => a.status === statusFilter);
