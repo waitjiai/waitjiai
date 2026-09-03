@@ -75,7 +75,12 @@
     {
       "@type": "Question",
       "name": "What fraud protection does WaitJI AI have?",
-      "acceptedAnswer": {"@type": "Answer", "text": "WaitJI AI uses multiple layers of fraud protection: IP rate limiting (max 50 impressions/hour per IP), click cooldown (30 seconds between clicks), bot detection, and manual fraud review. Invalid clicks are never billed to advertisers. Advertisers only pay for genuine developer impressions."}
+      "acceptedAnswer": {"@type": "Answer", "text": "WaitJI AI uses multiple layers of automated fraud protection: a cap of 10 clicks/minute and 60 impressions/minute per developer, a maximum of 50 clicks/hour per IP address, a 1.5-second minimum gap between clicks, and an automatic flag if click-through rate exceeds 25%. Invalid impressions and clicks are never billed to advertisers — and are never credited to developer earnings either."}
+    },
+    {
+      "@type": "Question",
+      "name": "Why don't my earnings always match my Claude Code activity?",
+      "acceptedAnswer": {"@type": "Answer", "text": "Every impression and click is checked automatically by our fraud protection system. Activity flagged by these checks is not billed to advertisers and is not credited to your earnings, even though it still happened on your machine. Normal Claude Code usage, even heavy daily use, is never affected — these checks are tuned to catch bot-like patterns, not real developers working normally."}
     },
     {
       "@type": "Question",
@@ -230,6 +235,11 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:32px 40px;displa
       <div class="faq-q" onclick="toggle(this)">What if there are no active advertisers?</div>
       <div class="faq-a"><div class="faq-a-inner">WaitJI AI runs <strong>house ads</strong> when no paid campaigns are active. This ensures the spinner always shows something (typically a WaitJI AI brand message) and keeps the extension active. You do not earn on house ad impressions — earnings only happen on paid campaign impressions.</div></div>
     </div>
+
+    <div class="faq-item" data-cat="earner">
+      <div class="faq-q" onclick="toggle(this)">Why don't my earnings always match my Claude Code activity?</div>
+      <div class="faq-a"><div class="faq-a-inner">Every impression and click is checked automatically by our fraud protection system — things like impressions arriving faster than 1/second, clicks faster than a human reaction time, or unusually high click-through rates. Activity flagged by these checks is <strong>not billed to advertisers and is not credited to your earnings</strong>, even though it still happened on your machine. This is what keeps advertisers paying for genuine attention, which is what keeps the marketplace funded. Normal Claude Code usage — even heavy daily use — is never affected; these checks are tuned to catch bot-like patterns, not real developers working normally. See <a href="#faq-fraud-protection" onclick="var t=document.getElementById('faq-fraud-protection');document.querySelectorAll('.faq-item.open').forEach(i=>i.classList.remove('open'));t.classList.add('open');t.scrollIntoView({behavior:'smooth',block:'center'});return false;">fraud protection</a> below for the exact thresholds.</div></div>
+    </div>
   </div>
 
   <!-- FOR ADVERTISERS -->
@@ -258,7 +268,7 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:32px 40px;displa
 
     <div class="faq-item" data-cat="advertiser">
       <div class="faq-q" onclick="toggle(this)">Can I get a GST invoice?</div>
-      <div class="faq-a"><div class="faq-a-inner">Yes. From your advertiser dashboard, click <strong>🧾 Invoice</strong> on any campaign to download a GST tax invoice from QivaLabs LLP. The invoice includes CGST (9%) and SGST (9%) breakdowns. You can provide your GSTIN during account setup for B2B invoicing.</div></div>
+      <div class="faq-a"><div class="faq-a-inner">Yes. From your advertiser dashboard, click <strong>🧾 Invoice</strong> on any campaign to download an invoice from QivaLabs LLP. If QivaLabs LLP is GST-registered at the time, the invoice includes a CGST (9%) + SGST (9%) breakdown; if not yet GST-registered, the invoice correctly shows "Not GST registered" and charges zero GST — we only add GST once registration is actually in place, as required by Indian law. You can provide your GSTIN during account setup for B2B invoicing.</div></div>
     </div>
 
     <div class="faq-item" data-cat="advertiser">
@@ -270,6 +280,11 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:32px 40px;displa
   <!-- TECHNICAL -->
   <div class="faq-section" data-cat="technical">
     <div class="faq-section-title">⚙️ Technical</div>
+
+    <div class="faq-item" data-cat="technical" id="faq-fraud-protection">
+      <div class="faq-q" onclick="toggle(this)">What fraud protection does WaitJI AI have?</div>
+      <div class="faq-a"><div class="faq-a-inner">WaitJI AI uses multiple layers of automated fraud protection: a cap of 10 clicks/minute and 60 impressions/minute per developer, a maximum of 50 clicks/hour per IP address, a 1.5-second minimum gap between clicks, and an automatic flag if your click-through rate exceeds 25% (normal CTR is under 2%). <strong>Invalid impressions and clicks are never billed to advertisers — and are never credited to developer earnings either.</strong> Advertisers only pay for genuine developer attention, and developers are only paid for genuine activity.</div></div>
+    </div>
 
     <div class="faq-item" data-cat="technical">
       <div class="faq-q" onclick="toggle(this)">Which version of Claude Code do I need?</div>
