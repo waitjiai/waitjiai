@@ -25,7 +25,7 @@
   "headline": "How to Earn ₹800/Month With Claude Code Without Changing Your Workflow",
   "description": "Step-by-step guide to earning passive UPI income with WaitJI AI's VS Code extension while using Claude Code.",
   "datePublished": "2026-06-28",
-  "dateModified": "2026-06-28",
+  "dateModified": "2026-09-05",
   "author": {"@type": "Person", "name": "Rajamuddin", "jobTitle": "CTO, QivaLabs LLP"},
   "publisher": {"@type": "Organization", "name": "QivaLabs LLP", "url": "https://www.waitjiai.in/"},
   "mainEntityOfPage": {"@type": "WebPage", "@id": "https://www.waitjiai.in/blog/how-to-earn-with-claude-code.html"},
@@ -117,7 +117,7 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:32px 40px;displa
   <div class="article-meta">
     <span>👤 Rajamuddin, CTO at QivaLabs</span>
     <span>📅 June 28, 2026</span>
-    <span>⏱ 6 min read</span>
+    <span>⏱ 8 min read</span>
   </div>
 </div>
 
@@ -206,11 +206,13 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:32px 40px;displa
   <h3>Keep VS Code open</h3>
   <p>The extension polls for new ads every 90 seconds. It only works when VS Code is running. Keeping VS Code open — even minimised — ensures you never miss an impression cycle when you start a Claude Code session.</p>
 
-  <h2>What real developers say</h2>
+  <h3>If you're outside India</h3>
+  <p>This guide uses India as the reference case, but WaitJI AI's advertiser pricing is PPP-adjusted across 20 countries — advertisers in the US, UK, Germany, Japan, and others pay in local currency at rates matched to local purchasing power, then converted to INR for your payout. Which country's campaigns you're eligible to see is detected automatically from your connection — there's nothing to configure — though UPI payouts themselves are still India-only for now; international payout support (Wise, Stripe) is on the roadmap.</p>
 
-  <blockquote>"I didn't believe I'd earn anything meaningful. After 3 weeks, I had ₹340 in my dashboard. Withdrew to GPay. Came through in 2 days. It's genuinely passive." — Backend developer, Bengaluru</blockquote>
+  <h2>What the first few weeks actually look like</h2>
 
-  <blockquote>"The spinner text doesn't bother me at all. I barely notice it. But the earnings accumulate while I work. ₹660 last month, ₹800 this month." — Full-stack developer, Pune</blockquote>
+  <p>Most developers don't withdraw immediately after installing — earnings need to cross the ₹100 minimum first. Based on the CPM math above, at 2 hours/day of typical Claude Code use with both placements active, that threshold is usually crossed somewhere in week two. Heavy daily users running longer agentic sessions tend to cross it faster; someone who only opens Claude Code a few times a week will take longer, since earnings are directly tied to how much Claude Code actually thinks, not to time installed.</p>
+  <p>Rather than ask you to take our word for what people are actually earning, the <a href="../leaderboard.html">live leaderboard</a> pulls real, anonymized earnings data straight from the same database developers see in their own dashboard — no projected numbers, no cherry-picked screenshots. It updates as impressions are served, so what you see there right now is current, not from whenever this post was published.</p>
 
   <h2>Is it safe? Does it affect Claude Code?</h2>
 
@@ -224,13 +226,26 @@ footer{background:var(--ink);color:rgba(255,255,255,.4);padding:32px 40px;displa
     <li>Can be disabled or uninstalled at any time from VS Code Extensions panel</li>
   </ul>
 
-  <p>The <code>spinnerVerbs</code> setting is an officially documented Claude Code feature. WaitJI AI is simply the first product to use it commercially.</p>
+  <p>The <code>spinnerVerbs</code> setting is an officially documented Claude Code feature — not the only way a Claude Code ad extension can be built, though. If you're comparing WaitJI AI against another product in this category, <a href="why-waitji-doesnt-patch-your-editor.html">this breakdown of documented settings vs. patching the editor</a> covers the technical distinction and how to check any extension yourself in a few minutes.</p>
+
+  <h2>Troubleshooting: why isn't my dashboard showing earnings?</h2>
+
+  <p>A few things account for almost every case of "I installed it but I'm not earning":</p>
+  <ul>
+    <li><strong>You haven't connected your account yet.</strong> The extension shows ads either way, but only credits earnings once your User ID is linked — check Command Palette → "WaitJI AI: Connect Your Account".</li>
+    <li><strong>Only house ads are showing.</strong> When no paid advertiser campaign is active for your region, WaitJI AI shows its own promotional messages instead — these don't earn you anything, but the extension is still working correctly and will start crediting real impressions the moment a paid campaign matches.</li>
+    <li><strong>Your activity looks automated to the fraud system.</strong> Impressions and clicks that come in faster than a human plausibly could (see the fraud protection thresholds in our <a href="../faq.html">FAQ</a>) aren't billed to advertisers or credited to you — this only affects genuinely abnormal patterns, not normal heavy use.</li>
+    <li><strong>VS Code isn't actually running.</strong> The poller that fetches ads and records impressions is a background process tied to VS Code being open — it can't earn on your behalf while VS Code is fully closed.</li>
+  </ul>
 
   <div class="cta-inline">
     <h3>Start earning in 5 minutes</h3>
     <p>Free to install. No subscription. Earnings paid directly to UPI from ₹100.</p>
     <a href="../login.html" class="btn-p">Create free account →</a>
   </div>
+
+  <h2>How do I know this is legit, not a scam?</h2>
+  <p>Reasonable question for anything offering to pay you for installing an extension. A few things you can verify yourself rather than take on trust: WaitJI AI runs on real advertiser auctions you can watch live — the <a href="../index.html">homepage</a> shows current bidding activity for both placements, and the <a href="../leaderboard.html">advertiser leaderboard</a> shows which campaigns are actually running and how many real impressions they've served. The company behind it, QivaLabs LLP, is a DPIIT-registered Indian LLP (LLPIN ACV-6746) based in Udaipur, Rajasthan — not an anonymous entity. And the mechanism itself — writing to a documented Claude Code settings file — is something you can inspect directly rather than trust blindly; nothing about it requires you to hand over more than a UPI ID for payouts.</p>
 
   <h2>Frequently asked questions</h2>
 

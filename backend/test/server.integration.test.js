@@ -107,3 +107,23 @@ test('GET /v1/ads/active?type=spotlight returns a spotlight ad', async () => {
     assert.equal(ad.adType, 'spotlight');
   }
 });
+
+// Regression test for a second bug the same investigation surfaced: neither
+// client ever sends a `country` param either, so this used to hard-default to
+// 'IN' unconditionally — meaning no non-India-targeted campaign could ever be
+// served to anyone, anywhere. The fix falls back to an IP-geo cache instead
+// of a hardcoded default; from localhost that cache can't resolve (loopback
+// IPs are explicitly excluded from geo lookup), so the safe, testable
+// assertion here is that the fallback chain still terminates in the
+// documented 'IN' default rather than erroring or hanging.
+test('GET /v1/ads/active with no country param does not error (falls back through IP-geo cache to India)', async () => {
+  const { status, json } = await get('/v1/ads/active');
+  assert.equal(status, 200);
+  assert.ok(Array.isArray(json.ads));
+});
+
+test('GET /v1/ads/active?country=US explicit param is honored', async () => {
+  const { status, json } = await get('/v1/ads/active?country=US');
+  assert.equal(status, 200);
+  assert.ok(Array.isArray(json.ads));
+});

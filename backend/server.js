@@ -964,7 +964,19 @@ const server = http.createServer(async (req, res) => {
       const params = new URL('http://x'+req.url).searchParams;
       const adType = params.get('type') || 'spotlight'; // default: spotlight (VS Code spinner)
 
-      const reqCountry = params.get('country') || 'IN';
+      // BUG FIX: neither client (extension.ts's fetchAds, nor the bundled
+      // poller.mjs) has ever sent a `country` param here — so this always
+      // fell back to the literal string 'IN', for every developer, everywhere
+      // in the world. Since campaigns are geo-filtered against this value
+      // (see below), that meant every non-India-targeted campaign was
+      // unservable to anyone, regardless of where the developer actually was
+      // — international advertisers got zero delivery. Falls back to the
+      // same IP-based geo cache already used for impression recording
+      // (cachedCountryForIp/resolveCountryForIpAsync below) instead of a
+      // hardcoded default, so ad serving actually respects where the
+      // developer is without requiring a client-side change.
+      const reqCountry = params.get('country') || cachedCountryForIp(ip) || 'IN';
+      if (!params.get('country') && !cachedCountryForIp(ip)) resolveCountryForIpAsync(ip); // fire-and-forget, populates cache for next request
       const reqSurface = params.get('surface') || 'terminal';
 
       // Audience targeting filter
