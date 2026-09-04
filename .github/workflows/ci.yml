@@ -38,7 +38,7 @@ jobs:
         run: node scripts/validate-web.js
 
   extension:
-    name: Extension (TypeScript compile)
+    name: Extension (compile + package)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -52,3 +52,7 @@ jobs:
           cache-dependency-path: extension/package-lock.json
       - run: npm ci
       - run: npm run compile
+      - name: Syntax check bundled .mjs assets
+        run: node --check assets/statusline.mjs && node --check assets/poller.mjs
+      - name: Package (catches missing icon/LICENSE/assets — this used to fail from a clean checkout)
+        run: npx --yes @vscode/vsce package --no-dependencies -o /tmp/ci-package.vsix

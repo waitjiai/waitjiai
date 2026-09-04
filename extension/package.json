@@ -2,7 +2,7 @@
   "name": "waitji-ai",
   "displayName": "WaitJI AI — Earn UPI income while Claude Code thinks",
   "description": "India's first AI ad marketplace for VS Code developers. Earn passive UPI income from sponsored messages shown during Claude Code's AI thinking pauses. Two placements: Spotlight (spinner) + Stream (terminal). Direct UPI payout from ₹100.",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "publisher": "WaitJiai",
   "icon": "images/icon.png",
   "license": "SEE LICENSE IN LICENSE.md",
