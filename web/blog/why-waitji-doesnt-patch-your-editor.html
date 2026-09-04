@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Why WaitJI AI Doesn't Patch Your Editor: What "Documented Settings Only" Actually Means | WaitJI Blog</title>
+<meta name="description" content="A technical breakdown of the two ways a Claude Code ad extension can work — documented settings vs. patching the official extension bundle — and what independent security reviewers have found when they checked.">
+<link rel="canonical" href="https://www.waitjiai.in/blog/why-waitji-doesnt-patch-your-editor.html">
+<meta property="og:title" content="Why WaitJI AI Doesn't Patch Your Editor">
+<meta property="og:description" content="What 'documented settings only' rules out, and what independent security reviewers found when they checked how a competing extension actually works.">
+<meta property="og:url" content="https://www.waitjiai.in/blog/why-waitji-doesnt-patch-your-editor.html">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://www.waitjiai.in/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://www.waitjiai.in/og-image.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Why WaitJI AI Doesn't Patch Your Editor: What \"Documented Settings Only\" Actually Means","datePublished":"2026-09-04","dateModified":"2026-09-04","author":{"@type":"Person","name":"Rajamuddin","jobTitle":"CTO, QivaLabs LLP"},"publisher":{"@type":"Organization","name":"QivaLabs LLP","url":"https://www.waitjiai.in/"},"mainEntityOfPage":{"@type":"WebPage","@id":"https://www.waitjiai.in/blog/why-waitji-doesnt-patch-your-editor.html"}}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.waitjiai.in/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://www.waitjiai.in/blog.html"}, {"@type": "ListItem", "position": 3, "name": "Why WaitJI AI Doesn't Patch Your Editor", "item": "https://www.waitjiai.in/blog/why-waitji-doesnt-patch-your-editor.html"}]}</script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#0B0F0A;--sage:#2A7A4F;--sage-d:#1E5A3A;--sage-l:#3D9E68;--sage-soft:#EBF5EE;--gold:#F0B429;--gold-soft:#FEF9EC;--cream:#F8F5EE;--cream2:#EEE9DD;--muted:#6B7568;--muted2:#9AA896;--border:#D4D9CF;--surface:#fff;--bg:#F3F0E8;--red:#B4222C;--red-soft:#FBEAEA;--display:'Sora',sans-serif;--mono:'IBM Plex Mono',monospace;--body:'Inter',sans-serif;}
+*{margin:0;padding:0;box-sizing:border-box;}html{scroll-behavior:smooth;}body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.6;}a{color:var(--sage-d);text-decoration:underline;}
+.nav{position:sticky;top:0;z-index:100;background:rgba(243,240,232,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 40px;display:flex;align-items:center;justify-content:space-between;height:60px;}
+.nav-logo{font-family:var(--mono);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);}
+.nav-logo-mark{width:26px;height:26px;border-radius:6px;background:var(--sage);display:flex;align-items:center;justify-content:center;}
+.nav-logo-mark svg{width:15px;height:15px;}
+.nav-links{display:flex;align-items:center;gap:24px;font-size:13.5px;color:var(--muted);}
+.nav-links a{text-decoration:none;color:var(--muted);}
+.nav-links a:hover{color:var(--ink);}
+.nav-cta{background:var(--ink);color:#fff;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:600;}
+.article-hero{background:var(--ink);color:#fff;padding:72px 40px 60px;text-align:center;position:relative;overflow:hidden;}
+.article-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% -10%,rgba(42,122,79,.25),transparent);}
+.article-hero *{position:relative;z-index:1;}
+.article-tag{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--sage-l);margin-bottom:16px;}
+.article-hero h1{font-family:var(--display);font-size:clamp(24px,3.6vw,44px);font-weight:800;max-width:820px;margin:0 auto 20px;line-height:1.2;color:#fff;}
+.article-meta{color:rgba(255,255,255,.5);font-size:13px;font-family:var(--mono);display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;}
+.article-wrap{max-width:720px;margin:0 auto;padding:56px 40px 80px;}
+.article-wrap h2{font-family:var(--display);font-size:24px;font-weight:700;margin:44px 0 14px;}
+.article-wrap h3{font-family:var(--display);font-size:18px;font-weight:700;margin:28px 0 10px;color:var(--sage-d);}
+.article-wrap p{font-size:16px;line-height:1.85;color:#2C3329;margin-bottom:18px;}
+.article-wrap ul,.article-wrap ol{margin:14px 0 18px 22px;}
+.article-wrap li{font-size:15.5px;line-height:1.75;color:#2C3329;margin-bottom:8px;}
+.article-wrap code{font-family:var(--mono);font-size:13px;background:var(--cream2);padding:2px 7px;border-radius:4px;}
+.article-wrap blockquote{border-left:3px solid var(--sage);padding:16px 22px;background:var(--sage-soft);border-radius:0 10px 10px 0;margin:24px 0;font-style:italic;color:var(--sage-d);font-size:16px;}
+.callout{background:var(--gold-soft);border:1px solid #FDE68A;border-radius:10px;padding:16px 20px;margin:22px 0;font-size:15px;color:#92400E;}
+.source-note{background:var(--red-soft);border:1px solid #E8B4B8;border-radius:10px;padding:16px 20px;margin:22px 0;font-size:14px;color:#7A1D24;}
+.source-note a{color:#7A1D24;font-weight:600;}
+.compare-table{width:100%;border-collapse:collapse;margin:22px 0;font-size:14px;}
+.compare-table th,.compare-table td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top;}
+.compare-table thead th{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);}
+.compare-table tbody th{font-weight:700;white-space:nowrap;}
+.cta-inline{background:linear-gradient(135deg,var(--ink),#1C2F23);border-radius:14px;padding:32px;text-align:center;margin:40px 0;}
+.cta-inline h3{font-family:var(--display);font-size:22px;font-weight:800;color:#fff;margin-bottom:8px;}
+.cta-inline p{color:rgba(255,255,255,.6);font-size:14px;margin-bottom:20px;}
+.btn-p{display:inline-block;background:var(--sage);color:#fff;padding:11px 26px;border-radius:8px;font-weight:600;font-size:14px;text-decoration:none;}
+.author-box{background:var(--cream);border-radius:12px;padding:24px;display:flex;gap:16px;margin-top:48px;align-items:center;}
+.author-avatar{width:56px;height:56px;border-radius:50%;background:var(--sage);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:20px;font-weight:700;flex-shrink:0;}
+.author-info h4{font-weight:700;margin-bottom:3px;}
+.author-info p{font-size:13.5px;color:var(--muted);}
+footer{background:var(--ink);color:rgba(255,255,255,.4);padding:32px 40px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:12px;}
+.footer-links{display:flex;gap:18px;}
+.footer-links a{color:rgba(255,255,255,.4);text-decoration:none;}
+.footer-links a:hover{color:#fff;}
+@media(max-width:640px){.nav{padding:0 20px;}.article-hero{padding:48px 20px 44px;}.article-wrap{padding:40px 20px 60px;}}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a href="../index.html" class="nav-logo">
+    <div class="nav-logo-mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.4)" stroke-width="2.5"/><path d="M12 3 A9 9 0 0 1 20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="#fff"/></svg></div>
+    WaitJI AI
+  </a>
+  <div class="nav-links">
+    <a href="../index.html">Home</a>
+    <a href="../blog.html" style="color:var(--sage);font-weight:600;">Blog</a>
+    <a href="../faq.html">FAQ</a>
+    <a href="../advertiser.html" class="nav-cta">Advertise</a>
+  </div>
+</nav>
+<div class="article-hero">
+  <div class="article-tag">⚙️ Technical</div>
+  <h1>Why WaitJI AI Doesn't Patch Your Editor</h1>
+  <div class="article-meta">
+    <span>👤 Rajamuddin, CTO at QivaLabs</span>
+    <span>📅 September 4, 2026</span>
+    <span>⏱ 7 min read</span>
+  </div>
+</div>
+<div class="article-wrap">
+  <p>There are two fundamentally different ways to build a Claude Code ad extension. One uses the settings Anthropic explicitly exposes for this kind of customisation. The other modifies files that belong to Anthropic's own Claude Code extension so it behaves differently than Anthropic shipped it. We've covered <a href="spinnerverbs-how-it-works.html">how our own approach works</a> before. This post is about the distinction itself — what it means technically, and why it matters to you even if you never think about it.</p>
+
+  <h2>The two approaches, concretely</h2>
+  <table class="compare-table">
+    <thead><tr><th>Documented settings</th><th>Patching the bundle</th></tr></thead>
+    <tbody>
+      <tr><td>Writes to a config file Anthropic tells you exists (<code>spinnerVerbs</code>, <code>statusLine</code> in <code>~/.claude/settings.json</code>)</td><td>Modifies files inside Anthropic's own installed extension so its behavior differs from what was shipped</td></tr>
+      <tr><td>Anthropic can change the config format in a release note; your extension just stops customising until updated</td><td>Anthropic can ship any update at any time that silently breaks — or is deliberately hardened against — the patch</td></tr>
+      <tr><td>One clearly reversible action: delete the settings key</td><td>Requires re-patching after every Claude Code update, typically via a recurring auto-update mechanism</td></tr>
+      <tr><td>No changes to security policy of the official extension</td><td>Can require weakening the official extension's own Content Security Policy to keep functioning</td></tr>
+    </tbody>
+  </table>
+  <p>Both approaches can technically get an ad in front of you. Only one of them leaves Anthropic's own extension exactly as Anthropic shipped it.</p>
+
+  <h2>What we actually do</h2>
+  <p>WaitJI AI's poller writes to two settings Anthropic documents for exactly this kind of customisation: <code>spinnerVerbs</code> (the words that cycle while Claude Code thinks) and <code>statusLine</code> (a command Claude Code runs to populate the terminal status bar). We covered the mechanics in detail <a href="spinnerverbs-how-it-works.html">in our spinnerVerbs deep-dive</a>. Nothing in that flow touches a single file inside Anthropic's Claude Code extension.</p>
+
+  <h2>What independent reviewers found when they checked a competitor</h2>
+  <p>We're not asking you to take our word for the distinction mattering — several independent write-ups have looked at how <a href="https://kickbacks.ai/">Kickbacks.ai</a>, a competing Claude Code ad product, is actually implemented, and published what they found:</p>
+  <div class="source-note">
+    <p style="margin-bottom:10px;"><strong>southsidechisolutions.com</strong> published a code-level review titled <a href="https://southsidechisolutions.com/blog/kickbacks-ai-is-adware-with-a-payout-page/">"Kickbacks.ai Is Adware With a Payout Page"</a>, reporting that the extension patches Anthropic's official Claude Code extension bundle and weakens its Content Security Policy, reapplied on an interval via an unsigned auto-updater.</p>
+    <p style="margin-bottom:10px;"><strong>go-to-agency.com</strong>'s review, <a href="https://go-to-agency.com/en/blog/kickbacks-ai-ads-claude-code-spinner">"Kickbacks.ai: is it legit? We read the extension code"</a>, covers the same auto-update mechanism and notes Anthropic has previously stated that ads are incompatible with its brand.</p>
+    <p style="margin-bottom:0;"><strong>gridinsoft.com</strong>, a URL/file trust-scoring service, lists a <a href="https://gridinsoft.com/online-virus-scanner/url/kickbacks-ai">trust score for kickbacks-ai</a> reflecting some of these same findings.</p>
+  </div>
+  <p>We haven't independently re-verified every technical claim in those write-ups ourselves — we're citing them, not repeating them as our own audit. What we can tell you with certainty is how our own extension works, because we wrote it: no file inside Anthropic's Claude Code extension is ever read, written, or patched, by us, at any point.</p>
+
+  <h2>How to check any extension yourself</h2>
+  <p>You don't have to trust a vendor's claim about which category their extension falls into — you can check in a few minutes:</p>
+  <ul>
+    <li>Open your VS Code extensions folder (<code>~/.vscode/extensions/</code> on macOS/Linux) and look at the file modification timestamps inside Anthropic's Claude Code extension folder. A timestamp newer than when you last updated Claude Code itself is worth investigating.</li>
+    <li>Check whether the ad extension's own code references paths inside <em>another</em> extension's folder at all — ours doesn't, because it has no reason to.</li>
+    <li>Look for a documented settings key (like <code>spinnerVerbs</code>) versus references to modifying, patching, or rewriting another extension's shipped files.</li>
+  </ul>
+
+  <div class="callout">💡 If you'd rather not do this yourself: our <a href="../login.html">extension source is what ships</a> — <code>fetchAds()</code> and the bundled poller only ever call our own API and write to <code>~/.claude/settings.json</code>. There's nothing else in the request path to audit.</div>
+
+  <div class="cta-inline">
+    <h3>Try the documented-settings version</h3>
+    <p>Install WaitJI AI and see exactly what it touches — three minutes, fully reversible.</p>
+    <a href="../login.html" class="btn-p">Install WaitJI AI →</a>
+  </div>
+
+  <div class="author-box">
+    <div class="author-avatar">R</div>
+    <div class="author-info">
+      <h4>Rajamuddin</h4>
+      <p>CTO &amp; Co-founder at QivaLabs LLP. Built the WaitJI AI backend, VS Code extension, and poller daemon from Udaipur, Rajasthan.</p>
+    </div>
+  </div>
+
+  <div style="margin-top:40px;padding-top:28px;border-top:1px solid var(--border);">
+    <div style="font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px;">Related reading</div>
+    <a href="spinnerverbs-how-it-works.html" style="display:block;padding:14px 0;border-bottom:1px solid var(--border);color:var(--ink);font-weight:600;font-size:14.5px;text-decoration:none;">The spinnerVerbs API: How WaitJI AI Works →</a>
+    <a href="fraud-detection-ad-marketplace.html" style="display:block;padding:14px 0;border-bottom:1px solid var(--border);color:var(--ink);font-weight:600;font-size:14.5px;text-decoration:none;">How We Built Fraud Detection — Without ML →</a>
+  </div>
+</div>
+<footer>
+  <div style="font-family:var(--mono);color:rgba(255,255,255,.7);font-size:13px;">WaitJI AI · by QivaLabs LLP</div>
+  <div class="footer-links">
+    <a href="../index.html">Home</a>
+    <a href="../blog.html">Blog</a>
+    <a href="../faq.html">FAQ</a>
+    <a href="mailto:admin@waitjiai.in">Contact</a>
+  </div>
+  <div style="font-size:11px;">© 2026 QivaLabs LLP</div>
+</footer>
+</body>
+</html>

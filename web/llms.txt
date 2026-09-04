@@ -41,3 +41,4 @@ WaitJI AI is India's first AI advertising marketplace for VS Code developers, op
 - The spinnerVerbs API: How WaitJI AI Puts Ads Inside Claude Code's Thinking Spinner — technical deep dive on the documented settings we use instead of file-patching — https://www.waitjiai.in/blog/spinnerverbs-how-it-works.html
 - Why UPI Makes Micropayments to Developers Finally Viable in India — https://www.waitjiai.in/blog/upi-developer-payouts.html
 - Why Developers Are the Best Audience for B2B SaaS Ads in 2026 — https://www.waitjiai.in/blog/why-advertise-to-developers.html
+- Why WaitJI AI Doesn't Patch Your Editor: the technical distinction between documented Claude Code settings and patching the official extension bundle, with sourced independent findings on a competitor's implementation — https://www.waitjiai.in/blog/why-waitji-doesnt-patch-your-editor.html
