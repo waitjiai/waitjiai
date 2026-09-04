@@ -255,11 +255,17 @@ function fetchAds() {
   setTimeout(fetchAds, 10 * 60 * 1000);
 }
 
-// ─── Record impression / click (unchanged) ───────────────────────────────────
+// ─── Record impression / click ───────────────────────────────────────────────
+// BUG FIX: recordImpression() never sent `surface`, so the backend's
+// `b.surface||'terminal'` default mislabeled every VS Code status-bar
+// impression as a terminal-surface one. Only affects admin analytics
+// breakdowns (surface has no effect on billing or ad delivery) but it's
+// trivial to fix and matches the explicit `surface=vscode` this file's own
+// fetchAds() now sends.
 function recordImpression(ad: Ad) {
   const userId = getUserId();
   if (!userId) return;
-  const payload = JSON.stringify({ campaignId: ad.id, userId });
+  const payload = JSON.stringify({ campaignId: ad.id, userId, surface: 'vscode' });
   httpPost(`${getApiBase()}/v1/impression`, payload)
     .then(body => {
       const res = JSON.parse(body);

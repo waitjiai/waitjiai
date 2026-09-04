@@ -201,7 +201,7 @@ async function billImpression(ad) {
     const r = await fetch(`${API_BASE}/v1/impression`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ campaignId: ad.id, userId, adType: ad.adType || 'spotlight' }),
+      body: JSON.stringify({ campaignId: ad.id, userId, adType: ad.adType || 'spotlight', surface: 'terminal' }),
       signal: AbortSignal.timeout(8000),
     });
     if (!r.ok) {
