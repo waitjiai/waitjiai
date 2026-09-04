@@ -1350,6 +1350,15 @@ const server = http.createServer(async (req, res) => {
           c.paymentRail = 'paypal';
           c.paidAt = Date.now();
           c.paidAmountPaise = c.finalBudgetPaise || c.budgetPaise;
+          // BUG FIX: see the matching comment in the Razorpay verify-payment
+          // handler — same issue, same fix. Without this, a discounted
+          // PayPal-paid campaign would spend (and pay developers out of) its
+          // full pre-discount budget despite only the discounted amount
+          // actually being captured.
+          if (c.finalBudgetPaise && c.finalBudgetPaise !== c.budgetPaise) {
+            c.originalBudgetPaise = c.budgetPaise;
+            c.budgetPaise = c.finalBudgetPaise;
+          }
           if (c.pendingDiscountCode) {
             const dc = (db.discountCodes || []).find(d => d.code === c.pendingDiscountCode);
             if (dc) dc.usedCount = (dc.usedCount || 0) + 1;
@@ -1424,6 +1433,19 @@ const server = http.createServer(async (req, res) => {
         c.paymentId = razorpay_payment_id;
         c.paidAt = Date.now();
         c.paidAmountPaise = c.finalBudgetPaise || c.budgetPaise;
+        // BUG FIX: every spend-cap check in ad serving (validateImpression's
+        // budget guard, the click budget guard, the 80%-alert threshold, the
+        // "remaining impressions" estimate) compares against c.budgetPaise —
+        // which was never actually updated to the discounted amount. A
+        // campaign that got e.g. 30% off would still be allowed to spend
+        // (and pay developers out of) its full pre-discount budget, even
+        // though only the discounted amount was ever actually collected.
+        // c.budgetPaise now becomes the real spend cap post-payment;
+        // c.originalBudgetPaise keeps the pre-discount ask for the record.
+        if (c.finalBudgetPaise && c.finalBudgetPaise !== c.budgetPaise) {
+          c.originalBudgetPaise = c.budgetPaise;
+          c.budgetPaise = c.finalBudgetPaise;
+        }
         // Mark discount code as used
         if (c.pendingDiscountCode) {
           const dc = (db.discountCodes || []).find(d => d.code === c.pendingDiscountCode);
