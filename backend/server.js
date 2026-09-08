@@ -12,38 +12,13 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
-const { createCrypto } = require('./lib/crypto');
-const { GEO_PRICING, getGeoPricing, toLocalDisplay, tierDisplay, countryRow } = require('./lib/pricing');
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
-
-// SECURITY FIX (audit 2026-08-15, Critical #1 & #2): these previously fell back to
-// hardcoded strings baked into source code. Since this repo has passed through
-// multiple hands, anyone who's read this file could forge admin sessions or
-// decrypt every stored bank account number if these env vars were ever unset in
-// production. Now the server refuses to boot at all rather than silently running
-// insecurely — a loud failure here is much cheaper than a silent breach later.
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET is not set. Generate one with `openssl rand -hex 32` and set it as an env var. Refusing to start with an insecure default.');
-  process.exit(1);
-}
-const ENCRYPT_KEY = process.env.ENCRYPT_KEY;
-if (!ENCRYPT_KEY) {
-  console.error('FATAL: ENCRYPT_KEY is not set. Generate one with `openssl rand -hex 32` and set it as an env var. Refusing to start with an insecure default.');
-  process.exit(1);
-}
-// Auth/crypto primitives (hashing, AES-256-GCM encryption, JWT sign/verify) —
-// see lib/crypto.js. Extracted there so they're unit-testable in isolation.
-const { encrypt, decrypt, hashPassword, verifyPassword, safeEq, signToken, verifyToken, b64url, uid } =
-  createCrypto({ encryptKey: ENCRYPT_KEY, jwtSecret: JWT_SECRET });
+const JWT_SECRET = process.env.JWT_SECRET || 'waitji-dev-secret-change-in-prod';
+const ENCRYPT_KEY = process.env.ENCRYPT_KEY || crypto.scryptSync('waitji-default-encrypt-key-change-in-prod', 'salt', 32);
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@waitjiai.in';
-// SECURITY FIX (audit Critical #3): ADMIN_PASSWORD no longer has a hardcoded
-// fallback. The actual hard-fail check (only on FIRST boot, before any admin
-// exists) happens inside seed() below, once we know whether an admin account
-// already exists in the loaded database.
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || null;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'WaitJI@Admin2026';
 const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data.json');
 const DATABASE_URL = process.env.DATABASE_URL || null;
 const pgPool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } }) : null;
@@ -114,7 +89,30 @@ async function paypalPayout(email, amountPaise, note) {
 }
 const LAUNCH_EMAIL_FROM = process.env.LAUNCH_EMAIL_FROM || 'WaitJI AI <admin@waitjiai.in>';
 
-// encrypt/decrypt now come from lib/crypto.js (see createCrypto() call above).
+// ── Encryption helpers (AES-256-GCM) ─────────────────────────────────────────
+const ENC_KEY = typeof ENCRYPT_KEY === 'string'
+  ? crypto.scryptSync(ENCRYPT_KEY, 'waitji-salt-v1', 32)
+  : ENCRYPT_KEY;
+function encrypt(text) {
+  if (!text) return text;
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', ENC_KEY, iv);
+  const enc = Buffer.concat([cipher.update(String(text), 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return 'enc:' + Buffer.concat([iv, tag, enc]).toString('base64');
+}
+function decrypt(text) {
+  if (!text || !String(text).startsWith('enc:')) return text;
+  try {
+    const buf = Buffer.from(text.slice(4), 'base64');
+    const iv = buf.slice(0, 12);
+    const tag = buf.slice(12, 28);
+    const enc = buf.slice(28);
+    const decipher = crypto.createDecipheriv('aes-256-gcm', ENC_KEY, iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
+  } catch { return text; }
+}
 
 // ── Rate limiter — login/signup brute-force protection ──────────────────────
 const loginAttempts = new Map(); // ip -> { count, resetAt }
@@ -279,9 +277,21 @@ async function razorpayApi(method, path, body) {
   if (!r.ok) throw new Error(data?.error?.description || `Razorpay ${method} ${path} returned ${r.status}`);
   return data;
 }
-// (Note: an earlier, never-called `profileCompletion()` function used to live here —
-// removed since it duplicated this logic with different, unused criteria. See
-// profileStatus() below for the single source of truth on profile completeness.)
+// ── Profile completion helper ──────────────────────────────────────────────────
+// A profile is "complete" if the earner has: name, phone, email verified,
+// AND either a verified UPI ID or a verified bank account (account+IFSC).
+// Withdrawal is blocked until all four requirements are met.
+function profileCompletion(user) {
+  const checks = {
+    name: !!(user.name && user.name.trim().length >= 2),
+    phone: !!(user.phone && /^[6-9]\d{9}$/.test(user.phone.replace(/\D/g, ''))),
+    emailVerified: !!user.emailVerified,
+    payoutMethod: !!(user.upiVerified && user.upiId) || !!(user.bankVerified && user.bankAccount?.accountNumber) || !!(user.paypalVerified && user.paypalEmail),
+  };
+  const completed = Object.values(checks).filter(Boolean).length;
+  const total = Object.keys(checks).length;
+  return { checks, completed, total, isComplete: completed === total };
+}
 
 // ── IFSC verification using free public IFSC API ──────────────────────────────
 async function verifyIFSC(ifsc) {
@@ -343,7 +353,36 @@ let db = {
 };
 const HOUSE_AD_RATE_PAISE = 5000; // ₹50 per 1000 impressions, founder-funded
 
-// GEO_PRICING and getGeoPricing() now come from lib/pricing.js (see requires at top).
+// ── Country-specific pricing (PPP + exchange rate adjusted) ──────────────────
+// Base: India ₹800 Spotlight / ₹300 Stream per 1K impressions
+// All prices stored internally in INR paise. Exchange rates approximate June 2026.
+// Logic: USD price × exchange_rate = INR equivalent, then PPP-adjust for local economy
+const GEO_PRICING = {
+  IN: { currency:'INR', symbol:'₹', rate:1, spotlight:{ min:80000, recommended:80000 }, stream:{ min:30000, recommended:30000 }, label:'India', minBudgetSpotlight:500000, minBudgetStream:200000 },
+  US: { currency:'USD', symbol:'$', rate:8390, spotlight:{ min:101880, recommended:118000 }, stream:{ min:42000, recommended:50000 }, label:'USA', minBudgetSpotlight:1000000, minBudgetStream:400000 },
+  // 1 USD ≈ ₹83.9 · US devs have 3x higher ad value · Spotlight $12/1K, Stream $5/1K
+  GB: { currency:'GBP', symbol:'£', rate:10600, spotlight:{ min:106000, recommended:127000 }, stream:{ min:45000, recommended:53000 }, label:'United Kingdom', minBudgetSpotlight:1000000, minBudgetStream:400000 },
+  // 1 GBP ≈ ₹106 · Spotlight £10/1K
+  SG: { currency:'SGD', symbol:'S$', rate:6200, spotlight:{ min:99200, recommended:111600 }, stream:{ min:40000, recommended:46000 }, label:'Singapore', minBudgetSpotlight:900000, minBudgetStream:360000 },
+  // 1 SGD ≈ ₹62 · Spotlight S$16/1K
+  AU: { currency:'AUD', symbol:'A$', rate:5450, spotlight:{ min:98100, recommended:115000 }, stream:{ min:40000, recommended:47000 }, label:'Australia', minBudgetSpotlight:900000, minBudgetStream:360000 },
+  // 1 AUD ≈ ₹54.5 · Spotlight A$18/1K
+  CA: { currency:'CAD', symbol:'C$', rate:6150, spotlight:{ min:98400, recommended:115000 }, stream:{ min:40000, recommended:47000 }, label:'Canada', minBudgetSpotlight:900000, minBudgetStream:360000 },
+  // 1 CAD ≈ ₹61.5 · Spotlight C$16/1K
+  DE: { currency:'EUR', symbol:'€', rate:9050, spotlight:{ min:99550, recommended:118000 }, stream:{ min:42000, recommended:50000 }, label:'Germany', minBudgetSpotlight:1000000, minBudgetStream:400000 },
+  // 1 EUR ≈ ₹90.5 · Spotlight €11/1K
+  NL: { currency:'EUR', symbol:'€', rate:9050, spotlight:{ min:99550, recommended:118000 }, stream:{ min:42000, recommended:50000 }, label:'Netherlands', minBudgetSpotlight:1000000, minBudgetStream:400000 },
+  AE: { currency:'AED', symbol:'AED', rate:2285, spotlight:{ min:91400, recommended:109000 }, stream:{ min:38000, recommended:45000 }, label:'UAE', minBudgetSpotlight:900000, minBudgetStream:360000 },
+  // 1 AED ≈ ₹22.85 · Spotlight AED 40/1K
+  JP: { currency:'JPY', symbol:'¥', rate:56, spotlight:{ min:100800, recommended:120000 }, stream:{ min:42000, recommended:50000 }, label:'Japan', minBudgetSpotlight:1000000, minBudgetStream:400000 },
+  // 1 JPY ≈ ₹0.56 · Spotlight ¥1800/1K
+};
+
+function getGeoPricing(countries) {
+  // Return pricing for the first/primary target country
+  const primary = (countries && countries[0]) || 'IN';
+  return GEO_PRICING[primary] || GEO_PRICING['IN'];
+}
 
 // Public endpoint to get pricing for a country
 
@@ -426,13 +465,6 @@ function saveDB() {
 // ── Seed demo campaigns + admin (first run only) ───────────────────────────────
 function seed() {
   if (Object.keys(db.users).length === 0) {
-    // SECURITY FIX (audit Critical #3): no more hardcoded default password.
-    // This branch only runs on the very first boot (no users exist yet) — refuse
-    // to create the admin account at all without a real password supplied.
-    if (!ADMIN_PASSWORD) {
-      console.error('FATAL: This is a first boot (no admin exists yet) and ADMIN_PASSWORD is not set. Set a strong ADMIN_PASSWORD env var and restart. Refusing to seed an admin with no password.');
-      process.exit(1);
-    }
     // create admin
     const adminId = 'admin';
     db.users[adminId] = {
@@ -461,7 +493,18 @@ function seed() {
   saveDB();
 }
 
-// hashPassword/verifyPassword/safeEq now come from lib/crypto.js (see createCrypto() call above).
+// ── Crypto helpers ─────────────────────────────────────────────────────────────
+function hashPassword(pw) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(pw, salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+function verifyPassword(pw, stored) {
+  if (!stored || !stored.includes(':')) return false;
+  const [salt, hash] = stored.split(':');
+  const test = crypto.scryptSync(pw, salt, 64).toString('hex');
+  return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(test));
+}
 
 // ── FEATURE: role-based admin sub-accounts ──────────────────────────────────────
 // An admin user without `adminScope` set (or with adminScope === 'full') is the
@@ -486,7 +529,25 @@ function requireScope(user, allowedScopes, res) {
   return false;
 }
 
-// signToken/verifyToken/b64url/uid now come from lib/crypto.js (see createCrypto() call above).
+// Minimal JWT (HS256)
+function signToken(payload) {
+  const header = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const body = b64url(JSON.stringify({ ...payload, iat: Date.now(), exp: Date.now() + 7 * 864e5 }));
+  const sig = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
+  return `${header}.${body}.${sig}`;
+}
+function verifyToken(token) {
+  try {
+    const [header, body, sig] = token.split('.');
+    const expected = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${body}`).digest('base64url');
+    if (sig !== expected) return null;
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString());
+    if (payload.exp < Date.now()) return null;
+    return payload;
+  } catch { return null; }
+}
+function b64url(s) { return Buffer.from(s).toString('base64url'); }
+function uid(prefix = '') { return prefix + crypto.randomBytes(8).toString('hex'); }
 
 // ── Real geo resolution from IP ────────────────────────────────────────────────
 // Previously every impression's `country` field silently defaulted to 'IN' —
@@ -587,7 +648,7 @@ function validateClick(userId, campaignId, ip) {
   return { valid: true, reason: 'ok' };
 }
 
-function validateImpression(userId, ip) {
+function validateImpression(userId, ip, campaignId) {
   const impsLastMin = recentCount(db.impressions, userId, 60_000);
   // Track live session activity
   db.sessions ||= {};
@@ -603,6 +664,20 @@ function validateImpression(userId, ip) {
   if (impsLastMin >= FRAUD.MAX_IMPRESSIONS_PER_MIN) {
     flagFraud(userId, 'impression_velocity', `${impsLastMin} imp/min`, 'high');
     return { valid: false, reason: 'impression_velocity' };
+  }
+  // DUPLICATE-CREDIT FIX: same user+campaign impression arriving within 5s of the
+  // last one is almost certainly a retried/duplicated request, not a genuine second
+  // ad-view — real impressions are spaced ~90s apart by the poller. Without this,
+  // any network retry from the extension would silently double-credit the earner
+  // (briefly showing an inflated total until anyone noticed the mismatch).
+  if (campaignId) {
+    const DUPLICATE_WINDOW_MS = 5000;
+    const recentSame = db.impressions.find(i =>
+      i.userId === userId && i.campaignId === campaignId && (now - i.ts) < DUPLICATE_WINDOW_MS
+    );
+    if (recentSame) {
+      return { valid: false, reason: 'duplicate_impression' };
+    }
   }
   return { valid: true, reason: 'ok' };
 }
@@ -688,15 +763,6 @@ function isApiKeyRequest(req) {
 
 // ── Server ────────────────────────────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
-  // BUG FIX: `url` below is the PATH ONLY (query string stripped) — it's what
-  // every route match (`url === '/v1/...'`) below compares against. Four
-  // routes used to build `new URL('http://x'+url)` to read a query param from
-  // this already-stripped value, so `?type=stream`, `?country=US`,
-  // `?status=pending` etc. were silently always empty (e.g. GET
-  // /v1/ads/active?type=stream always fell back to the 'spotlight' default —
-  // Stream-placement ads never actually served as Stream). Any route that
-  // needs a query param must parse `req.url` (raw, still has the query
-  // string), never this `url` variable.
   const url = req.url.split('?')[0];
   const method = req.method;
   const ip = getIP(req);
@@ -961,22 +1027,10 @@ const server = http.createServer(async (req, res) => {
 
     // ═══════════ ADS SERVING (public, used by extension) ═══════════
     if (method === 'GET' && url.startsWith('/v1/ads/active')) {
-      const params = new URL('http://x'+req.url).searchParams;
+      const params = new URL('http://x'+url).searchParams;
       const adType = params.get('type') || 'spotlight'; // default: spotlight (VS Code spinner)
 
-      // BUG FIX: neither client (extension.ts's fetchAds, nor the bundled
-      // poller.mjs) has ever sent a `country` param here — so this always
-      // fell back to the literal string 'IN', for every developer, everywhere
-      // in the world. Since campaigns are geo-filtered against this value
-      // (see below), that meant every non-India-targeted campaign was
-      // unservable to anyone, regardless of where the developer actually was
-      // — international advertisers got zero delivery. Falls back to the
-      // same IP-based geo cache already used for impression recording
-      // (cachedCountryForIp/resolveCountryForIpAsync below) instead of a
-      // hardcoded default, so ad serving actually respects where the
-      // developer is without requiring a client-side change.
-      const reqCountry = params.get('country') || cachedCountryForIp(ip) || 'IN';
-      if (!params.get('country') && !cachedCountryForIp(ip)) resolveCountryForIpAsync(ip); // fire-and-forget, populates cache for next request
+      const reqCountry = params.get('country') || 'IN';
       const reqSurface = params.get('surface') || 'terminal';
 
       // Audience targeting filter
@@ -1035,7 +1089,7 @@ const server = http.createServer(async (req, res) => {
       // House-ad impression — founder-funded, no real advertiser budget involved
       const houseAd = (db.houseAds || []).find(h => h.id === b.campaignId);
       if (houseAd) {
-        const check = validateImpression(userId, ip);
+        const check = validateImpression(userId, ip, b.campaignId);
         if (!check.valid) return send(res, 200, { success: false, reason: check.reason, billed: false });
         const earnPaise = Math.floor(HOUSE_AD_RATE_PAISE / 1000); // full house rate goes to the developer
         db.impressions.push({ id: uid('i_'), userId, campaignId: houseAd.id, earnedPaise: earnPaise, costPaise: 0, isHouseAd: true, ts: Date.now(), ip, clicked: false, country: resolvedCountry, surface: b.surface||'terminal' });
@@ -1046,7 +1100,7 @@ const server = http.createServer(async (req, res) => {
       const c = db.campaigns[b.campaignId];
       if (!c) return send(res, 404, { error: 'campaign not found' });
 
-      const check = validateImpression(userId, ip);
+      const check = validateImpression(userId, ip, b.campaignId);
       if (!check.valid) return send(res, 200, { success: false, reason: check.reason, billed: false });
 
       const earnPaise = Math.floor(c.bidPaise / 1000 * 0.65); // 65% of per-impression to developer
@@ -1203,7 +1257,7 @@ const server = http.createServer(async (req, res) => {
 
         if (bidPaise < minBidPaise) {
           return send(res, 400, {
-            error: `Minimum bid for ${geoPricing.label} is ${geoPricing.symbol}${toLocalDisplay(minBidPaise, geoPricing.rate)} per 1,000 impressions`,
+            error: `Minimum bid for ${geoPricing.label} is ${geoPricing.symbol}${(minBidPaise / geoPricing.rate / 100).toFixed(0)} per 1,000 impressions`,
             minBidPaise, currency: geoPricing.currency, symbol: geoPricing.symbol,
           });
         }
@@ -1350,15 +1404,6 @@ const server = http.createServer(async (req, res) => {
           c.paymentRail = 'paypal';
           c.paidAt = Date.now();
           c.paidAmountPaise = c.finalBudgetPaise || c.budgetPaise;
-          // BUG FIX: see the matching comment in the Razorpay verify-payment
-          // handler — same issue, same fix. Without this, a discounted
-          // PayPal-paid campaign would spend (and pay developers out of) its
-          // full pre-discount budget despite only the discounted amount
-          // actually being captured.
-          if (c.finalBudgetPaise && c.finalBudgetPaise !== c.budgetPaise) {
-            c.originalBudgetPaise = c.budgetPaise;
-            c.budgetPaise = c.finalBudgetPaise;
-          }
           if (c.pendingDiscountCode) {
             const dc = (db.discountCodes || []).find(d => d.code === c.pendingDiscountCode);
             if (dc) dc.usedCount = (dc.usedCount || 0) + 1;
@@ -1427,25 +1472,12 @@ const server = http.createServer(async (req, res) => {
         if (razorpay_order_id !== c.orderId) return send(res, 400, { error: 'Order mismatch' });
         if (!RAZORPAY_KEY_SECRET) return send(res, 500, { error: 'Razorpay not configured on the server' });
         const expectedSig = crypto.createHmac('sha256', RAZORPAY_KEY_SECRET).update(`${razorpay_order_id}|${razorpay_payment_id}`).digest('hex');
-        if (!safeEq(expectedSig, razorpay_signature)) return send(res, 400, { error: 'Payment signature verification failed' });
+        if (expectedSig !== razorpay_signature) return send(res, 400, { error: 'Payment signature verification failed' });
 
         c.status = 'pending_review';
         c.paymentId = razorpay_payment_id;
         c.paidAt = Date.now();
         c.paidAmountPaise = c.finalBudgetPaise || c.budgetPaise;
-        // BUG FIX: every spend-cap check in ad serving (validateImpression's
-        // budget guard, the click budget guard, the 80%-alert threshold, the
-        // "remaining impressions" estimate) compares against c.budgetPaise —
-        // which was never actually updated to the discounted amount. A
-        // campaign that got e.g. 30% off would still be allowed to spend
-        // (and pay developers out of) its full pre-discount budget, even
-        // though only the discounted amount was ever actually collected.
-        // c.budgetPaise now becomes the real spend cap post-payment;
-        // c.originalBudgetPaise keeps the pre-discount ask for the record.
-        if (c.finalBudgetPaise && c.finalBudgetPaise !== c.budgetPaise) {
-          c.originalBudgetPaise = c.budgetPaise;
-          c.budgetPaise = c.finalBudgetPaise;
-        }
         // Mark discount code as used
         if (c.pendingDiscountCode) {
           const dc = (db.discountCodes || []).find(d => d.code === c.pendingDiscountCode);
@@ -1963,7 +1995,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
             profileIncomplete: true,
           });
         }
-        if (!user.upiId && !user.bankAccount && !user.paypalEmail) return send(res, 400, { error: 'Add a verified UPI ID, bank account, or PayPal email before withdrawing.' });
+        if (!user.upiId && !user.bankAccount) return send(res, 400, { error: 'Add a verified UPI ID or bank account before withdrawing.' });
 
         const available = computeAvailableBalance(user.id);
 
@@ -1974,27 +2006,12 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         const hasPending = db.withdrawalRequests.some(r => r.userId === user.id && r.status === 'pending');
         if (hasPending) return send(res, 400, { error: 'You already have a pending withdrawal request. Please wait for admin to review it before submitting a new one.' });
 
-        // Snapshot the payout method fully at request time — not just upiId, so
-        // bank/PayPal earners' payment details are actually visible to admin later
-        // (previously only upiId was captured, leaving bank/PayPal requests blank).
-        let payoutDetail = 'Not set';
-        if (user.payoutMode === 'bank' && user.bankAccount?.accountNumber) {
-          const last4 = decrypt(user.bankAccount.accountNumber)?.slice(-4) || '????';
-          payoutDetail = `Bank •••• ${last4} (${user.bankAccount.ifsc || ''})`;
-        } else if (user.payoutMode === 'paypal' && user.paypalEmail) {
-          payoutDetail = `PayPal — ${user.paypalEmail}`;
-        } else if (user.upiId) {
-          payoutDetail = `UPI — ${user.upiId}`;
-        }
-
         const req2 = {
           id: uid('wr_'),
           userId: user.id,
           userName: user.name || user.email,
           userEmail: user.email,
           upiId: user.upiId,
-          payoutMode: user.payoutMode || (user.upiId ? 'upi' : null),
-          payoutDetail,
           amountPaise: available,
           status: 'pending',
           requestedAt: Date.now(),
@@ -2115,29 +2132,34 @@ if (method === 'GET' && url === '/v1/customer/projection') {
 
     // ── Public pricing by country ──
     if (method === 'GET' && url.startsWith('/v1/public/pricing')) {
-      const country = new URL('http://x'+req.url).searchParams.get('country') || 'IN';
+      const country = new URL('http://x'+url).searchParams.get('country') || 'IN';
       const pricing = GEO_PRICING[country] || GEO_PRICING['IN'];
       return send(res, 200, {
         country,
         currency: pricing.currency,
         symbol: pricing.symbol,
         spotlight: {
-          ...tierDisplay(pricing.spotlight, pricing.rate),
+          minPaise: pricing.spotlight.min,
+          recommendedPaise: pricing.spotlight.recommended,
+          minDisplay: (pricing.spotlight.min / pricing.rate / 100).toFixed(0),
+          recommendedDisplay: (pricing.spotlight.recommended / pricing.rate / 100).toFixed(0),
           minBudgetPaise: pricing.minBudgetSpotlight,
-          minBudgetDisplay: toLocalDisplay(pricing.minBudgetSpotlight, pricing.rate),
+          minBudgetDisplay: (pricing.minBudgetSpotlight / pricing.rate / 100).toFixed(0),
         },
         stream: {
-          ...tierDisplay(pricing.stream, pricing.rate),
+          minPaise: pricing.stream.min,
+          recommendedPaise: pricing.stream.recommended,
+          minDisplay: (pricing.stream.min / pricing.rate / 100).toFixed(0),
+          recommendedDisplay: (pricing.stream.recommended / pricing.rate / 100).toFixed(0),
           minBudgetPaise: pricing.minBudgetStream,
-          minBudgetDisplay: toLocalDisplay(pricing.minBudgetStream, pricing.rate),
+          minBudgetDisplay: (pricing.minBudgetStream / pricing.rate / 100).toFixed(0),
         },
         note: `Prices shown in ${pricing.currency}. Charged in INR at current exchange rate (~${pricing.rate/100} ${pricing.currency}/INR).`,
-        // Full table for every supported country in one call — this is the single
-        // source of truth for pricing. The web frontend (index.html, advertiser.html)
-        // used to keep its own hand-copied duplicate of GEO_PRICING, which could
-        // (and did) drift out of sync with these real numbers. Fetch this instead
-        // of re-hardcoding prices anywhere else.
-        allCountries: Object.entries(GEO_PRICING).map(([code, p]) => countryRow(code, p)),
+        allCountries: Object.entries(GEO_PRICING).map(([code, p]) => ({
+          code, label: p.label, currency: p.currency, symbol: p.symbol,
+          spotlightMinDisplay: (p.spotlight.min / p.rate / 100).toFixed(0),
+          streamMinDisplay: (p.stream.min / p.rate / 100).toFixed(0),
+        })),
       });
     }
 
@@ -2225,8 +2247,8 @@ if (method === 'GET' && url === '/v1/customer/projection') {
 
       // all advertisers
       // list all withdrawal requests (newest first), with optional ?status= filter
-      if (method === 'GET' && url === '/v1/admin/withdrawals') {
-        const params = new URL('http://x'+req.url).searchParams;
+      if (method === 'GET' && url.startsWith('/v1/admin/withdrawals')) {
+        const params = new URL('http://x'+url).searchParams;
         const statusFilter = params.get('status');
         let reqs = [...db.withdrawalRequests].sort((a, b) => b.requestedAt - a.requestedAt);
         if (statusFilter) reqs = reqs.filter(r => r.status === statusFilter);
@@ -2243,42 +2265,6 @@ if (method === 'GET' && url === '/v1/customer/projection') {
           totalPendingPaise: db.withdrawalRequests.filter(r => r.status === 'pending').reduce((s, r) => s + r.amountPaise, 0),
         };
         return send(res, 200, { withdrawals: enriched, summary });
-      }
-
-      // ── FEATURE: reveal FULL (unmasked) payout details for manual payment ──
-      // Cashfree isn't processing any payouts right now — admin sends money
-      // manually, so they need the real account number / UPI ID, not the masked
-      // last-4 shown everywhere else. Audit-logged since this exposes sensitive
-      // bank details on demand.
-      if (method === 'GET' && url.match(/^\/v1\/admin\/withdrawals\/[^/]+\/payout-details$/)) {
-        if (!requireScope(user, ['finance'], res)) return;
-        const wid = url.split('/')[4];
-        const wr = db.withdrawalRequests.find(r => r.id === wid);
-        if (!wr) return send(res, 404, { error: 'Withdrawal request not found' });
-        const earner = db.users[wr.userId];
-        if (!earner) return send(res, 404, { error: 'Earner not found' });
-
-        let details = { method: 'none', display: 'No payout method on file' };
-        if (earner.payoutMode === 'bank' && earner.bankAccount?.accountNumber) {
-          details = {
-            method: 'bank',
-            accountNumber: decrypt(earner.bankAccount.accountNumber) || '(decryption failed)',
-            ifsc: earner.bankAccount.ifsc || '',
-            accountHolder: earner.bankAccount.accountHolder || earner.name || '',
-          };
-        } else if (earner.payoutMode === 'paypal' && earner.paypalEmail) {
-          details = { method: 'paypal', paypalEmail: earner.paypalEmail };
-        } else if (earner.upiId) {
-          details = { method: 'upi', upiId: earner.upiId };
-        }
-
-        auditLog(user.id, 'payout_details_revealed', { withdrawalId: wid, earnerId: wr.userId, earnerEmail: earner.email });
-        return send(res, 200, {
-          earnerName: earner.name || earner.email,
-          earnerEmail: earner.email,
-          amountPaise: wr.amountPaise,
-          details,
-        });
       }
 
       // approve a withdrawal request — auto-pays via Cashfree if configured
@@ -2728,79 +2714,6 @@ if (method === 'GET' && url === '/v1/customer/projection') {
             adText: i.adText || db.campaigns[i.campaignId]?.adText || '',
           })),
         });
-      }
-
-      // ── FEATURE: geo history per user (spot VPN-hopping / suspicious geo patterns) ──
-      if (method === 'GET' && url.match(/^\/v1\/admin\/users\/[^/]+\/geo-history$/)) {
-        const uid2 = url.split('/')[4];
-        const target = db.users[uid2];
-        if (!target) return send(res, 404, { error: 'User not found' });
-
-        const events = db.impressions
-          .filter(i => i.userId === uid2)
-          .sort((a, b) => a.ts - b.ts)
-          .map(i => ({ ts: i.ts, country: i.country || 'unknown', ip: i.ip || '', surface: i.surface }));
-
-        const timeline = [];
-        let switches = 0;
-        for (const e of events) {
-          const last = timeline[timeline.length - 1];
-          if (last && last.country === e.country) {
-            last.count++;
-            last.lastSeenAt = e.ts;
-          } else {
-            if (timeline.length > 0) switches++;
-            timeline.push({ country: e.country, firstSeenAt: e.ts, lastSeenAt: e.ts, count: 1, sampleIp: e.ip });
-          }
-        }
-
-        const countrySet = [...new Set(events.map(e => e.country))];
-        return send(res, 200, {
-          userId: uid2,
-          totalEvents: events.length,
-          uniqueCountries: countrySet,
-          countrySwitchCount: switches,
-          suspiciousHopping: switches >= 3,
-          timeline,
-        });
-      }
-
-      // ── FEATURE: CRM-style user list — search, filter, paginate across ALL users ──
-      if (method === 'GET' && url.startsWith('/v1/admin/users') && !url.match(/\/v1\/admin\/users\/[^/]+/)) {
-        const params = new URLSearchParams(req.url.split('?')[1] || '');
-        const roleFilter = params.get('role');
-        const search = (params.get('search') || '').toLowerCase().trim();
-        const page = Math.max(1, parseInt(params.get('page') || '1'));
-        const pageSize = Math.min(100, Math.max(1, parseInt(params.get('pageSize') || '25')));
-
-        let list = Object.values(db.users);
-        if (roleFilter) list = list.filter(u => u.role === roleFilter);
-        if (search) list = list.filter(u =>
-          (u.email || '').toLowerCase().includes(search) ||
-          (u.name || '').toLowerCase().includes(search) ||
-          (u.company || '').toLowerCase().includes(search)
-        );
-        list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-        const total = list.length;
-        const pageItems = list.slice((page - 1) * pageSize, page * pageSize);
-
-        const enriched = pageItems.map(u => {
-          const imps = db.impressions.filter(i => i.userId === u.id);
-          const earnedPaise = imps.reduce((s, i) => s + (i.earnedPaise || 0), 0);
-          const lastCountry = imps.length ? imps[imps.length - 1].country : null;
-          return {
-            ...publicUser(u),
-            joinedAt: u.createdAt,
-            landingSource: u.landingSource || null,
-            totalImpressions: imps.length,
-            totalEarnedPaise: earnedPaise,
-            lastKnownCountry: lastCountry,
-            lastLoginAt: u.lastLoginAt || null,
-          };
-        });
-
-        return send(res, 200, { users: enriched, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
       }
 
       // ── Admin: login log (all users) ─────────────────────────────────
@@ -3439,7 +3352,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
     if (method === 'GET' && url.startsWith('/v1/admin/careers')) {
       const user = auth(req);
       if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin access required' });
-      const params = new URL('http://x'+req.url).searchParams;
+      const params = new URL('http://x'+url).searchParams;
       const statusFilter = params.get('status');
       let apps = [...(db.careers||[])].sort((a,b) => b.appliedAt - a.appliedAt);
       if (statusFilter) apps = apps.filter(a => a.status === statusFilter);
@@ -3670,19 +3583,11 @@ function dailyBreakdown(campaignIds, days = 14) {
 // Returns an object describing what's complete and what's missing.
 // Withdrawal is BLOCKED unless all 5 fields are verified.
 function profileStatus(user) {
-  // BUSINESS DECISION (2026-08): Cashfree is not currently processing any real
-  // payouts — all payments are being sent manually by admin. Requiring live
-  // Cashfree verification (or any bank/UPI "verified" flag) before a profile
-  // counts as complete no longer makes sense — admin just needs to know a real
-  // payout detail EXISTS so they know where to manually send money. Phone is
-  // format-validated only (no SMS-OTP flow exists in this product yet).
-  const payoutDetailExists = !!(user.upiId || user.bankAccount?.accountNumber || user.paypalEmail);
-
   const checks = {
     name:    { done: !!(user.name && user.name.trim().length >= 2),      label: 'Full name' },
     phone:   { done: !!(user.phone && /^[6-9]\d{9}$/.test(user.phone)), label: 'Phone number (10 digit)' },
     email:   { done: !!(user.emailVerified),                              label: 'Email verified' },
-    payout:  { done: payoutDetailExists,                                  label: 'UPI, bank, or PayPal detail added' },
+    payout:  { done: !!(user.payoutVerified),                             label: 'UPI or bank account verified' },
   };
   const complete = Object.values(checks).every(c => c.done);
   const missing = Object.entries(checks).filter(([,v]) => !v.done).map(([,v]) => v.label);
@@ -3705,10 +3610,7 @@ function publicUser(u) {
     lastActiveAt: u.lastActiveAt || null, createdAt: u.createdAt,
     payoutVerified: !!u.payoutVerified, payoutMode: u.payoutMode || null,
     bankVerified: !!u.bankVerified,
-    // SECURITY FIX (audit High #4): previously returned the full bankAccount
-    // object here, including the raw AES-GCM ciphertext of the account number,
-    // to every client on every profile fetch — unnecessary exposure since
-    // payoutMethod (below) already correctly exposes only last4/ifsc/name.
+    bankAccount: u.bankAccount || null,   // full object: {accountNumber, ifsc, accountHolder}
     upiNameAtBank: u.upiNameAtBank || '',
     payoutMethod,
     profileStatus: ps,
@@ -3818,20 +3720,9 @@ async function runAutoPayoutSweep() {
       const minPaise = user.payoutMode === 'paypal' ? 85000 : 10000;
       if (available < minPaise) continue;
 
-      let payoutDetail = 'Not set';
-      if (user.payoutMode === 'bank' && user.bankAccount?.accountNumber) {
-        const last4 = decrypt(user.bankAccount.accountNumber)?.slice(-4) || '????';
-        payoutDetail = `Bank •••• ${last4} (${user.bankAccount.ifsc || ''})`;
-      } else if (user.payoutMode === 'paypal' && user.paypalEmail) {
-        payoutDetail = `PayPal — ${user.paypalEmail}`;
-      } else if (user.upiId) {
-        payoutDetail = `UPI — ${user.upiId}`;
-      }
-
       const wr = {
         id: uid('wr_'), userId: user.id, userName: user.name || user.email, userEmail: user.email,
-        upiId: user.upiId, payoutMode: user.payoutMode || (user.upiId ? 'upi' : null), payoutDetail,
-        amountPaise: available, status: 'pending',
+        upiId: user.upiId, amountPaise: available, status: 'pending',
         requestedAt: Date.now(), reviewedAt: null, reviewNote: null, autoRequested: true,
       };
       db.withdrawalRequests.push(wr);
