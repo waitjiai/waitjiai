@@ -349,6 +349,20 @@ const HOUSE_AD_RATE_PAISE = 5000; // ₹50 per 1000 impressions, founder-funded
 
 
 let pgAvailable = false;
+// DATA-LOSS GUARD (postmortem 2026-09-09): a Postgres read hiccup on boot used to
+// fall through silently to the local-disk path below, which is empty on Render
+// (wiped every deploy). seed() then saw an empty db.users and created a fresh
+// admin, and the very next saveDB() — triggered by nothing more than a /health
+// ping — persisted that near-empty state over real production data (87 users,
+// real pending withdrawals, gone). Two independent guards now exist so this
+// can't happen again regardless of *why* a future load/save goes wrong:
+//   1. loadDB(): a configured-but-failing Postgres is now a loud boot failure
+//      (process.exit), never a silent slide into the ephemeral local-disk path.
+//   2. saveDB(): refuses to write a state that looks like catastrophic data
+//      loss compared to the last state we know was good, no matter how it
+//      arose (bad deploy, bad revert, race condition, anything).
+let lastKnownGoodUserCount = 0;
+let lastKnownGoodCampaignCount = 0;
 async function loadDB() {
   if (pgPool) {
     try {
@@ -372,19 +386,29 @@ async function loadDB() {
         db.waitlist ||= [];
         db.disputes ||= [];
         db.apiKeys ||= {};
-        console.log(`Loaded DB from Postgres: ${Object.keys(db.users).length} users, ${Object.keys(db.campaigns).length} campaigns`);
+        lastKnownGoodUserCount = Object.keys(db.users).length;
+        lastKnownGoodCampaignCount = Object.keys(db.campaigns).length;
+        console.log(`Loaded DB from Postgres: ${lastKnownGoodUserCount} users, ${lastKnownGoodCampaignCount} campaigns`);
       } else {
         console.log('No existing DB row in Postgres — starting fresh (first boot).');
       }
       return;
     } catch (e) {
+      // DATA-LOSS GUARD: DATABASE_URL is configured, so Postgres holding real
+      // production data is the expected case — a query failure here means we
+      // genuinely don't know the true state, not that the state is empty.
+      // Continuing to boot would let seed()/saveDB() below silently overwrite
+      // whatever real data is sitting in Postgres with a fresh empty one.
+      // A crash-loop (Render keeps retrying) is recoverable; silent data loss
+      // is not — so refuse to boot instead.
       console.error('FATAL: could not load from Postgres:', e.message);
-      console.error('Falling back to local disk — THIS DATA WILL BE LOST ON NEXT DEPLOY. Fix DATABASE_URL immediately.');
+      console.error('Refusing to boot rather than risk silently overwriting real data with an empty state. Fix the Postgres connection and restart.');
+      process.exit(1);
     }
-  } else {
-    console.error('WARNING: DATABASE_URL is not set. Using local disk storage, which Render WIPES on every deploy. Set DATABASE_URL in Render env vars now.');
   }
-  // local-file fallback (only reached if Postgres is unavailable or unconfigured)
+  // local-file fallback — only reached when DATABASE_URL is entirely unset
+  // (local development convenience). Never used as a production fallback.
+  console.error('WARNING: DATABASE_URL is not set. Using local disk storage, which Render WIPES on every deploy. Set DATABASE_URL in Render env vars now.');
   try {
     if (fs.existsSync(DB_FILE)) {
       db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
@@ -401,10 +425,36 @@ async function loadDB() {
 
 let saveTimer = null;
 let savePending = false;
+// How much db.users/db.campaigns is allowed to shrink in one save relative to
+// the last state we know was actually persisted. Real usage never loses most
+// of its users or campaigns in one write; a corrupted/empty in-memory state
+// does. 3 is an absolute floor so this doesn't block legitimately deleting a
+// test user or two off a tiny dataset.
+const CATASTROPHIC_LOSS_RATIO = 0.5;
+function looksLikeCatastrophicLoss() {
+  const nowUsers = Object.keys(db.users || {}).length;
+  const nowCampaigns = Object.keys(db.campaigns || {}).length;
+  const userLoss = lastKnownGoodUserCount >= 3 && nowUsers < lastKnownGoodUserCount * CATASTROPHIC_LOSS_RATIO;
+  const campaignLoss = lastKnownGoodCampaignCount >= 3 && nowCampaigns < lastKnownGoodCampaignCount * CATASTROPHIC_LOSS_RATIO;
+  return userLoss || campaignLoss ? { nowUsers, nowCampaigns, lastKnownGoodUserCount, lastKnownGoodCampaignCount } : null;
+}
 function saveDB() {
   // debounce writes — coalesce rapid successive saves into one write
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
+    // DATA-LOSS GUARD: never persist a state that has catastrophically fewer
+    // users/campaigns than the last state we successfully loaded/saved. This
+    // is deliberately root-cause-agnostic — it protects against this exact
+    // class of bug regardless of what upstream code path produced the bad
+    // in-memory state. A blocked save just means the next legitimate save
+    // (once the in-memory state is actually correct again) goes through
+    // normally; it never deletes or corrupts what's already in Postgres.
+    const loss = looksLikeCatastrophicLoss();
+    if (loss) {
+      console.error('REFUSING TO SAVE: in-memory state looks like catastrophic data loss compared to last known good.', JSON.stringify(loss));
+      console.error('If this drop is real and intentional, restart the process to reset the last-known-good baseline.');
+      return;
+    }
     if (pgPool) {
       try {
         await pgPool.query(
@@ -412,6 +462,8 @@ function saveDB() {
            ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = now()`,
           [JSON.stringify(db)]
         );
+        lastKnownGoodUserCount = Object.keys(db.users || {}).length;
+        lastKnownGoodCampaignCount = Object.keys(db.campaigns || {}).length;
         return;
       } catch (e) {
         console.error('Postgres save error (data NOT persisted this write):', e.message);
