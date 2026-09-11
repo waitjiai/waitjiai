@@ -2275,6 +2275,64 @@ if (method === 'GET' && url === '/v1/customer/projection') {
       const user = auth(req);
       if (!user || user.role !== 'admin') return send(res, 403, { error: 'admin access required' });
 
+      // ── TEMPORARY: one-time backfill of db.users from Supabase Auth ──
+      // Recovers profiles lost in the Sept 9 kv_store overwrite incident
+      // (see loadDB() comment above) without waiting for each of the ~127
+      // real Supabase-verified users to log in again. Safe: only ADDS users
+      // missing from db.users, never touches/overwrites an existing profile.
+      // Call once (dry run first, then ?commit=1), then DELETE this block —
+      // it should not remain in the codebase long-term.
+      if (method === 'POST' && url.startsWith('/v1/admin/backfill-supabase-users')) {
+        if (!SUPABASE_SERVICE_KEY) return send(res, 500, { error: 'SUPABASE_SERVICE_KEY not set on server' });
+        const commit = new URL(req.url, 'http://x').searchParams.get('commit') === '1';
+        try {
+          const all = [];
+          let page = 1;
+          while (true) {
+            const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?page=${page}&per_page=200`, {
+              headers: { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}` },
+            });
+            if (!r.ok) return send(res, 502, { error: `Supabase fetch failed: ${r.status} ${await r.text()}` });
+            const data = await r.json();
+            const batch = data.users || data;
+            if (!batch || !batch.length) break;
+            all.push(...batch);
+            if (batch.length < 200) break;
+            page++;
+          }
+          const before = Object.keys(db.users).length;
+          const toAdd = [];
+          for (const sbUser of all) {
+            const profileId = 'sb_' + sbUser.id;
+            if (!db.users[profileId]) {
+              const meta = sbUser.user_metadata || {};
+              toAdd.push({
+                id: profileId, supabaseId: sbUser.id, email: sbUser.email, phone: sbUser.phone || null,
+                role: meta.role === 'advertiser' ? 'advertiser' : 'customer',
+                name: meta.name || meta.full_name || meta.user_name || '',
+                company: meta.company || '', avatarUrl: meta.avatar_url || meta.picture || null,
+                upiId: meta.upiId || '', provider: (sbUser.app_metadata && sbUser.app_metadata.provider) || 'email',
+                emailVerified: !!sbUser.email_confirmed_at, phoneVerified: !!sbUser.phone_confirmed_at,
+                createdAt: sbUser.created_at ? new Date(sbUser.created_at).getTime() : Date.now(),
+                banned: false, loginCount: 0, _backfilled: true, _backfilledAt: Date.now(),
+              });
+            }
+          }
+          if (commit) {
+            for (const u of toAdd) db.users[u.id] = u;
+            saveDB();
+          }
+          return send(res, 200, {
+            dryRun: !commit, supabaseUsersFound: all.length,
+            usersInPostgresBefore: before, missingProfiles: toAdd.length,
+            usersInPostgresAfter: commit ? before + toAdd.length : before,
+            sample: toAdd.slice(0, 10).map(u => u.email),
+          });
+        } catch (e) {
+          return send(res, 500, { error: 'backfill failed: ' + e.message });
+        }
+      }
+
       // overview dashboard
       if (method === 'GET' && url === '/v1/admin/overview') {
         const users = Object.values(db.users);
