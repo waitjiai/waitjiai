@@ -392,6 +392,46 @@ async function loadDB() {
       } else {
         console.log('No existing DB row in Postgres — starting fresh (first boot).');
       }
+      // BANDWIDTH FIX (postmortem 2026-09-11): impressions used to live inside
+      // the single kv_store JSON blob above, so every saveDB() re-shipped the
+      // *entire* impressions history on every write — 2.65MB and growing,
+      // hundreds of thousands of times a month (454GB in one month, 99.3% of
+      // it this one array). They're pure append-only records (never mutated
+      // after creation — see pushImpression below), so they now live in their
+      // own table and get inserted one row at a time instead.
+      await pgPool.query(`CREATE TABLE IF NOT EXISTS impressions (id TEXT PRIMARY KEY, data JSONB NOT NULL, ts BIGINT NOT NULL)`);
+      await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_impressions_ts ON impressions (ts)`);
+      const impRows = await pgPool.query(`SELECT data FROM impressions ORDER BY ts ASC`);
+      if (impRows.rows.length) {
+        db.impressions = impRows.rows.map(row => row.data);
+        console.log(`Loaded ${db.impressions.length} impressions from their own table.`);
+      } else if (db.impressions.length) {
+        // One-time migration: impressions still sitting in the old kv_store
+        // blob from before this fix — move them into the new table so they
+        // stop being re-shipped on every save. Done as a single bulk INSERT
+        // inside a transaction (not N sequential awaited round-trips — with
+        // 10,000+ records that would itself be slow and bandwidth-heavy) and
+        // verified by a row count before we trust it. If it fails partway,
+        // saveDB() below would otherwise strip impressions from the blob on
+        // the very next write with no complete copy anywhere else — so a
+        // migration that isn't provably complete must stop the boot, not
+        // proceed on an uncertain state.
+        console.log(`Migrating ${db.impressions.length} impressions out of the kv_store blob into their own table...`);
+        await pgPool.query(
+          `INSERT INTO impressions (id, data, ts)
+           SELECT rec->>'id', rec, COALESCE((rec->>'ts')::bigint, 0)
+           FROM jsonb_array_elements($1::jsonb) AS rec
+           ON CONFLICT (id) DO NOTHING`,
+          [JSON.stringify(db.impressions)]
+        );
+        const { rows: [{ count }] } = await pgPool.query(`SELECT count(*)::int FROM impressions`);
+        if (count < db.impressions.length) {
+          console.error(`FATAL: impressions migration incomplete — expected ${db.impressions.length}, table has ${count}.`);
+          console.error('Refusing to boot: proceeding would let the next save silently drop the unmigrated records.');
+          process.exit(1);
+        }
+        console.log(`Migration complete: ${count} impressions now in their own table.`);
+      }
       return;
     } catch (e) {
       // DATA-LOSS GUARD: DATABASE_URL is configured, so Postgres holding real
@@ -421,6 +461,21 @@ async function loadDB() {
       db.apiKeys ||= {};
     }
   } catch (e) { console.error('Local DB load error:', e.message); }
+}
+
+// BANDWIDTH FIX: appends to the in-memory array (unchanged — every existing
+// db.impressions.filter/reduce/forEach read site keeps working exactly as
+// before) and separately inserts just this one row into its own table.
+// Impressions are never mutated after creation (confirmed: `clicked` is
+// always set at creation time, never updated later), so a plain one-time
+// INSERT is sufficient — no update path needed.
+function pushImpression(imp) {
+  db.impressions.push(imp);
+  if (!pgPool) return;
+  pgPool.query(
+    `INSERT INTO impressions (id, data, ts) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING`,
+    [imp.id, JSON.stringify(imp), imp.ts || Date.now()]
+  ).catch(e => console.error('pushImpression insert failed:', e.message));
 }
 
 let saveTimer = null;
@@ -457,10 +512,14 @@ function saveDB() {
     }
     if (pgPool) {
       try {
+        // BANDWIDTH FIX: impressions live in their own table now (see
+        // pushImpression/loadDB) — never re-embed them in the kv_store blob,
+        // that's the exact pattern that shipped 454GB in one month.
+        const { impressions, ...dbWithoutImpressions } = db;
         await pgPool.query(
           `INSERT INTO kv_store (key, value, updated_at) VALUES ('db', $1, now())
            ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = now()`,
-          [JSON.stringify(db)]
+          [JSON.stringify(dbWithoutImpressions)]
         );
         lastKnownGoodUserCount = Object.keys(db.users || {}).length;
         lastKnownGoodCampaignCount = Object.keys(db.campaigns || {}).length;
@@ -1090,7 +1149,7 @@ const server = http.createServer(async (req, res) => {
         const check = validateImpression(userId, ip);
         if (!check.valid) return send(res, 200, { success: false, reason: check.reason, billed: false });
         const earnPaise = Math.floor(HOUSE_AD_RATE_PAISE / 1000); // full house rate goes to the developer
-        db.impressions.push({ id: uid('i_'), userId, campaignId: houseAd.id, earnedPaise: earnPaise, costPaise: 0, isHouseAd: true, ts: Date.now(), ip, clicked: false, country: resolvedCountry, surface: b.surface||'terminal' });
+        pushImpression({ id: uid('i_'), userId, campaignId: houseAd.id, earnedPaise: earnPaise, costPaise: 0, isHouseAd: true, ts: Date.now(), ip, clicked: false, country: resolvedCountry, surface: b.surface||'terminal' });
         saveDB();
         return send(res, 200, { success: true, earnedPaise: earnPaise, billed: true, isHouseAd: true });
       }
@@ -1118,7 +1177,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       // No frequency cap — earners earn unlimited impressions
-      db.impressions.push({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, costPaise: advCostPaise, isHouseAd: false, ts: Date.now(), ip, clicked: false, country: resolvedCountry, surface: b.surface||'terminal', adType: c.adType || 'spotlight', advertiserName: c.advertiser || c.companyName || 'Unknown', adText: (c.adText||'').slice(0,60), creativeId: shownCreativeId });
+      pushImpression({ id: uid('i_'), userId, campaignId: c.id, earnedPaise: earnPaise, costPaise: advCostPaise, isHouseAd: false, ts: Date.now(), ip, clicked: false, country: resolvedCountry, surface: b.surface||'terminal', adType: c.adType || 'spotlight', advertiserName: c.advertiser || c.companyName || 'Unknown', adText: (c.adText||'').slice(0,60), creativeId: shownCreativeId });
 
       // Spend alert — notify advertiser at 80% budget
       const spentPct = c.spentPaise / c.budgetPaise;
@@ -1144,7 +1203,7 @@ const server = http.createServer(async (req, res) => {
         const referrer = db.users[db.users[userId].referredBy];
         if (referrer && !referrer.banned) {
           const refEarn = Math.floor(earnPaise * 0.10);
-          db.impressions.push({ id: uid('ref_'), userId: referrer.id, campaignId: c.id, earnedPaise: refEarn, costPaise: 0, isHouseAd: false, isReferralBonus: true, referredUser: userId, ts: Date.now(), ip: '', clicked: false, country: resolvedCountry, surface: 'referral' });
+          pushImpression({ id: uid('ref_'), userId: referrer.id, campaignId: c.id, earnedPaise: refEarn, costPaise: 0, isHouseAd: false, isReferralBonus: true, referredUser: userId, ts: Date.now(), ip: '', clicked: false, country: resolvedCountry, surface: 'referral' });
         }
       }
       saveDB();
