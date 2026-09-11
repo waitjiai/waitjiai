@@ -856,6 +856,7 @@ async function detectCountry(){
   try{
     // Try ipapi.co (free, no key, 1000 req/day)
     const r = await fetch('https://ipapi.co/json/', {signal: AbortSignal.timeout(3000)});
+    if (!r.ok) throw new Error('ipapi.co status ' + r.status); // fetch() doesn't throw on 403/429 (rate limit) — force the fallback below
     const d = await r.json();
     const country = d.country_code || 'IN';
     applyPricing(country);
@@ -863,6 +864,7 @@ async function detectCountry(){
     try{
       // Fallback: ip-api.com (free, no key, 45 req/min)
       const r = await fetch('https://ip-api.com/json/?fields=countryCode', {signal: AbortSignal.timeout(3000)});
+      if (!r.ok) throw new Error('ip-api.com status ' + r.status);
       const d = await r.json();
       applyPricing(d.countryCode || 'IN');
     } catch(e2){
