@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow">
+<title>WaitJI AI — Dev Panel</title>
+<style>
+  :root { --indigo: #4F46E5; --coral: #FF6B4A; --bg: #0d1117; --card: #161b22; --border: #30363d; --up: #3fb950; --down: #f85149; --degraded: #d29922; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: #c9d1d9; font-family: 'SF Mono', Consolas, monospace; padding: 24px; }
+  h1 { color: #fff; font-size: 20px; margin: 0 0 4px; }
+  .sub { color: #8b949e; font-size: 13px; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin-bottom: 16px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: #8b949e; margin: 0 0 12px; }
+  .check { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .check:last-child { border-bottom: none; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+  .up { background: var(--up); } .down { background: var(--down); } .degraded { background: var(--degraded); }
+  .status-text { font-size: 11px; color: #8b949e; }
+  .error-row { font-size: 12px; padding: 6px 0; border-bottom: 1px solid var(--border); color: #ffa198; }
+  .error-row .ts { color: #8b949e; margin-right: 8px; }
+  .ai-box { background: #0d1117; border: 1px solid var(--indigo); border-radius: 6px; padding: 12px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+  button { background: var(--indigo); color: #fff; border: none; border-radius: 6px; padding: 8px 14px; font-size: 12px; cursor: pointer; font-family: inherit; }
+  button:hover { opacity: 0.85; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .stat { font-size: 22px; color: #fff; font-weight: bold; }
+  .stat-label { font-size: 11px; color: #8b949e; }
+  .snap-row { display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; }
+  #login { max-width: 360px; margin: 80px auto; }
+  #login input { width: 100%; padding: 8px; margin-bottom: 8px; background: #0d1117; border: 1px solid var(--border); color: #c9d1d9; border-radius: 6px; }
+  .hidden { display: none; }
+  .refresh-note { font-size: 11px; color: #8b949e; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <h1>🔧 WaitJI Dev Panel</h1>
+  <p class="sub">Paste your admin JWT token (same one used for the admin panel)</p>
+  <input id="tokenInput" placeholder="Bearer token..." type="password">
+  <button onclick="saveToken()">Connect</button>
+</div>
+
+<div id="panel" class="hidden">
+  <h1>🔧 WaitJI Dev Panel</h1>
+  <div class="sub">Auto-refreshes every 30s · <span id="lastUpdated"></span> · <button onclick="logout()" style="background:#30363d">Disconnect</button></div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>System Health</h2>
+      <div id="healthChecks">Loading...</div>
+    </div>
+
+    <div class="card">
+      <h2>Live Counts</h2>
+      <div id="liveCounts">Loading...</div>
+    </div>
+
+    <div class="card">
+      <h2>Backups</h2>
+      <div id="backups">Loading...</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card" style="grid-column: span 2;">
+      <h2>🤖 AI Status Summary <button onclick="fetchAISummary(true)" style="float:right">Regenerate</button></h2>
+      <div class="ai-box" id="aiSummary">Loading...</div>
+    </div>
+
+    <div class="card">
+      <h2>Recent Errors (last 30)</h2>
+      <div id="errorLog" style="max-height: 300px; overflow-y: auto;">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = window.location.origin.includes('localhost') ? 'http://localhost:3000' : 'https://waitjiai-backend.onrender.com';
+let token = localStorage.getItem('waitji_dev_token') || '';
+
+function saveToken() {
+  token = document.getElementById('tokenInput').value.trim();
+  if (!token) return alert('Paste a token first');
+  localStorage.setItem('waitji_dev_token', token);
+  showPanel();
+}
+function logout() {
+  localStorage.removeItem('waitji_dev_token');
+  token = '';
+  document.getElementById('panel').classList.add('hidden');
+  document.getElementById('login').classList.remove('hidden');
+}
+function showPanel() {
+  document.getElementById('login').classList.add('hidden');
+  document.getElementById('panel').classList.remove('hidden');
+  refresh();
+  fetchAISummary(false);
+  setInterval(refresh, 30000);
+}
+
+async function api(path, opts = {}) {
+  const r = await fetch(API_BASE + path, {
+    ...opts,
+    headers: { ...(opts.headers || {}), Authorization: 'Bearer ' + token },
+  });
+  if (r.status === 403 || r.status === 401) { alert('Token invalid or expired — reconnect'); logout(); throw new Error('auth failed'); }
+  return r.json();
+}
+
+function statusDot(status) {
+  const cls = status === 'up' ? 'up' : status === 'degraded' ? 'degraded' : 'down';
+  return `<span class="dot ${cls}"></span>`;
+}
+
+async function refresh() {
+  try {
+    const data = await api('/v1/admin/ops/status');
+    document.getElementById('lastUpdated').textContent = 'last updated ' + new Date().toLocaleTimeString();
+
+    document.getElementById('healthChecks').innerHTML = data.health.map(h =>
+      `<div class="check">
+        <span>${statusDot(h.status)}${h.name}</span>
+        <span class="status-text">${h.detail}</span>
+      </div>`
+    ).join('');
+
+    const latest = data.snapshots.recentLight[0] || {};
+    document.getElementById('liveCounts').innerHTML = `
+      <div class="snap-row"><span class="stat-label">Users</span><span class="stat">${latest.user_count ?? '—'}</span></div>
+      <div class="snap-row"><span class="stat-label">Campaigns</span><span class="stat">${latest.campaign_count ?? '—'}</span></div>
+      <div class="snap-row"><span class="stat-label">Pending withdrawals</span><span class="stat">${latest.withdrawal_count ?? '—'}</span></div>
+      <div class="refresh-note">as of ${latest.taken_at ? new Date(latest.taken_at).toLocaleString() : 'n/a'}</div>
+    `;
+
+    const fb = data.snapshots.fullBackups;
+    document.getElementById('backups').innerHTML = fb.length
+      ? fb.map(b => `<div class="snap-row"><span>${new Date(b.taken_at).toLocaleString()}</span><span>${b.user_count} users, ${(b.size_bytes/1024).toFixed(0)}KB</span></div>`).join('')
+        + `<div class="refresh-note">Full backups run once/day, last 14 kept</div>`
+      : '<div class="refresh-note">No full backup yet — first one runs within 24h of deploy.</div>';
+
+    document.getElementById('errorLog').innerHTML = data.errors.length
+      ? data.errors.map(e => `<div class="error-row"><span class="ts">${new Date(e.ts).toLocaleTimeString()}</span>${e.route || ''} — ${e.message}</div>`).join('')
+      : '<div class="refresh-note" style="color:var(--up)">No recent errors 🎉</div>';
+  } catch (e) {
+    console.error('refresh failed', e);
+  }
+}
+
+async function fetchAISummary(force) {
+  const box = document.getElementById('aiSummary');
+  box.textContent = 'Thinking...';
+  try {
+    const data = await api('/v1/admin/ops/ai-summary' + (force ? '?force=1' : ''), { method: 'POST' });
+    box.textContent = data.text + (data.cached ? '\n\n(cached — click Regenerate for fresh analysis)' : '');
+  } catch (e) {
+    box.textContent = 'AI summary failed: ' + e.message;
+  }
+}
+
+if (token) showPanel();
+</script>
+
+</body>
+</html>
