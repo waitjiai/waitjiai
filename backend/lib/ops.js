@@ -167,13 +167,13 @@ async function checkHealth({ pool, supabaseUrl, supabaseServiceKey, requiredEnvV
   return checks;
 }
 
-// ── AI summary (optional — only runs if ANTHROPIC_API_KEY is set) ────────
+// ── AI summary (optional — only runs if OPENAI_API_KEY is set) ────────
 let lastAISummary = null;
 let lastAISummaryAt = 0;
 const AI_SUMMARY_MIN_INTERVAL_MS = 5 * 60 * 1000; // don't burn tokens more than once per 5 min
 
 async function getAISummary({ apiKey, health, errors, force }) {
-  if (!apiKey) return { text: 'AI summary disabled — set ANTHROPIC_API_KEY to enable.', cached: false };
+  if (!apiKey) return { text: 'AI summary disabled — set OPENAI_API_KEY to enable.', cached: false };
   if (!force && lastAISummary && Date.now() - lastAISummaryAt < AI_SUMMARY_MIN_INTERVAL_MS) {
     return { text: lastAISummary, cached: true };
   }
@@ -186,22 +186,21 @@ RECENT ERRORS (last ${errors.length}):
 ${JSON.stringify(errors.slice(0, 10), null, 2)}`;
 
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
+    const r = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'gpt-4o-mini',
         max_tokens: 300,
         messages: [{ role: 'user', content: prompt }],
       }),
     });
-    if (!r.ok) throw new Error(`Anthropic API ${r.status}: ${await r.text()}`);
+    if (!r.ok) throw new Error(`OpenAI API ${r.status}: ${await r.text()}`);
     const data = await r.json();
-    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+    const text = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content || '').trim();
     lastAISummary = text || 'No summary generated.';
     lastAISummaryAt = Date.now();
     return { text: lastAISummary, cached: false };
