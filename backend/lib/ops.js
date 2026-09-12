@@ -149,8 +149,11 @@ async function checkHealth({ pool, supabaseUrl, supabaseServiceKey, requiredEnvV
   }
 
   // 2. Supabase Auth reachability
+  // NOTE: /auth/v1/health is not available on all Supabase project versions
+  // and can 404 even when Auth is fully healthy. /auth/v1/settings is the
+  // stable, always-present GoTrue endpoint — use that instead.
   try {
-    const r = await fetch(`${supabaseUrl}/auth/v1/health`, { headers: { apikey: supabaseServiceKey || '' } });
+    const r = await fetch(`${supabaseUrl}/auth/v1/settings`, { headers: { apikey: supabaseServiceKey || '' } });
     checks.push({ name: 'Supabase Auth', status: r.ok ? 'up' : 'degraded', detail: `HTTP ${r.status}` });
   } catch (e) {
     checks.push({ name: 'Supabase Auth', status: 'down', detail: e.message });
