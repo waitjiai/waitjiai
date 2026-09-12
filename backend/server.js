@@ -14,6 +14,8 @@ const path = require('path');
 const { Pool } = require('pg');
 const { createCrypto } = require('./lib/crypto');
 const { GEO_PRICING, getGeoPricing, toLocalDisplay, tierDisplay, countryRow } = require('./lib/pricing');
+const ops = require('./lib/ops');
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || null; // optional — powers the AI summary in /dev-panel.html
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
@@ -2333,6 +2335,54 @@ if (method === 'GET' && url === '/v1/customer/projection') {
         }
       }
 
+      // ═══════════ DEV PANEL (technician/developer monitoring) ═══════════
+      // GET /v1/admin/ops/status — snapshots + health checks + recent errors
+      if (method === 'GET' && url === '/v1/admin/ops/status') {
+        try {
+          const [snapshots, errors, health] = await Promise.all([
+            ops.getSnapshotSummary(pgPool),
+            ops.getRecentErrors(pgPool, 30),
+            ops.checkHealth({
+              pool: pgPool,
+              supabaseUrl: SUPABASE_URL,
+              supabaseServiceKey: SUPABASE_SERVICE_KEY,
+              requiredEnvVars: ['DATABASE_URL', 'JWT_SECRET', 'ENCRYPT_KEY', 'ADMIN_PASSWORD', 'SUPABASE_URL'],
+            }),
+          ]);
+          return send(res, 200, { snapshots, errors, health, aiEnabled: !!ANTHROPIC_API_KEY });
+        } catch (e) {
+          return send(res, 500, { error: 'ops status failed: ' + e.message });
+        }
+      }
+
+      // POST /v1/admin/ops/ai-summary — plain-English status summary (cached 5 min unless ?force=1)
+      if (method === 'POST' && url === '/v1/admin/ops/ai-summary') {
+        try {
+          const force = new URL(req.url, 'http://x').searchParams.get('force') === '1';
+          const [errors, health] = await Promise.all([
+            ops.getRecentErrors(pgPool, 20),
+            ops.checkHealth({
+              pool: pgPool,
+              supabaseUrl: SUPABASE_URL,
+              supabaseServiceKey: SUPABASE_SERVICE_KEY,
+              requiredEnvVars: ['DATABASE_URL', 'JWT_SECRET', 'ENCRYPT_KEY', 'ADMIN_PASSWORD', 'SUPABASE_URL'],
+            }),
+          ]);
+          const result = await ops.getAISummary({ apiKey: ANTHROPIC_API_KEY, health, errors, force });
+          return send(res, 200, result);
+        } catch (e) {
+          return send(res, 500, { error: 'ai summary failed: ' + e.message });
+        }
+      }
+
+      // GET /v1/admin/ops/snapshots/:id — fetch one full backup's raw data (for manual restore)
+      if (method === 'GET' && url.match(/^\/v1\/admin\/ops\/snapshots\/\d+$/)) {
+        const id = url.split('/').pop();
+        const data = await ops.loadFullSnapshot(pgPool, id);
+        if (!data) return send(res, 404, { error: 'snapshot not found' });
+        return send(res, 200, { id, data });
+      }
+
       // overview dashboard
       if (method === 'GET' && url === '/v1/admin/overview') {
         const users = Object.values(db.users);
@@ -3745,6 +3795,9 @@ if (method === 'GET' && url === '/v1/customer/projection') {
     return send(res, 404, { error: 'not found', url });
   } catch (e) {
     console.error('Server error:', e);
+    // DEV PANEL: log every uncaught route error so it shows up on /dev-panel.html
+    // without needing to tail Render logs manually. Non-fatal if this itself fails.
+    if (pgPool) ops.logError(pgPool, { route: url, method, message: e.message, stack: e.stack }).catch(() => {});
     return send(res, 500, { error: 'internal error' });
   }
 });
@@ -4063,6 +4116,17 @@ async function runWeeklyReportSweep() {
 (async () => {
   await loadDB();
   seed();
+  // DEV PANEL: snapshot tables + scheduler (lightweight every 15 min, full
+  // backup once/day — see lib/ops.js top comment for why it's split this way).
+  if (pgPool) {
+    try {
+      await ops.ensureOpsTables(pgPool);
+      ops.runSnapshotTick(pgPool, db); // run once immediately on boot
+      setInterval(() => ops.runSnapshotTick(pgPool, db), 15 * 60 * 1000);
+    } catch (e) {
+      console.error('ops snapshot init failed (non-fatal):', e.message);
+    }
+  }
   // Background schedulers for the new automation features. Staggered slightly on
   // startup so they don't all fire in the same tick.
   runCampaignScheduleSweep();
