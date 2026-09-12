@@ -15,7 +15,7 @@ const { Pool } = require('pg');
 const { createCrypto } = require('./lib/crypto');
 const { GEO_PRICING, getGeoPricing, toLocalDisplay, tierDisplay, countryRow } = require('./lib/pricing');
 const ops = require('./lib/ops');
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || null; // optional — powers the AI summary in /dev-panel.html
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || null; // optional — powers the AI summary in /dev-panel.html
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
@@ -2349,7 +2349,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
               requiredEnvVars: ['DATABASE_URL', 'JWT_SECRET', 'ENCRYPT_KEY', 'ADMIN_PASSWORD', 'SUPABASE_URL'],
             }),
           ]);
-          return send(res, 200, { snapshots, errors, health, aiEnabled: !!ANTHROPIC_API_KEY });
+          return send(res, 200, { snapshots, errors, health, aiEnabled: !!OPENAI_API_KEY });
         } catch (e) {
           return send(res, 500, { error: 'ops status failed: ' + e.message });
         }
@@ -2368,7 +2368,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
               requiredEnvVars: ['DATABASE_URL', 'JWT_SECRET', 'ENCRYPT_KEY', 'ADMIN_PASSWORD', 'SUPABASE_URL'],
             }),
           ]);
-          const result = await ops.getAISummary({ apiKey: ANTHROPIC_API_KEY, health, errors, force });
+          const result = await ops.getAISummary({ apiKey: OPENAI_API_KEY, health, errors, force });
           return send(res, 200, result);
         } catch (e) {
           return send(res, 500, { error: 'ai summary failed: ' + e.message });
