@@ -2314,7 +2314,7 @@ if (method === 'GET' && url === '/v1/customer/projection') {
                 name: meta.name || meta.full_name || meta.user_name || '',
                 company: meta.company || '', avatarUrl: meta.avatar_url || meta.picture || null,
                 upiId: meta.upiId || '', provider: (sbUser.app_metadata && sbUser.app_metadata.provider) || 'email',
-                emailVerified: !!sbUser.email_confirmed_at, phoneVerified: !!sbUser.phone_confirmed_at,
+                emailVerified: !!(sbUser.email_confirmed_at || sbUser.confirmed_at), phoneVerified: !!sbUser.phone_confirmed_at,
                 createdAt: sbUser.created_at ? new Date(sbUser.created_at).getTime() : Date.now(),
                 banned: false, loginCount: 0, _backfilled: true, _backfilledAt: Date.now(),
               });
@@ -2332,6 +2332,59 @@ if (method === 'GET' && url === '/v1/customer/projection') {
           });
         } catch (e) {
           return send(res, 500, { error: 'backfill failed: ' + e.message });
+        }
+      }
+
+      // POST /v1/admin/ops/fix-backfilled-verification
+      // The initial backfill only checked sbUser.email_confirmed_at, which
+      // stays null for Google-OAuth signups even though they ARE verified —
+      // Supabase marks those via the generic confirmed_at field instead.
+      // This re-checks only the profiles this backfill created (_backfilled
+      // === true) and corrects emailVerified without touching the original
+      // (pre-incident) profiles.
+      if (method === 'POST' && url.startsWith('/v1/admin/ops/fix-backfilled-verification')) {
+        if (!SUPABASE_SERVICE_KEY) return send(res, 500, { error: 'SUPABASE_SERVICE_KEY not set on server' });
+        const commit = new URL(req.url, 'http://x').searchParams.get('commit') === '1';
+        try {
+          const all = [];
+          let page = 1;
+          while (true) {
+            const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?page=${page}&per_page=200`, {
+              headers: { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}` },
+            });
+            if (!r.ok) return send(res, 502, { error: `Supabase fetch failed: ${r.status} ${await r.text()}` });
+            const data = await r.json();
+            const batch = data.users || data;
+            if (!batch || !batch.length) break;
+            all.push(...batch);
+            if (batch.length < 200) break;
+            page++;
+          }
+          const byId = {};
+          for (const u of all) byId[u.id] = u;
+
+          const toFix = [];
+          for (const [profileId, profile] of Object.entries(db.users)) {
+            if (!profile._backfilled) continue;
+            const sbUser = byId[profile.supabaseId];
+            if (!sbUser) continue;
+            const correctEmailVerified = !!(sbUser.email_confirmed_at || sbUser.confirmed_at);
+            const correctPhoneVerified = !!sbUser.phone_confirmed_at;
+            if (profile.emailVerified !== correctEmailVerified || profile.phoneVerified !== correctPhoneVerified) {
+              toFix.push({ profileId, from: profile.emailVerified, to: correctEmailVerified, email: profile.email });
+              if (commit) {
+                db.users[profileId].emailVerified = correctEmailVerified;
+                db.users[profileId].phoneVerified = correctPhoneVerified;
+              }
+            }
+          }
+          if (commit) saveDB();
+          return send(res, 200, {
+            dryRun: !commit, fixedCount: toFix.length,
+            sample: toFix.slice(0, 10),
+          });
+        } catch (e) {
+          return send(res, 500, { error: 'fix failed: ' + e.message });
         }
       }
 
